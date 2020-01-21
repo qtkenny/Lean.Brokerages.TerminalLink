@@ -51,7 +51,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BloombergDataQueueHandler.cs" />
+    <Compile Include="BloombergBrokerage.cs" />
     <Compile Include="BloombergSubscriptions.cs" />
     <Compile Include="BloombergSymbolMapper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -30,13 +30,13 @@ namespace QuantConnect.BloombergTests
         [Test]
         public void ClientConnects()
         {
-            using (new BloombergDataQueueHandler()) { }
+            using (new BloombergBrokerage()) { }
         }
 
         [Test]
         public void SubscribesToMultipleSymbols()
         {
-            using (var bb = new BloombergDataQueueHandler())
+            using (var bb = new BloombergBrokerage())
             {
                 var symbols = new List<Symbol>
                 {
@@ -65,7 +65,7 @@ namespace QuantConnect.BloombergTests
             var mapFileProvider = new LocalDiskMapFileProvider();
             var factorFileProvider = new LocalDiskFactorFileProvider(mapFileProvider);
 
-            using (var bb = new BloombergDataQueueHandler())
+            using (var bb = new BloombergBrokerage())
             {
                 bb.Initialize(new HistoryProviderInitializeParameters(null, null, null, null, mapFileProvider, factorFileProvider, null, false));
 

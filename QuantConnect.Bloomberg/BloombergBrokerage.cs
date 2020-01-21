@@ -25,7 +25,7 @@ namespace QuantConnect.Bloomberg
     /// <summary>
     /// An implementation of <see cref="IDataQueueHandler"/> and <see cref="IHistoryProvider"/> for Bloomberg
     /// </summary>
-    public class BloombergDataQueueHandler : SynchronizingHistoryProvider, IDataQueueHandler, IDisposable
+    public class BloombergBrokerage : SynchronizingHistoryProvider, IDataQueueHandler, IDisposable
     {
         private readonly string _serverHost = Config.Get("bloomberg-server-host", "localhost");
         private readonly int _serverPort = Config.GetInt("bloomberg-server-port", 8194);
@@ -43,9 +43,9 @@ namespace QuantConnect.Bloomberg
         private readonly BloombergSymbolMapper _symbolMapper = new BloombergSymbolMapper();
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="BloombergDataQueueHandler"/> class
+        /// Initializes a new instance of the <see cref="BloombergBrokerage"/> class
         /// </summary>
-        public BloombergDataQueueHandler()
+        public BloombergBrokerage()
         {
             var sessionOptions = new SessionOptions
             {
