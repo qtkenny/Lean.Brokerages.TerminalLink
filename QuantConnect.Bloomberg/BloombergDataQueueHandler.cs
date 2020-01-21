@@ -18,7 +18,6 @@ using QuantConnect.Lean.Engine.HistoricalData;
 using QuantConnect.Logging;
 using QuantConnect.Packets;
 using HistoryRequest = QuantConnect.Data.HistoryRequest;
-using static QuantConnect.StringExtensions;
 using Subscription = QuantConnect.Lean.Engine.DataFeeds.Subscription;
 
 namespace QuantConnect.Bloomberg
@@ -41,6 +40,7 @@ namespace QuantConnect.Bloomberg
         private long _nextCorrelationId;
         private readonly ConcurrentDictionary<string, BloombergSubscriptions> _subscriptionsByTopicName = new ConcurrentDictionary<string, BloombergSubscriptions>();
         private readonly ConcurrentDictionary<string, Symbol> _symbolsByTopicName = new ConcurrentDictionary<string, Symbol>();
+        private readonly BloombergSymbolMapper _symbolMapper = new BloombergSymbolMapper();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BloombergDataQueueHandler"/> class
@@ -313,7 +313,7 @@ namespace QuantConnect.Bloomberg
             var endDate = historyRequest.EndTimeUtc
                 .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone).Date;
 
-            request.Append("securities", GetBloombergTopicName(historyRequest.Symbol));
+            request.Append("securities", _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
 
             var fields = request.GetElement("fields");
             fields.AppendValue("OPEN");
@@ -395,7 +395,7 @@ namespace QuantConnect.Bloomberg
             var endDateTime = historyRequest.EndTimeUtc
                 .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone);
 
-            request.Set("security", GetBloombergTopicName(historyRequest.Symbol));
+            request.Set("security", _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
             request.Set("eventType", eventType);
 
             request.Set("interval", GetIntervalMinutes(historyRequest.Resolution));
@@ -457,7 +457,7 @@ namespace QuantConnect.Bloomberg
             var endDateTime = historyRequest.EndTimeUtc
                 .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone);
 
-            request.Set("security", GetBloombergTopicName(historyRequest.Symbol));
+            request.Set("security", _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
 
             if (historyRequest.TickType == TickType.Trade)
             {
@@ -589,7 +589,7 @@ namespace QuantConnect.Bloomberg
 
                 lock (_locker)
                 {
-                    var topicName = GetBloombergTopicName(symbol);
+                    var topicName = _symbolMapper.GetBrokerageSymbol(symbol);
 
                     BloombergSubscriptions symbolSubscriptions;
                     if (!_subscriptionsByTopicName.TryGetValue(topicName, out symbolSubscriptions))
@@ -630,7 +630,7 @@ namespace QuantConnect.Bloomberg
 
                 lock (_locker)
                 {
-                    var topicName = GetBloombergTopicName(symbol);
+                    var topicName = _symbolMapper.GetBrokerageSymbol(symbol);
 
                     BloombergSubscriptions symbolSubscriptions;
                     if (_subscriptionsByTopicName.TryGetValue(topicName, out symbolSubscriptions))
@@ -682,100 +682,6 @@ namespace QuantConnect.Bloomberg
         private CorrelationID GetNewCorrelationId()
         {
             return new CorrelationID(Interlocked.Increment(ref _nextCorrelationId));
-        }
-
-        private string GetBloombergTopicName(Symbol symbol)
-        {
-            var topicName = GetBloombergSymbol(symbol);
-
-            var bloombergMarket = GetBloombergMarket(symbol.ID.Market, symbol.SecurityType);
-            if (bloombergMarket.Length > 0)
-            {
-                topicName += $" {bloombergMarket}";
-            }
-
-            topicName += $" {GetBloombergSecurityType(symbol.SecurityType)}";
-
-            return topicName;
-        }
-
-        private string GetBloombergSymbol(Symbol symbol)
-        {
-            if (symbol.SecurityType == SecurityType.Forex)
-            {
-                // TODO: documentation does not mention non-USD fx pairs, needs to be tested
-
-                if (symbol.Value.EndsWith("USD"))
-                {
-                    return symbol.Value.Substring(0, 3);
-                }
-                if (symbol.Value.StartsWith("USD"))
-                {
-                    return symbol.Value.Substring(3);
-                }
-
-                throw new NotSupportedException($"Unsupported Forex symbol: {symbol.Value}");
-            }
-
-            if (symbol.SecurityType == SecurityType.Option)
-            {
-                // Equity options: Root Ticker x Exchange Code x Expiry MM/DD/YY (or Expiry M/Y only) x C or P x Strike Price
-                return Invariant($"{symbol.Underlying.Value} UO {symbol.ID.Date:MM/dd/yy} {(symbol.ID.OptionRight == OptionRight.Call ? "C" : "P")} {symbol.ID.StrikePrice:F2}");
-            }
-
-            return symbol.Value;
-        }
-
-        private string GetBloombergMarket(string market, SecurityType securityType)
-        {
-            if (securityType == SecurityType.Forex)
-            {
-                return "BVAL";
-            }
-
-            if (securityType == SecurityType.Future)
-            {
-                return "COMB";
-            }
-
-            if (securityType == SecurityType.Option)
-            {
-                // exchange/market is already included in the ticker
-                return "";
-            }
-
-            switch (market)
-            {
-                case Market.USA:
-                    return "US";
-
-                default:
-                    throw new NotSupportedException($"Unsupported market: {market} for security type: {securityType}");
-            }
-        }
-
-        private string GetBloombergSecurityType(SecurityType securityType)
-        {
-            switch (securityType)
-            {
-                case SecurityType.Equity:
-                    return "Equity";
-
-                case SecurityType.Forex:
-                    return "Curncy";
-
-                case SecurityType.Future:
-                    // TODO: depends on the underlying which we don't have for now
-                    // possible values: Comdty, Index, Curncy, Equity
-                    return "Comdty";
-
-                case SecurityType.Option:
-                    // only equity options for now
-                    return "Equity";
-
-                default:
-                    throw new NotSupportedException($"Unsupported security type: {securityType}");
-            }
         }
 
         private void OnBloombergEvent(Event eventObj, Session session)

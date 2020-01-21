@@ -53,6 +53,7 @@
   <ItemGroup>
     <Compile Include="BloombergDataQueueHandler.cs" />
     <Compile Include="BloombergSubscriptions.cs" />
+    <Compile Include="BloombergSymbolMapper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -62,6 +63,10 @@
     <Content Include="Lib\BEmu_csh.dll" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\Lean\Brokerages\QuantConnect.Brokerages.csproj">
+      <Project>{2d3e13cf-2d14-4180-a42d-f0a13af0ade2}</Project>
+      <Name>QuantConnect.Brokerages</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\Lean\Common\QuantConnect.csproj">
       <Project>{2545c0b4-fabb-49c9-8dd1-9ad7ee23f86b}</Project>
       <Name>QuantConnect</Name>
