@@ -13,6 +13,7 @@ using QuantConnect.Bloomberg;
 using QuantConnect.Data;
 using QuantConnect.Data.Auxiliary;
 using QuantConnect.Data.Market;
+using QuantConnect.Lean.Engine.HistoricalData;
 using QuantConnect.Logging;
 using QuantConnect.Securities;
 
@@ -30,13 +31,13 @@ namespace QuantConnect.BloombergTests
         [Test]
         public void ClientConnects()
         {
-            using (new BloombergBrokerage()) { }
+            using (CreateBrokerage()) { }
         }
 
         [Test]
         public void SubscribesToMultipleSymbols()
         {
-            using (var bb = new BloombergBrokerage())
+            using (var bb = CreateBrokerage())
             {
                 var symbols = new List<Symbol>
                 {
@@ -65,9 +66,12 @@ namespace QuantConnect.BloombergTests
             var mapFileProvider = new LocalDiskMapFileProvider();
             var factorFileProvider = new LocalDiskFactorFileProvider(mapFileProvider);
 
-            using (var bb = new BloombergBrokerage())
+            using (var brokerage = CreateBrokerage())
             {
-                bb.Initialize(new HistoryProviderInitializeParameters(null, null, null, null, mapFileProvider, factorFileProvider, null, false));
+                var historyProvider = new BrokerageHistoryProvider();
+
+                historyProvider.SetBrokerage(brokerage);
+                historyProvider.Initialize(new HistoryProviderInitializeParameters(null, null, null, null, mapFileProvider, factorFileProvider, null, false));
 
                 var historyRequests = new List<HistoryRequest>
                 {
@@ -86,7 +90,7 @@ namespace QuantConnect.BloombergTests
                     )
                 };
 
-                var history = bb.GetHistory(historyRequests, TimeZones.NewYork).ToList();
+                var history = historyProvider.GetHistory(historyRequests, TimeZones.NewYork).ToList();
 
                 var dataPointCount = 0;
                 foreach (var slice in history)
@@ -453,6 +457,11 @@ namespace QuantConnect.BloombergTests
                 },
 
             }.Select(x => new TestCaseData(x).SetName(x.Name)).ToArray();
+        }
+
+        private BloombergBrokerage CreateBrokerage()
+        {
+            return new BloombergBrokerage(false, Bloomberg.Environment.Beta, "localhost", 8194);
         }
     }
 }

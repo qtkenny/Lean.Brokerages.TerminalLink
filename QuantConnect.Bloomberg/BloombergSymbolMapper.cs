@@ -42,7 +42,7 @@ namespace QuantConnect.Bloomberg
             decimal strike = 0,
             OptionRight optionRight = OptionRight.Call)
         {
-            return Symbol.Empty;
+            throw new NotImplementedException();
         }
 
         private string GetBloombergTopicName(Symbol symbol)
