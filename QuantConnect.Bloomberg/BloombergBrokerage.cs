@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Bloomberglp.Blpapi;
 using QuantConnect.Brokerages;
@@ -21,7 +22,6 @@ namespace QuantConnect.Bloomberg
     /// </summary>
     public partial class BloombergBrokerage : Brokerage, IDataQueueHandler
     {
-        private readonly bool _useServerSideApi;
         private readonly string _serverHost;
         private readonly int _serverPort;
 
@@ -31,9 +31,6 @@ namespace QuantConnect.Bloomberg
         private readonly Session _sessionHistoricalData;
         private readonly Service _serviceHistoricalData;
 
-        private Session _sessionAuth;
-        private Service _serviceAuth;
-
         private Session _sessionEms;
         private Service _serviceEms;
 
@@ -42,8 +39,7 @@ namespace QuantConnect.Bloomberg
         private readonly ConcurrentDictionary<string, Symbol> _symbolsByTopicName = new ConcurrentDictionary<string, Symbol>();
         private readonly BloombergSymbolMapper _symbolMapper = new BloombergSymbolMapper();
 
-        internal List<SchemaFieldDefinition> OrderFields = new List<SchemaFieldDefinition>();
-        internal List<SchemaFieldDefinition> RouteFields = new List<SchemaFieldDefinition>();
+        internal SchemaFieldDefinitions OrderFieldDefinitions = new SchemaFieldDefinitions();
         private readonly Dictionary<CorrelationID, IMessageHandler> _requestMessageHandlers = new Dictionary<CorrelationID, IMessageHandler>();
         private readonly Dictionary<CorrelationID, IMessageHandler> _subscriptionMessageHandlers = new Dictionary<CorrelationID, IMessageHandler>();
 
@@ -52,13 +48,18 @@ namespace QuantConnect.Bloomberg
         /// <summary>
         /// Initializes a new instance of the <see cref="BloombergBrokerage"/> class
         /// </summary>
-        public BloombergBrokerage(bool useServerSideApi, Environment environment, string serverHost, int serverPort)
+        public BloombergBrokerage(ApiType apiType, Environment environment, string serverHost, int serverPort)
             : base("Bloomberg brokerage")
         {
-            _useServerSideApi = useServerSideApi;
+            ApiType = apiType;
             Environment = environment;
             _serverHost = serverHost;
             _serverPort = serverPort;
+
+            if (apiType != ApiType.Desktop)
+            {
+                throw new NotSupportedException("Only the Desktop API is supported for now.");
+            }
 
             _sessionOptions = new SessionOptions
             {
@@ -89,9 +90,17 @@ namespace QuantConnect.Bloomberg
             {
                 throw new Exception("Unable to open historical data service.");
             }
-            _serviceHistoricalData = _sessionAuth.GetService(historicalDataServiceName);
+            _serviceHistoricalData = _sessionHistoricalData.GetService(historicalDataServiceName);
         }
 
+        /// <summary>
+        /// The API type (Desktop, Server or BPIPE)
+        /// </summary>
+        public ApiType ApiType { get; }
+
+        /// <summary>
+        /// The Bloomberg environment (Production or Beta)
+        /// </summary>
         public Environment Environment { get; }
 
         #region IBrokerage implementation
@@ -106,50 +115,26 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         public override void Connect()
         {
-            if (_useServerSideApi)
+            Log.Trace($"BloombergBrokerage.Connect(): Starting EMS session: {_serverHost}:{_serverPort}:{Environment}.");
+            _sessionEms = new Session(_sessionOptions, OnBloombergEvent);
+            if (!_sessionEms.Start())
             {
-                Log.Trace($"BloombergBrokerage.Connect(): Starting authentication session: {_serverHost}:{_serverPort}:{Environment}.");
-                _sessionAuth = new Session(_sessionOptions, OnBloombergEvent);
-                if (!_sessionAuth.Start())
-                {
-                    throw new Exception("Unable to start authentication session.");
-                }
-
-                Log.Trace("BloombergBrokerage.Connect(): Opening authentication service.");
-                var authServiceName = GetServiceName(ServiceType.Authentication);
-                if (!_sessionAuth.OpenService(authServiceName))
-                {
-                    _sessionAuth.Stop();
-                    throw new Exception("Unable to open authentication service.");
-                }
-                _serviceAuth = _sessionAuth.GetService(authServiceName);
-
-                // TODO: create EMXS after auth
-
+                throw new Exception("Unable to start EMS session.");
             }
-            else
+
+            Log.Trace("BloombergBrokerage.Connect(): Opening EMS service.");
+            var emsServiceName = GetServiceName(ServiceType.Ems);
+            if (!_sessionEms.OpenService(emsServiceName))
             {
-                Log.Trace($"BloombergBrokerage.Connect(): Starting EMS session: {_serverHost}:{_serverPort}:{Environment}.");
-                _sessionEms = new Session(_sessionOptions, OnBloombergEvent);
-                if (!_sessionEms.Start())
-                {
-                    throw new Exception("Unable to start EMS session.");
-                }
-
-                Log.Trace("BloombergBrokerage.Connect(): Opening EMS service.");
-                var emsServiceName = GetServiceName(ServiceType.Ems);
-                if (!_sessionEms.OpenService(emsServiceName))
-                {
-                    _sessionEms.Stop();
-                    throw new Exception("Unable to open EMS service.");
-                }
-                _serviceEms = _sessionEms.GetService(emsServiceName);
-
-                InitializeFieldData();
-
-                _orders = new BloombergOrders(this);
-                _orders.Subscribe();
+                _sessionEms.Stop();
+                throw new Exception("Unable to open EMS service.");
             }
+            _serviceEms = _sessionEms.GetService(emsServiceName);
+
+            InitializeFieldData();
+
+            _orders = new BloombergOrders(this);
+            _orders.SubscribeOrderEvents();
         }
 
         /// <summary>
@@ -157,12 +142,6 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         public override void Disconnect()
         {
-            if (_useServerSideApi)
-            {
-                Log.Trace("BloombergBrokerage.Disconnect(): Stopping authentication session.");
-                _sessionAuth?.Stop();
-            }
-
             Log.Trace("BloombergBrokerage.Disconnect(): Stopping EMS session.");
             _sessionEms?.Stop();
         }
@@ -183,7 +162,8 @@ namespace QuantConnect.Bloomberg
         /// <returns>The current holdings from the account</returns>
         public override List<Holding> GetAccountHoldings()
         {
-            throw new NotImplementedException();
+            // Bloomberg is not a portfolio management system, we'll need to fetch this information elsewhere
+            return new List<Holding>();
         }
 
         /// <summary>
@@ -192,7 +172,8 @@ namespace QuantConnect.Bloomberg
         /// <returns>The current cash balance for each currency available for trading</returns>
         public override List<CashAmount> GetCashBalance()
         {
-            throw new NotImplementedException();
+            // Bloomberg is not a portfolio management system, we'll need to fetch this information elsewhere
+            return new List<CashAmount>();
         }
 
         /// <summary>
@@ -202,7 +183,34 @@ namespace QuantConnect.Bloomberg
         /// <returns>True if the request for a new order has been placed, false otherwise</returns>
         public override bool PlaceOrder(Order order)
         {
-            throw new NotImplementedException();
+            var request = _serviceEms.CreateRequest("CreateOrder");
+
+            request.Set("EMSX_TICKER", _symbolMapper.GetBrokerageSymbol(order.Symbol));
+            request.Set("EMSX_AMOUNT", Convert.ToInt32(order.AbsoluteQuantity));
+            request.Set("EMSX_ORDER_TYPE", ConvertOrderType(order.Type));
+            request.Set("EMSX_TIF", ConvertTimeInForce(order.TimeInForce));
+            request.Set("EMSX_HAND_INSTRUCTION", "ANY");
+            request.Set("EMSX_SIDE", order.Direction == OrderDirection.Buy ? "BUY" : "SELL");
+
+            switch (order.Type)
+            {
+                case OrderType.Limit:
+                    request.Set("EMSX_LIMIT_PRICE", Convert.ToDouble(((LimitOrder)order).LimitPrice));
+                    break;
+
+                case OrderType.StopMarket:
+                    request.Set("EMSX_STOP_PRICE", Convert.ToDouble(((StopMarketOrder)order).StopPrice));
+                    break;
+
+                case OrderType.StopLimit:
+                    request.Set("EMSX_STOP_PRICE", Convert.ToDouble(((StopLimitOrder)order).StopPrice));
+                    request.Set("EMSX_LIMIT_PRICE", Convert.ToDouble(((StopLimitOrder)order).LimitPrice));
+                    break;
+            }
+
+            SendRequest(request);
+
+            return true;
         }
 
         /// <summary>
@@ -232,7 +240,6 @@ namespace QuantConnect.Bloomberg
         {
             _sessionMarketData?.Stop();
             _sessionHistoricalData?.Stop();
-            _sessionAuth?.Stop();
             _sessionEms?.Stop();
         }
 
@@ -247,9 +254,6 @@ namespace QuantConnect.Bloomberg
 
                 case ServiceType.HistoricalData:
                     return "//blp/refdata";
-
-                case ServiceType.Authentication:
-                    return "//blp/apiauth";
 
                 case ServiceType.Ems:
                     switch (Environment)
@@ -271,6 +275,8 @@ namespace QuantConnect.Bloomberg
 
         private void InitializeFieldData()
         {
+            OrderFieldDefinitions.Clear();
+
             var orderRouteFields = _serviceEms.GetEventDefinition("OrderRouteFields");
             var typeDef = orderRouteFields.TypeDefinition;
 
@@ -282,12 +288,7 @@ namespace QuantConnect.Bloomberg
 
                 if (f.IsOrderField())
                 {
-                    OrderFields.Add(f);
-                }
-
-                if (f.IsRouteField())
-                {
-                    RouteFields.Add(f);
+                    OrderFieldDefinitions.Add(f);
                 }
             }
         }
@@ -328,13 +329,13 @@ namespace QuantConnect.Bloomberg
 
         private static void ProcessAdminEvent(Event @event, Session session)
         {
-            foreach (var msg in @event)
+            foreach (var message in @event)
             {
-                if (msg.MessageType.Equals(BloombergNames.SlowConsumerWarning))
+                if (message.MessageType.Equals(BloombergNames.SlowConsumerWarning))
                 {
                     Log.Trace("BloombergBrokerage.ProcessAdminEvent(): Slow Consumer Warning.");
                 }
-                else if (msg.MessageType.Equals(BloombergNames.SlowConsumerWarningCleared))
+                else if (message.MessageType.Equals(BloombergNames.SlowConsumerWarningCleared))
                 {
                     Log.Trace("BloombergBrokerage.ProcessAdminEvent(): Slow Consumer Warning cleared.");
                 }
@@ -343,25 +344,25 @@ namespace QuantConnect.Bloomberg
 
         private static void ProcessSessionEvent(Event @event, Session session)
         {
-            foreach (var msg in @event)
+            foreach (var message in @event)
             {
-                if (msg.MessageType.Equals(BloombergNames.SessionStarted))
+                if (message.MessageType.Equals(BloombergNames.SessionStarted))
                 {
                     Log.Trace("BloombergBrokerage.ProcessSessionEvent(): Session started.");
                 }
-                else if (msg.MessageType.Equals(BloombergNames.SessionStartupFailure))
+                else if (message.MessageType.Equals(BloombergNames.SessionStartupFailure))
                 {
                     Log.Trace("BloombergBrokerage.ProcessSessionEvent(): Session startup failure.");
                 }
-                else if (msg.MessageType.Equals(BloombergNames.SessionTerminated))
+                else if (message.MessageType.Equals(BloombergNames.SessionTerminated))
                 {
                     Log.Trace("BloombergBrokerage.ProcessSessionEvent(): Session terminated.");
                 }
-                else if (msg.MessageType.Equals(BloombergNames.SessionConnectionUp))
+                else if (message.MessageType.Equals(BloombergNames.SessionConnectionUp))
                 {
                     Log.Trace("BloombergBrokerage.ProcessSessionEvent(): Session connection up.");
                 }
-                else if (msg.MessageType.Equals(BloombergNames.SessionConnectionDown))
+                else if (message.MessageType.Equals(BloombergNames.SessionConnectionDown))
                 {
                     Log.Trace("BloombergBrokerage.ProcessSessionEvent(): Session connection down.");
                 }
@@ -370,13 +371,13 @@ namespace QuantConnect.Bloomberg
 
         private static void ProcessServiceEvent(Event @event, Session session)
         {
-            foreach (var msg in @event)
+            foreach (var message in @event)
             {
-                if (msg.MessageType.Equals(BloombergNames.ServiceOpened))
+                if (message.MessageType.Equals(BloombergNames.ServiceOpened))
                 {
                     Log.Trace("BloombergBrokerage.ProcessServiceEvent(): Service opened.");
                 }
-                else if (msg.MessageType.Equals(BloombergNames.ServiceOpenFailure))
+                else if (message.MessageType.Equals(BloombergNames.ServiceOpenFailure))
                 {
                     Log.Trace("BloombergBrokerage.ProcessServiceEvent(): Service open failed.");
                 }
@@ -387,17 +388,18 @@ namespace QuantConnect.Bloomberg
         {
             Log.Trace("BloombergBrokerage.ProcessSubscriptionDataEvent(): Processing SUBSCRIPTION_DATA event.");
 
-            foreach (var msg in @event)
+            foreach (var message in @event)
             {
-                var correlationId = msg.CorrelationID;
-                IMessageHandler mh;
-                if (!_subscriptionMessageHandlers.TryGetValue(correlationId, out mh))
+                var correlationId = message.CorrelationID;
+
+                IMessageHandler handler;
+                if (!_subscriptionMessageHandlers.TryGetValue(correlationId, out handler))
                 {
-                    Log.Trace($"BloombergBrokerage.ProcessSubscriptionDataEvent(): Unexpected SUBSCRIPTION_DATA event received (CID={correlationId}): {msg}");
+                    Log.Trace($"BloombergBrokerage.ProcessSubscriptionDataEvent(): Unexpected SUBSCRIPTION_DATA event received (CID={correlationId}): {message}");
                 }
                 else
                 {
-                    mh.ProcessMessage(msg);
+                    handler.ProcessMessage(message);
                 }
             }
         }
@@ -406,36 +408,38 @@ namespace QuantConnect.Bloomberg
         {
             Log.Trace("BloombergBrokerage.ProcessSubscriptionStatusEvent(): Processing SUBSCRIPTION_STATUS event.");
 
-            foreach (var msg in @event)
+            foreach (var message in @event)
             {
-                var correlationId = msg.CorrelationID;
-                IMessageHandler mh;
-                if (!_subscriptionMessageHandlers.TryGetValue(correlationId, out mh))
+                var correlationId = message.CorrelationID;
+
+                IMessageHandler handler;
+                if (!_subscriptionMessageHandlers.TryGetValue(correlationId, out handler))
                 {
-                    Log.Trace($"BloombergBrokerage.ProcessSubscriptionStatusEvent(): Unexpected SUBSCRIPTION_STATUS event received (CID={correlationId}): {msg}");
+                    Log.Trace($"BloombergBrokerage.ProcessSubscriptionStatusEvent(): Unexpected SUBSCRIPTION_STATUS event received (CID={correlationId}): {message}");
                 }
                 else
                 {
-                    mh.ProcessMessage(msg);
+                    handler.ProcessMessage(message);
                 }
             }
         }
 
-        private void ProcessResponse(Event evt, Session session)
+        private void ProcessResponse(Event @event, Session session)
         {
             Log.Trace("BloombergBrokerage.ProcessResponse(): Processing RESPONSE event.");
 
-            foreach (var msg in evt)
+            foreach (var message in @event)
             {
-                var correlationId = msg.CorrelationID;
-                IMessageHandler mh;
-                if (!_subscriptionMessageHandlers.TryGetValue(correlationId, out mh))
+                var correlationId = message.CorrelationID;
+
+                IMessageHandler handler;
+                if (!_requestMessageHandlers.TryGetValue(correlationId, out handler))
                 {
-                    Log.Trace($"BloombergBrokerage.ProcessResponse(): Unexpected RESPONSE event received (CID={correlationId}): {msg}");
+                    Log.Trace($"BloombergBrokerage.ProcessResponse(): Unexpected RESPONSE event received (CID={correlationId}): {message}");
                 }
                 else
                 {
-                    mh.ProcessMessage(msg);
+                    handler.ProcessMessage(message);
                     _requestMessageHandlers.Remove(correlationId);
                     Log.Trace($"BloombergBrokerage.ProcessResponse(): MessageHandler removed [{correlationId}]");
                 }
@@ -444,9 +448,9 @@ namespace QuantConnect.Bloomberg
 
         private static void ProcessOtherEvents(Event @event, Session session)
         {
-            foreach (var msg in @event)
+            foreach (var message in @event)
             {
-                Log.Trace($"BloombergBrokerage.ProcessOtherEvent(): {@event.Type} - {msg.MessageType}.");
+                Log.Trace($"BloombergBrokerage.ProcessOtherEvent(): {@event.Type} - {message.MessageType}.");
             }
         }
 
@@ -464,16 +468,226 @@ namespace QuantConnect.Bloomberg
                     new Subscription(topic, correlationId)
                 });
             }
+            catch (Exception exception)
+            {
+                Log.Error(exception);
+            }
+        }
+
+        public CorrelationID SendRequest(Request request)
+        {
+            var correlationId = new CorrelationID();
+            _requestMessageHandlers.Add(correlationId, _orders.OrderSubscriptionHandler);
+
+            try
+            {
+                _sessionEms.SendRequest(request, correlationId);
+            }
             catch (Exception e)
             {
                 Log.Error(e);
+                return null;
             }
+
+            return correlationId;
         }
 
         private Order ConvertOrder(BloombergOrder order)
         {
-            // TODO:
-            return new LimitOrder();
+            var symbol = _symbolMapper.GetLeanSymbol(order.GetFieldValue("EMSX_TICKER"), SecurityType.Equity, Market.USA);
+            var quantity = Convert.ToDecimal(order.GetFieldValue("EMSX_AMOUNT"), CultureInfo.InvariantCulture);
+            var orderType = ConvertOrderType(order.GetFieldValue("EMSX_ORDER_TYPE"));
+            var orderDirection = order.GetFieldValue("EMSX_SIDE") == "BUY" ? OrderDirection.Buy : OrderDirection.Sell;
+            var timeInForce = ConvertTimeInForce(order.GetFieldValue("EMSX_TIF"));
+
+            if (orderDirection == OrderDirection.Sell)
+            {
+                quantity = -quantity;
+            }
+
+            Order newOrder;
+            switch (orderType)
+            {
+                case OrderType.Market:
+                    newOrder = new MarketOrder(symbol, quantity, DateTime.UtcNow);
+                    break;
+
+                case OrderType.Limit:
+                    {
+                        var limitPrice = Convert.ToDecimal(order.GetFieldValue("EMSX_LIMIT_PRICE"), CultureInfo.InvariantCulture);
+                        newOrder = new LimitOrder(symbol, quantity, limitPrice, DateTime.UtcNow);
+                    }
+                    break;
+
+                case OrderType.StopMarket:
+                    {
+                        var stopPrice = Convert.ToDecimal(order.GetFieldValue("EMSX_STOP_PRICE"), CultureInfo.InvariantCulture);
+                        newOrder = new LimitOrder(symbol, quantity, stopPrice, DateTime.UtcNow);
+                    }
+                    break;
+
+                case OrderType.StopLimit:
+                    {
+                        var limitPrice = Convert.ToDecimal(order.GetFieldValue("EMSX_LIMIT_PRICE"), CultureInfo.InvariantCulture);
+                        var stopPrice = Convert.ToDecimal(order.GetFieldValue("EMSX_STOP_PRICE"), CultureInfo.InvariantCulture);
+                        newOrder = new StopLimitOrder(symbol, quantity, stopPrice, limitPrice, DateTime.UtcNow);
+                    }
+                    break;
+
+                default:
+                    throw new NotSupportedException($"Unsupported order type: {orderType}");
+            }
+
+            newOrder.Properties.TimeInForce = timeInForce;
+
+            return newOrder;
+        }
+
+        private OrderType ConvertOrderType(string orderType)
+        {
+            // TODO: check order types, only MKT is used in documentation examples
+
+            switch (orderType)
+            {
+                case "MKT":
+                    return OrderType.Market;
+
+                case "LMT":
+                    return OrderType.Limit;
+
+                case "STP":
+                    return OrderType.StopMarket;
+
+                case "SLT":
+                    return OrderType.StopLimit;
+
+                default:
+                    throw new NotSupportedException($"Unsupported order type: {orderType}");
+            }
+        }
+
+        private string ConvertOrderType(OrderType orderType)
+        {
+            // TODO: check order types, only MKT is used in documentation examples
+
+            switch (orderType)
+            {
+                case OrderType.Market:
+                    return "MKT";
+
+                case OrderType.Limit:
+                    return "LMT";
+
+                case OrderType.StopMarket:
+                    return "STP";
+
+                case OrderType.StopLimit:
+                    return "SLT";
+
+                default:
+                    throw new NotSupportedException($"Unsupported order type: {orderType}");
+            }
+        }
+
+        private TimeInForce ConvertTimeInForce(string timeInForce)
+        {
+            // TODO: check time in force values, only DAY is used in documentation examples
+
+            switch (timeInForce)
+            {
+                case "DAY":
+                    return TimeInForce.Day;
+
+                case "GTC":
+                    return TimeInForce.GoodTilCanceled;
+
+                default:
+                    throw new NotSupportedException($"Unsupported time in force: {timeInForce}");
+            }
+        }
+
+        private string ConvertTimeInForce(TimeInForce timeInForce)
+        {
+            // TODO: check time in force values, only DAY is used in documentation examples
+
+            if (timeInForce == TimeInForce.Day)
+            {
+                return "DAY";
+            }
+
+            if (timeInForce == TimeInForce.GoodTilCanceled)
+            {
+                return "GTC";
+            }
+
+            throw new NotSupportedException($"Unsupported time in force: {timeInForce}");
+        }
+
+        private OrderStatus ConvertOrderStatus(string orderStatus)
+        {
+            switch (orderStatus)
+            {
+                case "CXL-PEND":
+                case "CXL-REQ":
+                    return OrderStatus.CancelPending;
+
+                case "ASSIGN":
+                case "CANCEL":
+                case "EXPIRED":
+                    return OrderStatus.Canceled;
+
+                case "SENT":
+                case "WORKING":
+                    return OrderStatus.Submitted;
+
+                case "COMPLETED":
+                case "FILLED":
+                    return OrderStatus.Filled;
+
+                case "PARTFILLED":
+                    return OrderStatus.PartiallyFilled;
+
+                case "CXLREJ":
+                    return OrderStatus.Invalid;
+
+                case "NEW":
+                case "ORD-PEND":
+                    return OrderStatus.New;
+
+                default:
+                    return OrderStatus.None;
+            }
+        }
+
+        private string ConvertOrderStatus(OrderStatus orderStatus)
+        {
+            switch (orderStatus)
+            {
+                case OrderStatus.CancelPending:
+                    return "CXL-PEND";
+
+                case OrderStatus.Canceled:
+                    return "CANCEL";
+
+                case OrderStatus.Submitted:
+                    return "WORKING";
+
+                case OrderStatus.Filled:
+                    return "FILLED";
+
+                case OrderStatus.PartiallyFilled:
+                    return "PARTFILLED";
+
+                case OrderStatus.Invalid:
+                    return "CXLREJ";
+
+                case OrderStatus.None:
+                case OrderStatus.New:
+                    return "NEW";
+
+                default:
+                    return string.Empty;
+            }
         }
     }
 }

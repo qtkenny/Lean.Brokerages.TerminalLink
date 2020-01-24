@@ -17,13 +17,7 @@ namespace QuantConnect.Bloomberg
 
         public SchemaFieldDefinition(SchemaElementDefinition e)
         {
-            var name = e.Name.ToString();
-
-            // Workaround for schema field naming
-            if (name.Equals("EMSX_ORD_REF_ID")) name = "EMSX_ORDER_REF_ID";
-            // End of Workaround
-
-            Name = name;
+            Name = e.Name.ToString();
             Status = e.Status;
             DataType = e.TypeDefinition.Datatype;
             Description = e.Description;
@@ -39,6 +33,11 @@ namespace QuantConnect.Bloomberg
         {
             return Description.IndexOf("Route", StringComparison.Ordinal) > -1 ||
                    Description.IndexOf("O,R", StringComparison.Ordinal) > -1;
+        }
+
+        public bool IsStatic()
+        {
+            return Description.IndexOf("Static", StringComparison.Ordinal) > -1;
         }
     }
 }

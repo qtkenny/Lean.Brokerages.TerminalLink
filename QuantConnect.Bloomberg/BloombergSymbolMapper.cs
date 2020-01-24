@@ -4,6 +4,7 @@
 */
 
 using System;
+using System.Globalization;
 using QuantConnect.Brokerages;
 using static QuantConnect.StringExtensions;
 
@@ -21,6 +22,9 @@ namespace QuantConnect.Bloomberg
         /// <returns>The Bloomberg symbol</returns>
         public string GetBrokerageSymbol(Symbol symbol)
         {
+            if (symbol == null || string.IsNullOrWhiteSpace(symbol.Value))
+                throw new ArgumentException("Invalid symbol: " + (symbol == null ? "null" : symbol.ToString()));
+
             return GetBloombergTopicName(symbol);
         }
 
@@ -42,7 +46,53 @@ namespace QuantConnect.Bloomberg
             decimal strike = 0,
             OptionRight optionRight = OptionRight.Call)
         {
-            throw new NotImplementedException();
+            return GetLeanSymbol(brokerageSymbol);
+        }
+
+        /// <summary>
+        /// Converts a Bloomberg symbol to a Lean symbol instance
+        /// </summary>
+        /// <param name="brokerageSymbol">The Bloomberg symbol</param>
+        /// <returns>A new Lean Symbol instance</returns>
+        public Symbol GetLeanSymbol(string brokerageSymbol)
+        {
+            if (string.IsNullOrWhiteSpace(brokerageSymbol))
+                throw new ArgumentException("Invalid brokerage symbol: " + brokerageSymbol);
+
+            var parts = brokerageSymbol.Split(' ');
+
+            var securityType = GetLeanSecurityType(parts);
+            var market = GetLeanMarket(parts);
+
+            if (parts.Length == 3)
+            {
+                var ticker = parts[0];
+
+                if (securityType == SecurityType.Forex)
+                {
+                    ticker += "USD";
+                }
+                else if (securityType == SecurityType.Future)
+                {
+                    var properties = SymbolRepresentation.ParseFutureTicker(ticker);
+                    return Symbol.CreateFuture(
+                        properties.Underlying,
+                        market,
+                        new DateTime(properties.ExpirationYearShort + 2000, properties.ExpirationMonth, properties.ExpirationDay));
+                }
+
+                return Symbol.Create(ticker, securityType, market);
+            }
+            if (parts.Length > 3)
+            {
+                var underlying = parts[0];
+                var right = parts[3] == "C" ? OptionRight.Call : OptionRight.Put;
+                var strike = Convert.ToDecimal(parts[4], CultureInfo.InvariantCulture);
+                var expiry = DateTime.ParseExact(parts[2], "MM/dd/yy", CultureInfo.InvariantCulture);
+                return Symbol.CreateOption(underlying, Market.USA, OptionStyle.American, right, strike, expiry);
+            }
+
+            throw new ArgumentException("Invalid brokerage symbol: " + brokerageSymbol);
         }
 
         private string GetBloombergTopicName(Symbol symbol)
@@ -137,6 +187,46 @@ namespace QuantConnect.Bloomberg
                 default:
                     throw new NotSupportedException($"Unsupported security type: {securityType}");
             }
+        }
+
+        private SecurityType GetLeanSecurityType(string[] brokerageSymbolParts)
+        {
+            if (brokerageSymbolParts[1] == "BVAL")
+            {
+                return SecurityType.Forex;
+            }
+            if (brokerageSymbolParts[1] == "COMB")
+            {
+                return SecurityType.Future;
+            }
+            if (brokerageSymbolParts.Length > 3)
+            {
+                return SecurityType.Option;
+            }
+            if (brokerageSymbolParts[1] == "US" && brokerageSymbolParts[2] == "Equity")
+            {
+                return SecurityType.Equity;
+            }
+
+            return SecurityType.Base;
+        }
+
+        private string GetLeanMarket(string[] brokerageSymbolParts)
+        {
+            if (brokerageSymbolParts[1] == "BVAL")
+            {
+                return Market.FXCM;
+            }
+            if (brokerageSymbolParts[1] == "COMB")
+            {
+                return Market.USA;
+            }
+            if (brokerageSymbolParts[1] == "US")
+            {
+                return Market.USA;
+            }
+
+            return string.Empty;
         }
     }
 }

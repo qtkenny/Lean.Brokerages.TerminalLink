@@ -6,6 +6,27 @@
 namespace QuantConnect.Bloomberg
 {
     /// <summary>
+    /// The Bloomberg API types
+    /// </summary>
+    public enum ApiType
+    {
+        /// <summary>
+        /// The Desktop API
+        /// </summary>
+        Desktop,
+
+        /// <summary>
+        /// The Server-side API
+        /// </summary>
+        Server,
+
+        /// <summary>
+        /// The BPIPE API
+        /// </summary>
+        Bpipe
+    }
+
+    /// <summary>
     /// The Bloomberg environment types for EMSX API
     /// </summary>
     public enum Environment
@@ -21,11 +42,24 @@ namespace QuantConnect.Bloomberg
         Beta
     }
 
+    /// <summary>
+    /// The Bloomberg service types
+    /// </summary>
     public enum ServiceType
     {
+        /// <summary>
+        /// The market data service
+        /// </summary>
         MarketData,
+
+        /// <summary>
+        /// The historical data service
+        /// </summary>
         HistoricalData,
-        Authentication,
+
+        /// <summary>
+        /// The EMS service
+        /// </summary>
         Ems
     }
 
@@ -63,23 +97,5 @@ namespace QuantConnect.Bloomberg
         /// The end of the initial paint message, INIT_PAINT_END
         /// </summary>
         EndPaint = 11
-    }
-
-    public enum NotificationCategory
-    {
-        ORDER,
-        ROUTE,
-        ADMIN
-    }
-
-    public enum NotificationType
-    {
-        NEW,
-        INITIALPAINT,
-        UPDATE,
-        DELETE,
-        CANCEL,
-        ERROR,
-        FIELD
     }
 }

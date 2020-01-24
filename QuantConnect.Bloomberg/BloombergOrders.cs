@@ -3,7 +3,6 @@
 * Lean Algorithmic Trading Engine v2.2 Copyright 2015 QuantConnect Corporation.
 */
 
-using QuantConnect.Logging;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,66 +12,53 @@ namespace QuantConnect.Bloomberg
 {
     public class BloombergOrders : IEnumerable<BloombergOrder>
     {
-        private readonly List<BloombergOrder> _orders = new List<BloombergOrder>();
+        private readonly Dictionary<int, BloombergOrder> _orders = new Dictionary<int, BloombergOrder>();
         private readonly BloombergBrokerage _brokerage;
+        private readonly ManualResetEvent _blotterInitializedEvent = new ManualResetEvent(false);
+
+        public IMessageHandler OrderSubscriptionHandler { get; }
 
         public BloombergOrders(BloombergBrokerage brokerage)
         {
             _brokerage = brokerage;
+            OrderSubscriptionHandler = new OrderSubscriptionHandler(this);
         }
 
-        public void Subscribe()
+        public void SubscribeOrderEvents()
         {
-            Log.Trace("Orders: Subscribing");
+            var fields = _brokerage.OrderFieldDefinitions.Select(x => x.Name);
 
-            var orderTopic = _brokerage.GetServiceName(ServiceType.Ems) + "/order";
+            var serviceName = _brokerage.GetServiceName(ServiceType.Ems);
+            var topic = $"{serviceName}/order?fields={string.Join(",", fields)}";
 
-            //if (emsxapi.team != null) orderTopic = orderTopic + ";team=" + emsxapi.team.name;
+            _brokerage.Subscribe(topic, OrderSubscriptionHandler);
 
-            orderTopic = orderTopic + "?fields=";
-
-            foreach (var f in _brokerage.OrderFields)
-            {
-                if (f.Name.Equals("EMSX_ORDER_REF_ID"))
-                {
-                    // Workaround for schema field naming
-                    orderTopic = orderTopic + "EMSX_ORD_REF_ID" + ",";
-                }
-                else
-                {
-                    orderTopic = orderTopic + f.Name + ",";
-                }
-            }
-
-
-            orderTopic = orderTopic.Substring(0,orderTopic.Length-1); // remove extra comma character
-
-            _brokerage.Subscribe(orderTopic, new OrderSubscriptionHandler(this));
-
-            //Log.Trace("Entering Order subscription lock");
-            //while(!emsxapi.orderBlotterInitialized){
-            //    Thread.Sleep(1);
-            //}
-            //Log.Trace("Order subscription lock released");
+            _blotterInitializedEvent.WaitOne();
         }
 
         public BloombergOrder CreateOrder(int sequence)
         {
-            var order = new BloombergOrder(sequence);
+            var order = new BloombergOrder(_brokerage, sequence);
 
-            _orders.Add(order);
+            _orders.Add(sequence, order);
 
             return order;
         }
 
         public BloombergOrder GetBySequenceNumber(int sequence)
         {
-            return _orders.FirstOrDefault(o => o.Sequence == sequence);
+            BloombergOrder order;
+            return _orders.TryGetValue(sequence, out order) ? order : null;
+        }
+
+        public void SetBlotterInitialized()
+        {
+            _blotterInitializedEvent.Set();
         }
 
         public IEnumerator<BloombergOrder> GetEnumerator()
         {
-            return _orders.GetEnumerator();
+            return _orders.Values.GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator()

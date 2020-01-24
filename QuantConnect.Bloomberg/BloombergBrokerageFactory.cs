@@ -66,7 +66,7 @@ namespace QuantConnect.Bloomberg
             var errors = new List<string>();
 
             // read values from the brokerage data
-            var serverSideApi = Read<bool>(job.BrokerageData, "bloomberg-server-side-api", errors);
+            var apiType = Read<ApiType>(job.BrokerageData, "bloomberg-api-type", errors);
             var environment = Read<Environment>(job.BrokerageData, "bloomberg-environment", errors);
             var serverHost = Read<string>(job.BrokerageData, "bloomberg-server-host", errors);
             var serverPort = Read<int>(job.BrokerageData, "bloomberg-server-port", errors);
@@ -77,7 +77,7 @@ namespace QuantConnect.Bloomberg
                 throw new Exception(string.Join(System.Environment.NewLine, errors));
             }
 
-            var brokerage = new BloombergBrokerage(serverSideApi, environment, serverHost, serverPort);
+            var brokerage = new BloombergBrokerage(apiType, environment, serverHost, serverPort);
             Composer.Instance.AddPart<IDataQueueHandler>(brokerage);
 
             return brokerage;

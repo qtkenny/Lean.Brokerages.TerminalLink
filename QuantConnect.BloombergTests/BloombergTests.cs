@@ -19,7 +19,7 @@ using QuantConnect.Securities;
 
 namespace QuantConnect.BloombergTests
 {
-    [TestFixture]
+    [TestFixture, Ignore("These tests have only been tested with the API emulator")]
     public class BloombergTests
     {
         [SetUp]
@@ -461,7 +461,7 @@ namespace QuantConnect.BloombergTests
 
         private BloombergBrokerage CreateBrokerage()
         {
-            return new BloombergBrokerage(false, Bloomberg.Environment.Beta, "localhost", 8194);
+            return new BloombergBrokerage(ApiType.Desktop, Bloomberg.Environment.Beta, "localhost", 8194);
         }
     }
 }

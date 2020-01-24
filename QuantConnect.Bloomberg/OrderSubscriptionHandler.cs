@@ -3,10 +3,8 @@
 * Lean Algorithmic Trading Engine v2.2 Copyright 2015 QuantConnect Corporation.
 */
 
-using System;
 using Bloomberglp.Blpapi;
 using QuantConnect.Logging;
-using QuantConnect.Notifications;
 
 namespace QuantConnect.Bloomberg
 {
@@ -14,7 +12,7 @@ namespace QuantConnect.Bloomberg
     {
         private readonly BloombergOrders _orders;
 
-        internal OrderSubscriptionHandler(BloombergOrders orders)
+        public OrderSubscriptionHandler(BloombergOrders orders)
         {
             _orders = orders;
         }
@@ -22,7 +20,6 @@ namespace QuantConnect.Bloomberg
         public void ProcessMessage(Message message)
         {
             Log.Trace("OrderSubscriptionHandler: Processing message");
-
             Log.Trace($"Message: {message}");
 
             if (message.MessageType.Equals(BloombergNames.SubscriptionStarted))
@@ -33,87 +30,92 @@ namespace QuantConnect.Bloomberg
 
             var eventStatus = (EventStatus)message.GetElementAsInt32("EVENT_STATUS");
 
-            if (eventStatus == EventStatus.Heartbeat)
+            switch (eventStatus)
             {
-                Log.Trace("OrderSubscriptionHandler: HEARTBEAT received");
-            }
-            else if (eventStatus == EventStatus.InitialPaint)
-            {
-                Log.Trace("OrderSubscriptionHandler: INIT_PAINT message received");
-                Log.Trace($"Message: {message}");
-                var sequence = message.GetElementAsInt32("EMSX_SEQUENCE");
-                var order = _orders.GetBySequenceNumber(sequence);
-                if (order == null)
-                {
-                    // Order not found
-                    order = _orders.CreateOrder(sequence);
-                }
+                case EventStatus.Heartbeat:
+                    Log.Trace("OrderSubscriptionHandler: HEARTBEAT received");
+                    break;
 
-                //order.fields.populateFields(message, false);
-                //order.notify(new Notification(NotificationCategory.ORDER, NotificationType.INITIALPAINT, order, order.fields.getFieldChanges()));
-            }
-            else if (eventStatus == EventStatus.New)
-            {
-                //new
-                Log.Trace("OrderSubscriptionHandler: NEW_ORDER_ROUTE message received");
-                Log.Trace($"Message: {message}");
+                case EventStatus.InitialPaint:
+                    {
+                        Log.Trace("OrderSubscriptionHandler: INIT_PAINT message received");
+                        Log.Trace($"Message: {message}");
+                        var sequence = message.GetElementAsInt32("EMSX_SEQUENCE");
+                        var order = _orders.GetBySequenceNumber(sequence);
+                        if (order == null)
+                        {
+                            // Order not found
+                            order = _orders.CreateOrder(sequence);
+                        }
 
-                var sequence = message.GetElementAsInt32("EMSX_SEQUENCE");
+                        order.PopulateFields(message, false);
+                    }
+                    break;
 
-                var order = _orders.GetBySequenceNumber(sequence);
-                if (order == null)
-                {
-                    // Order not found
-                    order = _orders.CreateOrder(sequence);
-                }
+                case EventStatus.New:
+                    {
+                        // new
+                        Log.Trace("OrderSubscriptionHandler: NEW_ORDER_ROUTE message received");
+                        Log.Trace($"Message: {message}");
 
-                //order.fields.populateFields(message, false);
-                //order.notify(new Notification(NotificationCategory.ORDER, NotificationType.NEW, order, order.fields.getFieldChanges()));
-            }
-            else if (eventStatus == EventStatus.Update)
-            {
-                // update
-                Log.Trace("OrderSubscriptionHandler: UPD_ORDER_ROUTE message received");
-                Log.Trace($"Message: {message}");
+                        var sequence = message.GetElementAsInt32("EMSX_SEQUENCE");
+                        var order = _orders.GetBySequenceNumber(sequence);
+                        if (order == null)
+                        {
+                            // Order not found
+                            order = _orders.CreateOrder(sequence);
+                        }
 
-                // Order should already exists. If it doesn't create it anyway.
-                var sequence = message.GetElementAsInt32("EMSX_SEQUENCE");
-                var order = _orders.GetBySequenceNumber(sequence);
-                if (order == null)
-                {
-                    // Order not found
-                    Log.Trace("OrderSubscriptionHandler: WARNING > Update received for unkown order");
-                    order = _orders.CreateOrder(sequence);
-                }
+                        order.PopulateFields(message, false);
+                    }
+                    break;
 
-                //order.fields.populateFields(message, true);
-                //order.notify(new Notification(NotificationCategory.ORDER, NotificationType.UPDATE, order, order.fields.getFieldChanges()));
-            }
-            else if (eventStatus == EventStatus.Delete)
-            {
-                // deleted/expired
-                Log.Trace("OrderSubscriptionHandler: DELETE message received");
-                Log.Trace($"Message: {message}");
+                case EventStatus.Update:
+                    {
+                        // update
+                        Log.Trace("OrderSubscriptionHandler: UPD_ORDER_ROUTE message received");
+                        Log.Trace($"Message: {message}");
 
-                // Order should already exists. If it doesn't create it anyway.
-                int sequence = message.GetElementAsInt32("EMSX_SEQUENCE");
-                var order = _orders.GetBySequenceNumber(sequence);
-                if (order == null)
-                {
-                    // Order not found
-                    Log.Trace("OrderSubscriptionHandler: WARNING > Delete received for unkown order");
-                    order = _orders.CreateOrder(sequence);
-                }
+                        // Order should already exists. If it doesn't create it anyway.
+                        var sequence = message.GetElementAsInt32("EMSX_SEQUENCE");
+                        var order = _orders.GetBySequenceNumber(sequence);
+                        if (order == null)
+                        {
+                            // Order not found
+                            Log.Trace("OrderSubscriptionHandler: WARNING > Update received for unkown order");
+                            order = _orders.CreateOrder(sequence);
+                        }
 
-                //order.fields.populateFields(message, false);
-                //order.fields.field("EMSX_STATUS").setCurrentValue("EXPIRED");
-                //order.notify(new Notification(NotificationCategory.ORDER, NotificationType.DELETE, order, order.fields.getFieldChanges()));
-            }
-            else if (eventStatus == EventStatus.EndPaint)
-            {
-                // End of inital paint messages
-                Log.Trace("OrderSubscriptionHandler: End of Initial Paint");
-                //_orders.emsxapi.orderBlotterInitialized = true;
+                        order.PopulateFields(message, true);
+                    }
+                    break;
+
+                case EventStatus.Delete:
+                    {
+                        // deleted/expired
+                        Log.Trace("OrderSubscriptionHandler: DELETE message received");
+                        Log.Trace($"Message: {message}");
+
+                        // Order should already exists. If it doesn't create it anyway.
+                        var sequence = message.GetElementAsInt32("EMSX_SEQUENCE");
+                        var order = _orders.GetBySequenceNumber(sequence);
+                        if (order == null)
+                        {
+                            // Order not found
+                            Log.Trace("OrderSubscriptionHandler: WARNING > Delete received for unkown order");
+                            order = _orders.CreateOrder(sequence);
+                        }
+
+                        order.PopulateFields(message, false);
+                        order.GetField("EMSX_STATUS").SetCurrentValue("EXPIRED");
+                    }
+                    break;
+
+                case EventStatus.EndPaint:
+                    // End of initial paint messages
+                    Log.Trace("OrderSubscriptionHandler: End of Initial Paint");
+                    _orders.SetBlotterInitialized();
+                    break;
             }
         }
     }
