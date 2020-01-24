@@ -29,6 +29,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -37,6 +38,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.VisualStudio.TestPlatform.TestFramework, Version=14.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
@@ -44,6 +46,9 @@
     </Reference>
     <Reference Include="Microsoft.VisualStudio.TestPlatform.TestFramework.Extensions, Version=14.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\MSTest.TestFramework.1.3.2\lib\net45\Microsoft.VisualStudio.TestPlatform.TestFramework.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.10.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="NodaTime, Version=1.3.0.0, Culture=neutral, PublicKeyToken=4226afe0d9b296d1, processorArchitecture=MSIL">
       <HintPath>..\packages\NodaTime.1.3.4\lib\net35-Client\NodaTime.dll</HintPath>
@@ -56,11 +61,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BloombergBrokerageTests.cs" />
     <Compile Include="BloombergSymbolMapperTests.cs" />
     <Compile Include="BloombergTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="app.config" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
@@ -72,6 +79,10 @@
       <Project>{2545c0b4-fabb-49c9-8dd1-9ad7ee23f86b}</Project>
       <Name>QuantConnect</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\Lean\Configuration\QuantConnect.Configuration.csproj">
+      <Project>{0AEB4EA3-28C8-476E-89FD-926F06590B4C}</Project>
+      <Name>QuantConnect.Configuration</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\Lean\Engine\QuantConnect.Lean.Engine.csproj">
       <Project>{12156F46-D07E-4E3D-AD2B-7409E82AB62F}</Project>
       <Name>QuantConnect.Lean.Engine</Name>
@@ -79,6 +90,10 @@
     <ProjectReference Include="..\..\Lean\Logging\QuantConnect.Logging.csproj">
       <Project>{01911409-86BE-4E7D-9947-DF714138610D}</Project>
       <Name>QuantConnect.Logging</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Lean\Tests\QuantConnect.Tests.csproj">
+      <Project>{f15e0e67-e6ca-4be4-ba36-54d73c5acc11}</Project>
+      <Name>QuantConnect.Tests</Name>
     </ProjectReference>
     <ProjectReference Include="..\QuantConnect.Bloomberg\QuantConnect.Bloomberg.csproj">
       <Project>{dc246e85-5c45-4d61-849c-5a59509cf743}</Project>

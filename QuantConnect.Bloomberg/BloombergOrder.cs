@@ -13,10 +13,10 @@ namespace QuantConnect.Bloomberg
 
         public int Sequence { get; }
 
-        public BloombergOrder(BloombergBrokerage brokerage, int sequence)
+        public BloombergOrder(SchemaFieldDefinitions orderFieldDefinitions, int sequence)
         {
+            _fields = new BloombergFields(orderFieldDefinitions);
             Sequence = sequence;
-            _fields = new BloombergFields(brokerage.OrderFieldDefinitions);
         }
 
         public string GetFieldValue(string name)

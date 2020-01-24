@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using Bloomberglp.Blpapi;
 using QuantConnect.Brokerages;
 using QuantConnect.Interfaces;
@@ -39,10 +40,13 @@ namespace QuantConnect.Bloomberg
         private readonly ConcurrentDictionary<string, Symbol> _symbolsByTopicName = new ConcurrentDictionary<string, Symbol>();
         private readonly BloombergSymbolMapper _symbolMapper = new BloombergSymbolMapper();
 
-        internal SchemaFieldDefinitions OrderFieldDefinitions = new SchemaFieldDefinitions();
+        private readonly SchemaFieldDefinitions _orderFieldDefinitions = new SchemaFieldDefinitions();
+
         private readonly Dictionary<CorrelationID, IMessageHandler> _requestMessageHandlers = new Dictionary<CorrelationID, IMessageHandler>();
         private readonly Dictionary<CorrelationID, IMessageHandler> _subscriptionMessageHandlers = new Dictionary<CorrelationID, IMessageHandler>();
 
+        private readonly ManualResetEvent _blotterInitializedEvent = new ManualResetEvent(false);
+        private IMessageHandler _orderSubscriptionHandler;
         private BloombergOrders _orders;
 
         /// <summary>
@@ -133,8 +137,9 @@ namespace QuantConnect.Bloomberg
 
             InitializeFieldData();
 
-            _orders = new BloombergOrders(this);
-            _orders.SubscribeOrderEvents();
+            _orders = new BloombergOrders(_orderFieldDefinitions);
+            _orderSubscriptionHandler = new OrderSubscriptionHandler(this, _orders);
+            SubscribeOrderEvents();
         }
 
         /// <summary>
@@ -230,7 +235,13 @@ namespace QuantConnect.Bloomberg
         /// <returns>True if the request was made for the order to be canceled, false otherwise</returns>
         public override bool CancelOrder(Order order)
         {
-            throw new NotImplementedException();
+            var request = _serviceEms.CreateRequest("DeleteOrder");
+
+            request.Set("EMSX_SEQUENCE", Convert.ToInt32(order.BrokerId[0]));
+
+            SendRequest(request);
+
+            return true;
         }
 
         /// <summary>
@@ -275,7 +286,7 @@ namespace QuantConnect.Bloomberg
 
         private void InitializeFieldData()
         {
-            OrderFieldDefinitions.Clear();
+            _orderFieldDefinitions.Clear();
 
             var orderRouteFields = _serviceEms.GetEventDefinition("OrderRouteFields");
             var typeDef = orderRouteFields.TypeDefinition;
@@ -288,7 +299,7 @@ namespace QuantConnect.Bloomberg
 
                 if (f.IsOrderField())
                 {
-                    OrderFieldDefinitions.Add(f);
+                    _orderFieldDefinitions.Add(f);
                 }
             }
         }
@@ -454,7 +465,7 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        internal void Subscribe(string topic, IMessageHandler handler)
+        private void Subscribe(string topic, IMessageHandler handler)
         {
             var correlationId = new CorrelationID();
             _subscriptionMessageHandlers.Add(correlationId, handler);
@@ -474,10 +485,10 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        public CorrelationID SendRequest(Request request)
+        private CorrelationID SendRequest(Request request)
         {
             var correlationId = new CorrelationID();
-            _requestMessageHandlers.Add(correlationId, _orders.OrderSubscriptionHandler);
+            _requestMessageHandlers.Add(correlationId, _orderSubscriptionHandler);
 
             try
             {
@@ -490,6 +501,23 @@ namespace QuantConnect.Bloomberg
             }
 
             return correlationId;
+        }
+
+        private void SubscribeOrderEvents()
+        {
+            var fields = _orderFieldDefinitions.Select(x => x.Name);
+
+            var serviceName = GetServiceName(ServiceType.Ems);
+            var topic = $"{serviceName}/order?fields={string.Join(",", fields)}";
+
+            Subscribe(topic, _orderSubscriptionHandler);
+
+            _blotterInitializedEvent.WaitOne();
+        }
+
+        public void SetBlotterInitialized()
+        {
+            _blotterInitializedEvent.Set();
         }
 
         private Order ConvertOrder(BloombergOrder order)
