@@ -4,6 +4,7 @@
 */
 
 using System;
+using System.Collections.Generic;
 using Bloomberglp.Blpapi;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
@@ -83,6 +84,8 @@ namespace QuantConnect.Bloomberg
                         }
                         else
                         {
+                            order.BrokerId.Add(sequence.ToString());
+
                             _brokerage.FireOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bloomberg Order Event")
                             {
                                 Status = OrderStatus.Submitted
