@@ -31,7 +31,7 @@ namespace QuantConnect.BloombergTests
             var serverHost = Config.Get("bloomberg-server-host", "localhost");
             var serverPort = Config.GetInt("bloomberg-server-host", 8194);
 
-            return new BloombergBrokerage(apiType, environment, serverHost, serverPort);
+            return new BloombergBrokerage(orderProvider, apiType, environment, serverHost, serverPort);
         }
 
         /// <summary>

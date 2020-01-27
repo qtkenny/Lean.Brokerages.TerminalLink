@@ -461,7 +461,7 @@ namespace QuantConnect.BloombergTests
 
         private BloombergBrokerage CreateBrokerage()
         {
-            return new BloombergBrokerage(ApiType.Desktop, Bloomberg.Environment.Beta, "localhost", 8194);
+            return new BloombergBrokerage(null, ApiType.Desktop, Bloomberg.Environment.Beta, "localhost", 8194);
         }
     }
 }

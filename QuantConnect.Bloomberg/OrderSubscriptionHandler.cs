@@ -3,23 +3,29 @@
 * Lean Algorithmic Trading Engine v2.2 Copyright 2015 QuantConnect Corporation.
 */
 
+using System;
 using Bloomberglp.Blpapi;
 using QuantConnect.Logging;
+using QuantConnect.Orders;
+using QuantConnect.Orders.Fees;
+using QuantConnect.Securities;
 
 namespace QuantConnect.Bloomberg
 {
     public class OrderSubscriptionHandler : IMessageHandler
     {
         private readonly BloombergBrokerage _brokerage;
+        private readonly IOrderProvider _orderProvider;
         private readonly BloombergOrders _orders;
 
-        public OrderSubscriptionHandler(BloombergBrokerage brokerage, BloombergOrders orders)
+        public OrderSubscriptionHandler(BloombergBrokerage brokerage, IOrderProvider orderProvider, BloombergOrders orders)
         {
             _brokerage = brokerage;
+            _orderProvider = orderProvider;
             _orders = orders;
         }
 
-        public void ProcessMessage(Message message)
+        public void ProcessMessage(Message message, int orderId)
         {
             Log.Trace("OrderSubscriptionHandler: Processing message");
             Log.Trace($"Message: {message}");
@@ -61,14 +67,27 @@ namespace QuantConnect.Bloomberg
                         Log.Trace($"Message: {message}");
 
                         var sequence = message.GetElementAsInt32("EMSX_SEQUENCE");
-                        var order = _orders.GetBySequenceNumber(sequence);
-                        if (order == null)
+                        var bbOrder = _orders.GetBySequenceNumber(sequence);
+                        if (bbOrder == null)
                         {
                             // Order not found
-                            order = _orders.CreateOrder(sequence);
+                            bbOrder = _orders.CreateOrder(sequence);
                         }
 
-                        order.PopulateFields(message, false);
+                        bbOrder.PopulateFields(message, false);
+
+                        var order = _orderProvider.GetOrderById(orderId);
+                        if (order == null)
+                        {
+                            Log.Error($"OrderSubscriptionHandler: OrderId not found: {orderId}");
+                        }
+                        else
+                        {
+                            _brokerage.FireOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bloomberg Order Event")
+                            {
+                                Status = OrderStatus.Submitted
+                            });
+                        }
                     }
                     break;
 
@@ -80,15 +99,38 @@ namespace QuantConnect.Bloomberg
 
                         // Order should already exist. If it doesn't create it anyway.
                         var sequence = message.GetElementAsInt32("EMSX_SEQUENCE");
-                        var order = _orders.GetBySequenceNumber(sequence);
-                        if (order == null)
+                        var bbOrder = _orders.GetBySequenceNumber(sequence);
+                        if (bbOrder == null)
                         {
                             // Order not found
                             Log.Trace("OrderSubscriptionHandler: WARNING > Update received for unknown order");
-                            order = _orders.CreateOrder(sequence);
+                            bbOrder = _orders.CreateOrder(sequence);
                         }
 
-                        order.PopulateFields(message, true);
+                        bbOrder.PopulateFields(message, true);
+
+                        var order = _orderProvider.GetOrderById(orderId);
+                        if (order == null)
+                        {
+                            Log.Error($"OrderSubscriptionHandler: OrderId not found: {orderId}");
+                        }
+                        else
+                        {
+                            var orderStatus = _brokerage.ConvertOrderStatus(message.GetElementAsString("EMSX_STATUS"));
+
+                            var orderEvent = new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bloomberg Order Event")
+                            {
+                                Status = orderStatus
+                            };
+
+                            if (orderStatus == OrderStatus.Filled || orderStatus == OrderStatus.PartiallyFilled)
+                            {
+                                orderEvent.FillPrice = Convert.ToDecimal(message.GetElementAsFloat32("EMSX_FILL_PRICE"));
+                                orderEvent.FillQuantity = Convert.ToDecimal(message.GetElementAsInt64("EMSX_FILL_AMOUNT"));
+                            }
+
+                            _brokerage.FireOrderEvent(orderEvent);
+                        }
                     }
                     break;
 
@@ -100,15 +142,28 @@ namespace QuantConnect.Bloomberg
 
                         // Order should already exist. If it doesn't create it anyway.
                         var sequence = message.GetElementAsInt32("EMSX_SEQUENCE");
-                        var order = _orders.GetBySequenceNumber(sequence);
-                        if (order == null)
+                        var bbOrder = _orders.GetBySequenceNumber(sequence);
+                        if (bbOrder == null)
                         {
                             // Order not found
                             Log.Trace("OrderSubscriptionHandler: WARNING > Delete received for unknown order");
-                            order = _orders.CreateOrder(sequence);
+                            bbOrder = _orders.CreateOrder(sequence);
                         }
 
-                        order.PopulateFields(message, false);
+                        bbOrder.PopulateFields(message, false);
+
+                        var order = _orderProvider.GetOrderById(orderId);
+                        if (order == null)
+                        {
+                            Log.Error($"OrderSubscriptionHandler: OrderId not found: {orderId}");
+                        }
+                        else
+                        {
+                            _brokerage.FireOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bloomberg Order Event")
+                            {
+                                Status = OrderStatus.Canceled
+                            });
+                        }
                     }
                     break;
 

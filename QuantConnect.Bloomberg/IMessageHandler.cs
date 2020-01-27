@@ -9,6 +9,6 @@ namespace QuantConnect.Bloomberg
 {
     public interface IMessageHandler
     {
-        void ProcessMessage(Message message);
+        void ProcessMessage(Message message, int orderId);
     }
 }
