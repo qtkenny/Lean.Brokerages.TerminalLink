@@ -39,7 +39,8 @@ namespace QuantConnect.Bloomberg
 
         private long _nextCorrelationId;
         private readonly ConcurrentDictionary<string, BloombergSubscriptions> _subscriptionsByTopicName = new ConcurrentDictionary<string, BloombergSubscriptions>();
-        private readonly ConcurrentDictionary<string, Symbol> _symbolsByTopicName = new ConcurrentDictionary<string, Symbol>();
+        private readonly ConcurrentDictionary<CorrelationID, BloombergSubscriptionKey> _subscriptionKeysByCorrelationId =
+            new ConcurrentDictionary<CorrelationID, BloombergSubscriptionKey>();
         private readonly BloombergSymbolMapper _symbolMapper = new BloombergSymbolMapper();
 
         private readonly SchemaFieldDefinitions _orderFieldDefinitions = new SchemaFieldDefinitions();
