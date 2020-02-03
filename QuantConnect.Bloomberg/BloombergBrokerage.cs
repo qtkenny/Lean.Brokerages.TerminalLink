@@ -97,6 +97,10 @@ namespace QuantConnect.Bloomberg
 
             Log.Trace($"BloombergBrokerage(): Starting historical data session: {_serverHost}:{_serverPort}:{Environment}.");
             _sessionHistoricalData = new Session(_sessionOptions);
+            if (!_sessionHistoricalData.Start())
+            {
+                throw new Exception("Unable to start historical data session.");
+            }
 
             Log.Trace("BloombergBrokerage(): Opening historical data service.");
             var historicalDataServiceName = GetServiceName(ServiceType.HistoricalData);
