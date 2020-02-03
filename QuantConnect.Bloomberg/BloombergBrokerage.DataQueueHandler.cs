@@ -160,7 +160,7 @@ namespace QuantConnect.Bloomberg
                     return new List<string> { "BID", "ASK", "BID_SIZE", "ASK_SIZE" };
 
                 case TickType.Trade:
-                    return new List<string> { "LAST_PRICE", "LAST_TRADE_SIZE" };
+                    return new List<string> { "LAST_PRICE", "SIZE_LAST_TRADE" };
 
                 case TickType.OpenInterest:
                     return new List<string> { "OPEN_INTEREST" };
@@ -272,7 +272,7 @@ namespace QuantConnect.Bloomberg
         private void EmitTradeTick(Symbol symbol, Message message)
         {
             var price = GetBloombergFieldValue<decimal>(message, "LAST_PRICE");
-            var quantity = GetBloombergFieldValue<decimal>(message, "LAST_TRADE_SIZE");
+            var quantity = GetBloombergFieldValue<decimal>(message, "SIZE_LAST_TRADE");
 
             lock (_locker)
             {
