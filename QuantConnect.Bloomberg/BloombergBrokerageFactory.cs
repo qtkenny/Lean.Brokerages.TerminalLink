@@ -43,7 +43,7 @@ namespace QuantConnect.Bloomberg
         /// </remarks>
         public override Dictionary<string, string> BrokerageData => new Dictionary<string, string>
         {
-            { "bloomberg-server-side-api", Config.Get("bloomberg-server-side-api") },
+            { "bloomberg-api-type", Config.Get("bloomberg-api-type") },
             { "bloomberg-environment", Config.Get("bloomberg-environment") },
             { "bloomberg-server-host", Config.Get("bloomberg-server-host") },
             { "bloomberg-server-port", Config.Get("bloomberg-server-port") }
