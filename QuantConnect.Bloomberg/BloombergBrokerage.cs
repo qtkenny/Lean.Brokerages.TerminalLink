@@ -52,6 +52,7 @@ namespace QuantConnect.Bloomberg
         private readonly ManualResetEvent _blotterInitializedEvent = new ManualResetEvent(false);
         private IMessageHandler _orderSubscriptionHandler;
         private BloombergOrders _orders;
+        private bool _isConnected;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BloombergBrokerage"/> class
@@ -118,7 +119,7 @@ namespace QuantConnect.Bloomberg
         /// <summary>
         /// Returns true if we're currently connected to the broker
         /// </summary>
-        public override bool IsConnected { get; }
+        public override bool IsConnected => _isConnected;
 
         /// <summary>
         /// Connects the client to the broker's remote servers
@@ -146,6 +147,7 @@ namespace QuantConnect.Bloomberg
             _orders = new BloombergOrders(_orderFieldDefinitions);
             _orderSubscriptionHandler = new OrderSubscriptionHandler(this, _orderProvider, _orders);
             SubscribeOrderEvents();
+            _isConnected = true;
         }
 
         /// <summary>
