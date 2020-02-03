@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using Bloomberglp.Blpapi;
 using QuantConnect.Brokerages;
+using QuantConnect.Configuration;
 using QuantConnect.Interfaces;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
@@ -25,6 +26,7 @@ namespace QuantConnect.Bloomberg
     {
         private readonly string _serverHost;
         private readonly int _serverPort;
+        private readonly bool _execution;
 
         private readonly SessionOptions _sessionOptions;
         private readonly Session _sessionMarketData;
@@ -66,6 +68,7 @@ namespace QuantConnect.Bloomberg
             Environment = environment;
             _serverHost = serverHost;
             _serverPort = serverPort;
+            _execution = Config.GetBool("bloomberg-execution");
 
             if (apiType != ApiType.Desktop)
             {
@@ -146,7 +149,14 @@ namespace QuantConnect.Bloomberg
 
             _orders = new BloombergOrders(_orderFieldDefinitions);
             _orderSubscriptionHandler = new OrderSubscriptionHandler(this, _orderProvider, _orders);
-            SubscribeOrderEvents();
+            if (_execution)
+            {
+                SubscribeOrderEvents();
+            }
+            else
+            {
+                Log.Debug("Not subscribing to order events - execution is disabled.");
+            }
             _isConnected = true;
         }
 
@@ -521,7 +531,14 @@ namespace QuantConnect.Bloomberg
 
             try
             {
-                _sessionEms.SendRequest(request, correlationId);
+                if (_execution)
+                {
+                    _sessionEms.SendRequest(request, correlationId);
+                }
+                else
+                {
+                    Log.Debug($"Order was not sent - execution is disabled [{request}] [{correlationId}]");
+                }
             }
             catch (Exception e)
             {
