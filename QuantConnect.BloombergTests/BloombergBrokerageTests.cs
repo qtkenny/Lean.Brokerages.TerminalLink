@@ -26,7 +26,7 @@ namespace QuantConnect.BloombergTests
         /// <returns>A connected brokerage instance</returns>
         protected override IBrokerage CreateBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider)
         {
-            var apiType = Config.Get("bloomberg-server-side-api", ApiType.Desktop.ToString()).ConvertTo<ApiType>();
+            var apiType = Config.Get("bloomberg-api-type", ApiType.Desktop.ToString()).ConvertTo<ApiType>();
             var environment = Config.Get("bloomberg-environment", Environment.Beta.ToString()).ConvertTo<Environment>();
             var serverHost = Config.Get("bloomberg-server-host", "localhost");
             var serverPort = Config.GetInt("bloomberg-server-host", 8194);

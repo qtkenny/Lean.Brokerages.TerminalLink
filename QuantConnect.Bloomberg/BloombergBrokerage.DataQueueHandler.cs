@@ -103,8 +103,6 @@ namespace QuantConnect.Bloomberg
                         _subscriptionsByTopicName.TryAdd(topicName, symbolSubscriptions);
                     }
 
-                    _symbolsByTopicName.AddOrUpdate(topicName, symbol);
-
                     var tickTypes = SubscriptionManager.DefaultDataTypes()[symbol.SecurityType];
                     foreach (var tickType in tickTypes)
                     {
@@ -115,6 +113,8 @@ namespace QuantConnect.Bloomberg
                         subscriptions.Add(subscription);
 
                         symbolSubscriptions.Add(tickType, subscription, correlationId);
+                        if (!_subscriptionKeysByCorrelationId.TryAdd(correlationId, new BloombergSubscriptionKey(correlationId, symbol, tickType)))
+                            throw new Exception("Duplicate correlation id: " + correlationId);
                     }
                 }
             }
@@ -160,7 +160,7 @@ namespace QuantConnect.Bloomberg
                     return new List<string> { "BID", "ASK", "BID_SIZE", "ASK_SIZE" };
 
                 case TickType.Trade:
-                    return new List<string> { "LAST_PRICE", "LAST_TRADE_SIZE" };
+                    return new List<string> { "LAST_PRICE", "SIZE_LAST_TRADE" };
 
                 case TickType.OpenInterest:
                     return new List<string> { "OPEN_INTEREST" };
@@ -219,27 +219,27 @@ namespace QuantConnect.Bloomberg
                     {
                         //Log.Trace($"BloombergBrokerage.OnBloombergMarketDataEvent(): {message}");
 
-                        BloombergSubscriptions subscriptions;
-                        if (_subscriptionsByTopicName.TryGetValue(message.TopicName, out subscriptions))
+                        foreach (var correlationId in message.CorrelationIDs)
                         {
-                            var tickType = subscriptions.GetTickType(message.CorrelationID);
-
-                            switch (tickType)
+                            if (_subscriptionKeysByCorrelationId.TryGetValue(correlationId, out var key))
                             {
-                                case TickType.Trade:
-                                    EmitTradeTick(subscriptions.Symbol, message);
-                                    break;
-                                case TickType.Quote:
-                                    EmitQuoteTick(subscriptions.Symbol, message);
-                                    break;
-                                case TickType.OpenInterest:
-                                    EmitOpenInterestTick(subscriptions.Symbol, message);
-                                    break;
+                                switch (key.TickType)
+                                {
+                                    case TickType.Trade:
+                                        EmitTradeTick(key.Symbol, message);
+                                        break;
+                                    case TickType.Quote:
+                                        EmitQuoteTick(key.Symbol, message);
+                                        break;
+                                    case TickType.OpenInterest:
+                                        EmitOpenInterestTick(key.Symbol, message);
+                                        break;
+                                }
                             }
-                        }
-                        else
-                        {
-                            Log.Error($"BloombergBrokerage.OnBloombergMarketDataEvent(): TopicName not found: {message.TopicName}");
+                            else
+                            {
+                                Log.Error($"BloombergBrokerage.OnBloombergMarketDataEvent(): TopicName not found: {message.TopicName}");
+                            }
                         }
                     }
 
@@ -272,7 +272,7 @@ namespace QuantConnect.Bloomberg
         private void EmitTradeTick(Symbol symbol, Message message)
         {
             var price = GetBloombergFieldValue<decimal>(message, "LAST_PRICE");
-            var quantity = GetBloombergFieldValue<decimal>(message, "LAST_TRADE_SIZE");
+            var quantity = GetBloombergFieldValue<decimal>(message, "SIZE_LAST_TRADE");
 
             lock (_locker)
             {

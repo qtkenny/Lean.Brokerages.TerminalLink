@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using Bloomberglp.Blpapi;
 using QuantConnect.Brokerages;
+using QuantConnect.Configuration;
 using QuantConnect.Interfaces;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
@@ -25,6 +26,7 @@ namespace QuantConnect.Bloomberg
     {
         private readonly string _serverHost;
         private readonly int _serverPort;
+        private readonly bool _execution;
 
         private readonly SessionOptions _sessionOptions;
         private readonly Session _sessionMarketData;
@@ -37,7 +39,8 @@ namespace QuantConnect.Bloomberg
 
         private long _nextCorrelationId;
         private readonly ConcurrentDictionary<string, BloombergSubscriptions> _subscriptionsByTopicName = new ConcurrentDictionary<string, BloombergSubscriptions>();
-        private readonly ConcurrentDictionary<string, Symbol> _symbolsByTopicName = new ConcurrentDictionary<string, Symbol>();
+        private readonly ConcurrentDictionary<CorrelationID, BloombergSubscriptionKey> _subscriptionKeysByCorrelationId =
+            new ConcurrentDictionary<CorrelationID, BloombergSubscriptionKey>();
         private readonly BloombergSymbolMapper _symbolMapper = new BloombergSymbolMapper();
 
         private readonly SchemaFieldDefinitions _orderFieldDefinitions = new SchemaFieldDefinitions();
@@ -52,6 +55,7 @@ namespace QuantConnect.Bloomberg
         private readonly ManualResetEvent _blotterInitializedEvent = new ManualResetEvent(false);
         private IMessageHandler _orderSubscriptionHandler;
         private BloombergOrders _orders;
+        private bool _isConnected;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BloombergBrokerage"/> class
@@ -65,6 +69,7 @@ namespace QuantConnect.Bloomberg
             Environment = environment;
             _serverHost = serverHost;
             _serverPort = serverPort;
+            _execution = Config.GetBool("bloomberg-execution");
 
             if (apiType != ApiType.Desktop)
             {
@@ -93,6 +98,10 @@ namespace QuantConnect.Bloomberg
 
             Log.Trace($"BloombergBrokerage(): Starting historical data session: {_serverHost}:{_serverPort}:{Environment}.");
             _sessionHistoricalData = new Session(_sessionOptions);
+            if (!_sessionHistoricalData.Start())
+            {
+                throw new Exception("Unable to start historical data session.");
+            }
 
             Log.Trace("BloombergBrokerage(): Opening historical data service.");
             var historicalDataServiceName = GetServiceName(ServiceType.HistoricalData);
@@ -118,7 +127,7 @@ namespace QuantConnect.Bloomberg
         /// <summary>
         /// Returns true if we're currently connected to the broker
         /// </summary>
-        public override bool IsConnected { get; }
+        public override bool IsConnected => _isConnected;
 
         /// <summary>
         /// Connects the client to the broker's remote servers
@@ -145,7 +154,15 @@ namespace QuantConnect.Bloomberg
 
             _orders = new BloombergOrders(_orderFieldDefinitions);
             _orderSubscriptionHandler = new OrderSubscriptionHandler(this, _orderProvider, _orders);
-            SubscribeOrderEvents();
+            if (_execution)
+            {
+                SubscribeOrderEvents();
+            }
+            else
+            {
+                Log.Debug("Not subscribing to order events - execution is disabled.");
+            }
+            _isConnected = true;
         }
 
         /// <summary>
@@ -519,7 +536,14 @@ namespace QuantConnect.Bloomberg
 
             try
             {
-                _sessionEms.SendRequest(request, correlationId);
+                if (_execution)
+                {
+                    _sessionEms.SendRequest(request, correlationId);
+                }
+                else
+                {
+                    Log.Debug($"Order was not sent - execution is disabled [{request}] [{correlationId}]");
+                }
             }
             catch (Exception e)
             {
