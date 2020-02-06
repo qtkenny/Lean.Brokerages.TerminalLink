@@ -1,0 +1,13 @@
+{
+  "Test Equity": {
+    "Underlying": "EQU",
+    "SecurityType": "Equity",
+    "Market": "usa"
+  },
+  "Test Future": {
+    "Underlying": "FUT",
+    "SecurityType": "Future",
+    "Market": "usa",
+    "ExpiryMonthYear": "H0"
+  }
+}

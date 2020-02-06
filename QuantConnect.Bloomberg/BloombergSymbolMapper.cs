@@ -4,8 +4,13 @@
 */
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Linq;
+using Newtonsoft.Json;
 using QuantConnect.Brokerages;
+using QuantConnect.Securities.Future;
 using static QuantConnect.StringExtensions;
 
 namespace QuantConnect.Bloomberg
@@ -15,6 +20,52 @@ namespace QuantConnect.Bloomberg
     /// </summary>
     public class BloombergSymbolMapper : ISymbolMapper
     {
+        // Manual mapping of Bloomberg tickers to Lean symbols
+        private readonly Dictionary<string, Symbol> _mapBloombergToLean = new Dictionary<string, Symbol>();
+
+        // Manual mapping of Lean symbols back to Bloomberg tickets
+        private readonly Dictionary<Symbol, string> _mapLeanToBloomberg = new Dictionary<Symbol, string>();
+
+        public BloombergSymbolMapper() : this("bloomberg-symbol-map.json") { }
+
+        /// <summary>
+        /// Constructs BloombergSymbolMapper
+        /// </summary>
+        /// <param name="bbNameMapFullName">Full file name of the map file</param>
+        public BloombergSymbolMapper(string bbNameMapFullName)
+        {
+            if (!File.Exists(bbNameMapFullName)) return;
+
+            var data = JsonConvert.DeserializeObject<Dictionary<string, BloombergSymbol>>(File.ReadAllText(bbNameMapFullName));
+            _mapBloombergToLean = new Dictionary<string, Symbol>(data.Count);
+            _mapLeanToBloomberg = new Dictionary<Symbol, string>(data.Count);
+            foreach (var entry in data.Where(entry => !string.IsNullOrWhiteSpace(entry.Key)))
+            {
+                if (_mapBloombergToLean.ContainsKey(entry.Key))
+                {
+                    throw new Exception("Key is not unique: " + entry.Key);
+                }
+
+                Symbol symbol;
+                switch (entry.Value.SecurityType)
+                {
+                    case SecurityType.Equity:
+                        symbol = Symbol.Create(entry.Value.Underlying, SecurityType.Equity, entry.Value.Market, entry.Value.Alias);
+                        break;
+                    case SecurityType.Future:
+                        var properties = SymbolRepresentation.ParseFutureTicker(entry.Value.Underlying + entry.Value.ExpiryMonthYear);
+                        var expiryFunc = FuturesExpiryFunctions.FuturesExpiryFunction(entry.Value.Underlying);
+                        var expiryDate = expiryFunc(new DateTime(2000 + properties.ExpirationYearShort, properties.ExpirationMonth, properties.ExpirationDay));
+                        symbol = Symbol.CreateFuture(entry.Value.Underlying, entry.Value.Market, expiryDate);
+                        break;
+                    default: throw new ArgumentOutOfRangeException(nameof(entry.Value.SecurityType), entry.Value.SecurityType, "Unsupported type: " + entry.Value.SecurityType);
+                }
+
+                _mapBloombergToLean.Add(entry.Key, symbol);
+                _mapLeanToBloomberg.Add(symbol, entry.Key);
+            }
+        }
+
         /// <summary>
         /// Converts a Lean symbol instance to a Bloomberg symbol
         /// </summary>
@@ -59,6 +110,11 @@ namespace QuantConnect.Bloomberg
             if (string.IsNullOrWhiteSpace(brokerageSymbol))
                 throw new ArgumentException("Invalid brokerage symbol: " + brokerageSymbol);
 
+            if (_mapBloombergToLean.TryGetValue(brokerageSymbol, out var leanSymbol))
+            {
+                return leanSymbol;
+            }
+
             var parts = brokerageSymbol.Split(' ');
 
             var securityType = GetLeanSecurityType(parts);
@@ -97,6 +153,11 @@ namespace QuantConnect.Bloomberg
 
         private string GetBloombergTopicName(Symbol symbol)
         {
+            if (_mapLeanToBloomberg.TryGetValue(symbol, out var ticker))
+            {
+                return ticker;
+            }
+
             var topicName = GetBloombergSymbol(symbol);
 
             var bloombergMarket = GetBloombergMarket(symbol.ID.Market, symbol.SecurityType);

@@ -1,0 +1,9 @@
+/* This is a manually created file that contains mappings from Bloomberg's own naming to original symbols defined by respective exchanges. */
+{
+  // Example:
+  /*"SPY US Equity": {
+    "Underlying": "SPY",
+    "SecurityType": "Equity",
+    "Market": "usa"
+  }*/
+}
