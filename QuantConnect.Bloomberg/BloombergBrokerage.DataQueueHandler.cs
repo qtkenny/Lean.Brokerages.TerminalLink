@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Threading;
 using Bloomberglp.Blpapi;
 using QuantConnect.Data;
@@ -194,17 +196,21 @@ namespace QuantConnect.Bloomberg
                 case Event.EventType.SUBSCRIPTION_STATUS:
                     foreach (var message in eventObj.GetMessages())
                     {
-                        if (message.MessageType.ToString() == "SubscriptionStarted")
+                        var prefix = $"BloombergBrokerage.OnBloombergMarketDataEvent(): [{message.TopicName}] ";
+                        switch (message.MessageType.ToString())
                         {
-                            Log.Trace($"BloombergBrokerage.OnBloombergMarketDataEvent(): [{message.TopicName}] subscription started");
-                        }
-                        else if (message.MessageType.ToString() == "SubscriptionTerminated")
-                        {
-                            Log.Trace($"BloombergBrokerage.OnBloombergMarketDataEvent(): [{message.TopicName}] subscription terminated");
-                        }
-                        else
-                        {
-                            Log.Trace(message.ToString());
+                            case "SubscriptionStarted":
+                                Log.Trace(prefix + "subscription started");
+                                break;
+                            case "SubscriptionTerminated":
+                                Log.Trace(prefix + "subscription terminated");
+                                break;
+                            case "SubscriptionFailure":
+                                Log.Error($"{prefix}subscription failed: {DescribeCorrelationIds(message.CorrelationIDs)}");
+                                break;
+                            default:
+                                Log.Trace(message.ToString());
+                                break;
                         }
                     }
 
@@ -219,6 +225,7 @@ namespace QuantConnect.Bloomberg
                         {
                             if (_subscriptionKeysByCorrelationId.TryGetValue(correlationId, out var key))
                             {
+                                Log.Trace("BloombergBrokerage.OnBloombergMarketDataEvent(): subscription data: " + DescribeCorrelationId(correlationId, key));
                                 switch (key.TickType)
                                 {
                                     case TickType.Trade:
@@ -234,7 +241,7 @@ namespace QuantConnect.Bloomberg
                             }
                             else
                             {
-                                Log.Error($"BloombergBrokerage.OnBloombergMarketDataEvent(): TopicName not found: {message.TopicName}");
+                                Log.Error($"BloombergBrokerage.OnBloombergMarketDataEvent(): Correlation Id not found: {correlationId} [message topic:{message.TopicName}]");
                             }
                         }
                     }
@@ -249,6 +256,29 @@ namespace QuantConnect.Bloomberg
 
                     break;
             }
+        }
+
+        private string DescribeCorrelationIds(IEnumerable<CorrelationID> correlationIds)
+        {
+            return correlationIds?.Aggregate(new StringBuilder(), (s, id) =>
+                {
+                    if (s.Length > 0)
+                    {
+                        s.Append(',');
+                    }
+
+                    _subscriptionKeysByCorrelationId.TryGetValue(id, out var key);
+                    return s.Append(DescribeCorrelationId(id, key));
+                })
+                .ToString();
+        }
+
+        private string DescribeCorrelationId(CorrelationID id, BloombergSubscriptionKey key)
+        {
+            if (key == null) return "UnknownCorrelationId:" + id.Value;
+
+            var bbgTicker = _symbolMapper.GetBrokerageSymbol(key.Symbol);
+            return $"bbg:{bbgTicker}|lean:{key.Symbol.Value}|tick:{key.TickType}";
         }
 
         private T GetBloombergFieldValue<T>(Message message, string field) where T : new()
