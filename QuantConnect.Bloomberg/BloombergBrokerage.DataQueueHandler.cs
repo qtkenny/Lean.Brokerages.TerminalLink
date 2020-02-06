@@ -96,12 +96,8 @@ namespace QuantConnect.Bloomberg
                 {
                     var topicName = _symbolMapper.GetBrokerageSymbol(symbol);
 
-                    BloombergSubscriptions symbolSubscriptions;
-                    if (!_subscriptionsByTopicName.TryGetValue(topicName, out symbolSubscriptions))
-                    {
-                        symbolSubscriptions = new BloombergSubscriptions(symbol);
-                        _subscriptionsByTopicName.TryAdd(topicName, symbolSubscriptions);
-                    }
+                    var symbolSubscriptions = new BloombergSubscriptions(symbol);
+                    if (!_subscriptionsByTopicName.TryAdd(topicName, symbolSubscriptions)) continue;
 
                     var tickTypes = SubscriptionManager.DefaultDataTypes()[symbol.SecurityType];
                     foreach (var tickType in tickTypes)
