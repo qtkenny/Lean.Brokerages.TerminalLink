@@ -157,13 +157,13 @@ namespace QuantConnect.Bloomberg
             switch (tickType)
             {
                 case TickType.Quote:
-                    return new List<string> { "BID", "ASK", "BID_SIZE", "ASK_SIZE" };
+                    return new List<string> { BloombergFieldNames.Bid, BloombergFieldNames.Ask, BloombergFieldNames.BidSize, BloombergFieldNames.AskSize };
 
                 case TickType.Trade:
-                    return new List<string> { "LAST_PRICE", "SIZE_LAST_TRADE" };
+                    return new List<string> { BloombergFieldNames.LastPrice, BloombergFieldNames.LastTradeSize };
 
                 case TickType.OpenInterest:
-                    return new List<string> { "OPEN_INTEREST" };
+                    return new List<string> { BloombergFieldNames.OpenInterest };
 
                 default:
                     throw new NotSupportedException($"Unsupported tick type: {tickType}");
@@ -271,8 +271,8 @@ namespace QuantConnect.Bloomberg
 
         private void EmitTradeTick(Symbol symbol, Message message)
         {
-            var price = GetBloombergFieldValue<decimal>(message, "LAST_PRICE");
-            var quantity = GetBloombergFieldValue<decimal>(message, "SIZE_LAST_TRADE");
+            var price = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.LastPrice);
+            var quantity = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.LastTradeSize);
 
             lock (_locker)
             {
@@ -289,10 +289,10 @@ namespace QuantConnect.Bloomberg
 
         private void EmitQuoteTick(Symbol symbol, Message message)
         {
-            var bidPrice = GetBloombergFieldValue<decimal>(message, "BID");
-            var askPrice = GetBloombergFieldValue<decimal>(message, "ASK");
-            var bidSize = GetBloombergFieldValue<decimal>(message, "BID_SIZE");
-            var askSize = GetBloombergFieldValue<decimal>(message, "ASK_SIZE");
+            var bidPrice = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.Bid);
+            var askPrice = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.Ask);
+            var bidSize = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.BidSize);
+            var askSize = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.AskSize);
 
             lock (_locker)
             {
@@ -311,7 +311,7 @@ namespace QuantConnect.Bloomberg
 
         private void EmitOpenInterestTick(Symbol symbol, Message message)
         {
-            var openInterest = GetBloombergFieldValue<decimal>(message, "OPEN_INTEREST");
+            var openInterest = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.OpenInterest);
 
             lock (_locker)
             {
