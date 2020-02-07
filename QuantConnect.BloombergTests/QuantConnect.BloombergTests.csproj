@@ -65,6 +65,7 @@
     <Compile Include="BloombergSymbolMapperTests.cs" />
     <Compile Include="BloombergSymbolTests.cs" />
     <Compile Include="BloombergTests.cs" />
+    <Compile Include="BloombergDataQueueUniverseProviderTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

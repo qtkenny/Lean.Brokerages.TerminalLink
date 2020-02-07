@@ -173,7 +173,7 @@ namespace QuantConnect.Bloomberg
 
         private IEnumerable<BaseData> GetHistoricalData(HistoryRequest historyRequest)
         {
-            var request = _serviceHistoricalData.CreateRequest("HistoricalDataRequest");
+            var request = _serviceReferenceData.CreateRequest("HistoricalDataRequest");
 
             var startDate = historyRequest.StartTimeUtc
                 .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone).Date;
@@ -194,13 +194,13 @@ namespace QuantConnect.Bloomberg
             request.Set("endDate", endDate.ToString("yyyyMMdd"));
 
             var correlationId = GetNewCorrelationId();
-            _sessionHistoricalData.SendRequest(request, correlationId);
+            _sessionReferenceData.SendRequest(request, correlationId);
 
             // TODO: with real API - use reset event to wait for async responses received in OnBloombergEvent
 
             while (true)
             {
-                var eventObj = _sessionHistoricalData.NextEvent();
+                var eventObj = _sessionReferenceData.NextEvent();
                 foreach (var msg in eventObj)
                 {
                     if (Equals(msg.CorrelationID, correlationId))
@@ -251,7 +251,7 @@ namespace QuantConnect.Bloomberg
 
         private IEnumerable<TradeBar> GetIntradayBarData(HistoryRequest historyRequest, string eventType)
         {
-            var request = _serviceHistoricalData.CreateRequest("IntradayBarRequest");
+            var request = _serviceReferenceData.CreateRequest("IntradayBarRequest");
 
             var period = historyRequest.Resolution.ToTimeSpan();
 
@@ -268,13 +268,13 @@ namespace QuantConnect.Bloomberg
             request.Set("endDateTime", new Datetime(endDateTime.RoundDown(period)));
 
             var correlationId = GetNewCorrelationId();
-            _sessionHistoricalData.SendRequest(request, correlationId);
+            _sessionReferenceData.SendRequest(request, correlationId);
 
             // TODO: with real API - use reset event to wait for async responses received in OnBloombergEvent
 
             while (true)
             {
-                var eventObj = _sessionHistoricalData.NextEvent();
+                var eventObj = _sessionReferenceData.NextEvent();
                 foreach (var msg in eventObj)
                 {
                     if (Equals(msg.CorrelationID, correlationId))
@@ -313,7 +313,7 @@ namespace QuantConnect.Bloomberg
 
         private IEnumerable<Tick> GetIntradayTickData(HistoryRequest historyRequest)
         {
-            var request = _serviceHistoricalData.CreateRequest("IntradayTickRequest");
+            var request = _serviceReferenceData.CreateRequest("IntradayTickRequest");
 
             var startDateTime = historyRequest.StartTimeUtc
                 .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone);
@@ -341,13 +341,13 @@ namespace QuantConnect.Bloomberg
             request.Set("includeConditionCodes", true);
 
             var correlationId = GetNewCorrelationId();
-            _sessionHistoricalData.SendRequest(request, correlationId);
+            _sessionReferenceData.SendRequest(request, correlationId);
 
             // TODO: with real API - use reset event to wait for async responses received in OnBloombergEvent
 
             while (true)
             {
-                var eventObj = _sessionHistoricalData.NextEvent();
+                var eventObj = _sessionReferenceData.NextEvent();
                 foreach (var msg in eventObj)
                 {
                     if (Equals(msg.CorrelationID, correlationId))

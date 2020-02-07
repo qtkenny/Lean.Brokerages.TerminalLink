@@ -76,6 +76,21 @@ namespace QuantConnect.Bloomberg
             if (symbol == null || string.IsNullOrWhiteSpace(symbol.Value))
                 throw new ArgumentException("Invalid symbol: " + (symbol == null ? "null" : symbol.ToString()));
 
+            if (symbol.IsCanonical())
+            {
+                switch (symbol.SecurityType)
+                {
+                    case SecurityType.Option:
+                        return GetBloombergTopicName(symbol.Underlying);
+
+                    case SecurityType.Future:
+                        return GetBloombergTopicName(symbol);
+
+                    default:
+                        throw new ArgumentException($"Invalid security type for canonical symbol: {symbol.SecurityType}");
+                }
+            }
+
             return GetBloombergTopicName(symbol);
         }
 

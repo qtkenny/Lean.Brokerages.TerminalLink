@@ -31,8 +31,8 @@ namespace QuantConnect.Bloomberg
         private readonly SessionOptions _sessionOptions;
         private readonly Session _sessionMarketData;
 
-        private readonly Session _sessionHistoricalData;
-        private readonly Service _serviceHistoricalData;
+        private readonly Session _sessionReferenceData;
+        private readonly Service _serviceReferenceData;
 
         private Session _sessionEms;
         private Service _serviceEms;
@@ -96,20 +96,20 @@ namespace QuantConnect.Bloomberg
                 throw new Exception("Unable to open market data service.");
             }
 
-            Log.Trace($"BloombergBrokerage(): Starting historical data session: {_serverHost}:{_serverPort}:{Environment}.");
-            _sessionHistoricalData = new Session(_sessionOptions);
-            if (!_sessionHistoricalData.Start())
+            Log.Trace($"BloombergBrokerage(): Starting reference data session: {_serverHost}:{_serverPort}:{Environment}.");
+            _sessionReferenceData = new Session(_sessionOptions);
+            if (!_sessionReferenceData.Start())
             {
-                throw new Exception("Unable to start historical data session.");
+                throw new Exception("Unable to start reference data session.");
             }
 
-            Log.Trace("BloombergBrokerage(): Opening historical data service.");
-            var historicalDataServiceName = GetServiceName(ServiceType.HistoricalData);
-            if (!_sessionHistoricalData.OpenService(historicalDataServiceName))
+            Log.Trace("BloombergBrokerage(): Opening reference data service.");
+            var referenceDataServiceName = GetServiceName(ServiceType.ReferenceData);
+            if (!_sessionReferenceData.OpenService(referenceDataServiceName))
             {
-                throw new Exception("Unable to open historical data service.");
+                throw new Exception("Unable to open reference data service.");
             }
-            _serviceHistoricalData = _sessionHistoricalData.GetService(historicalDataServiceName);
+            _serviceReferenceData = _sessionReferenceData.GetService(referenceDataServiceName);
         }
 
         /// <summary>
@@ -283,7 +283,7 @@ namespace QuantConnect.Bloomberg
         public override void Dispose()
         {
             _sessionMarketData?.Stop();
-            _sessionHistoricalData?.Stop();
+            _sessionReferenceData?.Stop();
             _sessionEms?.Stop();
         }
 
@@ -296,7 +296,7 @@ namespace QuantConnect.Bloomberg
                 case ServiceType.MarketData:
                     return "//blp/mktdata";
 
-                case ServiceType.HistoricalData:
+                case ServiceType.ReferenceData:
                     return "//blp/refdata";
 
                 case ServiceType.Ems:

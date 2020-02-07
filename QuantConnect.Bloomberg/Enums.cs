@@ -53,9 +53,9 @@ namespace QuantConnect.Bloomberg
         MarketData,
 
         /// <summary>
-        /// The historical data service
+        /// The reference data service
         /// </summary>
-        HistoricalData,
+        ReferenceData,
 
         /// <summary>
         /// The EMS service
