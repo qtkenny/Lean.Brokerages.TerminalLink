@@ -63,11 +63,15 @@
   <ItemGroup>
     <Compile Include="BloombergBrokerageTests.cs" />
     <Compile Include="BloombergSymbolMapperTests.cs" />
+    <Compile Include="BloombergSymbolTests.cs" />
     <Compile Include="BloombergTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
+    <None Include="bloomberg-symbol-map-tests.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

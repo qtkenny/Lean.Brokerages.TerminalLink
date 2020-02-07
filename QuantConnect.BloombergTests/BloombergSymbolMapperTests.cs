@@ -4,6 +4,7 @@
 */
 
 using System;
+using System.IO;
 using NUnit.Framework;
 using QuantConnect.Bloomberg;
 
@@ -12,6 +13,33 @@ namespace QuantConnect.BloombergTests
     [TestFixture]
     public class BloombergSymbolMapperTests
     {
+        private const string TestFileName = "bloomberg-symbol-map-tests.json";
+
+        [Test]
+        public void Can_Provide_Mapping_File()
+        {
+            if (!File.Exists(TestFileName))
+            {
+                throw new FileNotFoundException("Unable to find test file", TestFileName);
+            }
+
+            var underTest = new BloombergSymbolMapper("bloomberg-symbol-map-tests.json");
+
+            const string equityTicker = "Test Equity";
+            var equity = underTest.GetLeanSymbol(equityTicker);
+            Assert.AreEqual(SecurityType.Equity, equity.ID.SecurityType);
+            Assert.AreEqual(Market.USA, equity.ID.Market);
+            Assert.AreEqual("EQU", equity.Value);
+            Assert.AreEqual(equityTicker, underTest.GetBrokerageSymbol(equity));
+
+            const string futureTicker = "Test Future";
+            var future = underTest.GetLeanSymbol(futureTicker);
+            Assert.AreEqual(SecurityType.Future, future.ID.SecurityType);
+            Assert.AreEqual(Market.USA, future.ID.Market);
+            Assert.AreEqual("FUT01H0", future.Value);
+            Assert.AreEqual(futureTicker, underTest.GetBrokerageSymbol(future));
+        }
+
         [Test]
         public void ThrowsOnNullOrEmptySymbol()
         {

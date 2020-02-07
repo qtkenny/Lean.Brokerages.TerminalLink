@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Threading;
 using Bloomberglp.Blpapi;
 using QuantConnect.Data;
@@ -96,12 +98,8 @@ namespace QuantConnect.Bloomberg
                 {
                     var topicName = _symbolMapper.GetBrokerageSymbol(symbol);
 
-                    BloombergSubscriptions symbolSubscriptions;
-                    if (!_subscriptionsByTopicName.TryGetValue(topicName, out symbolSubscriptions))
-                    {
-                        symbolSubscriptions = new BloombergSubscriptions(symbol);
-                        _subscriptionsByTopicName.TryAdd(topicName, symbolSubscriptions);
-                    }
+                    var symbolSubscriptions = new BloombergSubscriptions(symbol);
+                    if (!_subscriptionsByTopicName.TryAdd(topicName, symbolSubscriptions)) continue;
 
                     var tickTypes = SubscriptionManager.DefaultDataTypes()[symbol.SecurityType];
                     foreach (var tickType in tickTypes)
@@ -157,13 +155,13 @@ namespace QuantConnect.Bloomberg
             switch (tickType)
             {
                 case TickType.Quote:
-                    return new List<string> { "BID", "ASK", "BID_SIZE", "ASK_SIZE" };
+                    return new List<string> { BloombergFieldNames.Bid, BloombergFieldNames.Ask, BloombergFieldNames.BidSize, BloombergFieldNames.AskSize };
 
                 case TickType.Trade:
-                    return new List<string> { "LAST_PRICE", "SIZE_LAST_TRADE" };
+                    return new List<string> { BloombergFieldNames.LastPrice, BloombergFieldNames.LastTradeSize };
 
                 case TickType.OpenInterest:
-                    return new List<string> { "OPEN_INTEREST" };
+                    return new List<string> { BloombergFieldNames.OpenInterest };
 
                 default:
                     throw new NotSupportedException($"Unsupported tick type: {tickType}");
@@ -198,17 +196,21 @@ namespace QuantConnect.Bloomberg
                 case Event.EventType.SUBSCRIPTION_STATUS:
                     foreach (var message in eventObj.GetMessages())
                     {
-                        if (message.MessageType.ToString() == "SubscriptionStarted")
+                        var prefix = $"BloombergBrokerage.OnBloombergMarketDataEvent(): [{message.TopicName}] ";
+                        switch (message.MessageType.ToString())
                         {
-                            Log.Trace($"BloombergBrokerage.OnBloombergMarketDataEvent(): [{message.TopicName}] subscription started");
-                        }
-                        else if (message.MessageType.ToString() == "SubscriptionTerminated")
-                        {
-                            Log.Trace($"BloombergBrokerage.OnBloombergMarketDataEvent(): [{message.TopicName}] subscription terminated");
-                        }
-                        else
-                        {
-                            Log.Trace(message.ToString());
+                            case "SubscriptionStarted":
+                                Log.Trace(prefix + "subscription started");
+                                break;
+                            case "SubscriptionTerminated":
+                                Log.Trace(prefix + "subscription terminated");
+                                break;
+                            case "SubscriptionFailure":
+                                Log.Error($"{prefix}subscription failed: {DescribeCorrelationIds(message.CorrelationIDs)}");
+                                break;
+                            default:
+                                Log.Trace(message.ToString());
+                                break;
                         }
                     }
 
@@ -223,6 +225,7 @@ namespace QuantConnect.Bloomberg
                         {
                             if (_subscriptionKeysByCorrelationId.TryGetValue(correlationId, out var key))
                             {
+                                Log.Trace("BloombergBrokerage.OnBloombergMarketDataEvent(): subscription data: " + DescribeCorrelationId(correlationId, key));
                                 switch (key.TickType)
                                 {
                                     case TickType.Trade:
@@ -238,7 +241,7 @@ namespace QuantConnect.Bloomberg
                             }
                             else
                             {
-                                Log.Error($"BloombergBrokerage.OnBloombergMarketDataEvent(): TopicName not found: {message.TopicName}");
+                                Log.Error($"BloombergBrokerage.OnBloombergMarketDataEvent(): Correlation Id not found: {correlationId} [message topic:{message.TopicName}]");
                             }
                         }
                     }
@@ -253,6 +256,29 @@ namespace QuantConnect.Bloomberg
 
                     break;
             }
+        }
+
+        private string DescribeCorrelationIds(IEnumerable<CorrelationID> correlationIds)
+        {
+            return correlationIds?.Aggregate(new StringBuilder(), (s, id) =>
+                {
+                    if (s.Length > 0)
+                    {
+                        s.Append(',');
+                    }
+
+                    _subscriptionKeysByCorrelationId.TryGetValue(id, out var key);
+                    return s.Append(DescribeCorrelationId(id, key));
+                })
+                .ToString();
+        }
+
+        private string DescribeCorrelationId(CorrelationID id, BloombergSubscriptionKey key)
+        {
+            if (key == null) return "UnknownCorrelationId:" + id.Value;
+
+            var bbgTicker = _symbolMapper.GetBrokerageSymbol(key.Symbol);
+            return $"bbg:{bbgTicker}|lean:{key.Symbol.Value}|tick:{key.TickType}";
         }
 
         private T GetBloombergFieldValue<T>(Message message, string field) where T : new()
@@ -271,8 +297,8 @@ namespace QuantConnect.Bloomberg
 
         private void EmitTradeTick(Symbol symbol, Message message)
         {
-            var price = GetBloombergFieldValue<decimal>(message, "LAST_PRICE");
-            var quantity = GetBloombergFieldValue<decimal>(message, "SIZE_LAST_TRADE");
+            var price = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.LastPrice);
+            var quantity = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.LastTradeSize);
 
             lock (_locker)
             {
@@ -289,10 +315,10 @@ namespace QuantConnect.Bloomberg
 
         private void EmitQuoteTick(Symbol symbol, Message message)
         {
-            var bidPrice = GetBloombergFieldValue<decimal>(message, "BID");
-            var askPrice = GetBloombergFieldValue<decimal>(message, "ASK");
-            var bidSize = GetBloombergFieldValue<decimal>(message, "BID_SIZE");
-            var askSize = GetBloombergFieldValue<decimal>(message, "ASK_SIZE");
+            var bidPrice = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.Bid);
+            var askPrice = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.Ask);
+            var bidSize = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.BidSize);
+            var askSize = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.AskSize);
 
             lock (_locker)
             {
@@ -311,7 +337,7 @@ namespace QuantConnect.Bloomberg
 
         private void EmitOpenInterestTick(Symbol symbol, Message message)
         {
-            var openInterest = GetBloombergFieldValue<decimal>(message, "OPEN_INTEREST");
+            var openInterest = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.OpenInterest);
 
             lock (_locker)
             {
