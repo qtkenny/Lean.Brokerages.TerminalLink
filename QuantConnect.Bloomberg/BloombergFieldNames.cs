@@ -12,5 +12,6 @@
         public const string BidSize = "BID_SIZE";
         public const string Ask = "ASK";
         public const string AskSize = "ASK_SIZE";
+        public const string FuturesChain = "FUT_CHAIN";
     }
 }

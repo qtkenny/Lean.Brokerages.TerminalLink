@@ -65,7 +65,7 @@ namespace QuantConnect.Bloomberg
 
             request.Append("securities", ticker);
 
-            request.Append("fields", "CHAIN_TICKERS");
+            request.Append("fields", BloombergFieldNames.FuturesChain);
 
             var overrides = request.GetElement("overrides");
 
@@ -87,19 +87,29 @@ namespace QuantConnect.Bloomberg
             while (true)
             {
                 var eventObj = _sessionReferenceData.NextEvent();
-                foreach (var msg in eventObj)
+                foreach (var msg in eventObj.Where(m => Equals(m.CorrelationID, correlationId)))
                 {
-                    if (Equals(msg.CorrelationID, correlationId))
+                    // Security data is an array.
+                    var securityData = msg.AsElement["securityData"];
+                    for (var i = 0; i < securityData.NumValues; i++)
                     {
-                        var fieldData = msg.AsElement["securityData"]["fieldData"];
-
-                        if (fieldData.HasElement("CHAIN_TICKERS", true))
+                        var securityItem = (Element) securityData.GetValue(i);
+                        if (securityItem.HasElement("securityError"))
                         {
-                            var chainTickers = fieldData.GetElement("CHAIN_TICKERS");
+                            var error = securityItem["securityError"];
+                            var message = error["message"];
+                            Log.Error($"Unable to obtain chain for '{ticker}': {message}");
+                            yield break;
+                        }
+
+                        var fieldData = securityItem["fieldData"];
+                        if (fieldData.HasElement(BloombergFieldNames.FuturesChain, true))
+                        {
+                            var chainTickers = fieldData.GetElement(BloombergFieldNames.FuturesChain);
                             for (var index = 0; index < chainTickers.NumValues; index++)
                             {
                                 var chainTicker = chainTickers.GetValueAsElement(index);
-                                var contractTicker = chainTicker.GetElementAsString("Ticker");
+                                var contractTicker = chainTicker.GetElementAsString("Security Description");
 
                                 var contractSymbol = _symbolMapper.GetLeanSymbol(contractTicker);
 
