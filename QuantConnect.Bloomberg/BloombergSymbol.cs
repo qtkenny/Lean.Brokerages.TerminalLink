@@ -1,5 +1,4 @@
-﻿using System.Runtime.Serialization;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 
 namespace QuantConnect.Bloomberg
 {
@@ -35,30 +34,10 @@ namespace QuantConnect.Bloomberg
         #region Futures
 
         /// <summary>
-        ///     Expiry details of the future.
+        /// Expiry details of the future (optional).
         /// </summary>
         public string ExpiryMonthYear { get; set; }
 
         #endregion
-
-        /// <summary>
-        ///     Will be called after <see cref="BloombergSymbol" /> has been deserialized.
-        /// </summary>
-        /// <param name="_"></param>
-        [OnDeserialized]
-        public void OnDeserialized(StreamingContext _)
-        {
-            switch (SecurityType)
-            {
-                // Validate futures
-                case SecurityType.Future:
-                    if (string.IsNullOrWhiteSpace(ExpiryMonthYear))
-                    {
-                        throw new SerializationException($"{nameof(ExpiryMonthYear)} must not be blank for futures [underlying:{Underlying}]");
-                    }
-
-                    break;
-            }
-        }
     }
 }

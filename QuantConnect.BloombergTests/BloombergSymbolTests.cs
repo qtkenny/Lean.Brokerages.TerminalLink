@@ -27,23 +27,6 @@ namespace QuantConnect.BloombergTests
             Assert.AreEqual(_underTest.Alias, actual.Alias);
         }
 
-        [Test]
-        public void Futures_Must_Provide_Required_Fields()
-        {
-            _underTest.SecurityType = SecurityType.Future;
-            _underTest.ExpiryMonthYear = null;
-            var json = Serialize(_underTest);
-            try
-            {
-                Deserialize(json);
-                Assert.Fail("Should have thrown an exception.");
-            }
-            catch (Exception e)
-            {
-                Assert.That(e.GetBaseException(), Is.TypeOf<SerializationException>().And.Message.ContainsSubstring(nameof(BloombergSymbol.ExpiryMonthYear)));
-            }
-        }
-
         private static string Serialize(BloombergSymbol symbol)
         {
             using (var writer = new StringWriter())

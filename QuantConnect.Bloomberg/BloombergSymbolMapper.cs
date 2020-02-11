@@ -53,10 +53,17 @@ namespace QuantConnect.Bloomberg
                         symbol = Symbol.Create(entry.Value.Underlying, SecurityType.Equity, entry.Value.Market, entry.Value.Alias);
                         break;
                     case SecurityType.Future:
-                        var properties = SymbolRepresentation.ParseFutureTicker(entry.Value.Underlying + entry.Value.ExpiryMonthYear);
-                        var expiryFunc = FuturesExpiryFunctions.FuturesExpiryFunction(entry.Value.Underlying);
-                        var expiryDate = expiryFunc(new DateTime(2000 + properties.ExpirationYearShort, properties.ExpirationMonth, properties.ExpirationDay));
-                        symbol = Symbol.CreateFuture(entry.Value.Underlying, entry.Value.Market, expiryDate);
+                        if (string.IsNullOrWhiteSpace(entry.Value.ExpiryMonthYear))
+                        {
+                            symbol = Symbol.Create(entry.Value.Underlying, SecurityType.Future, entry.Value.Market, entry.Value.Alias);
+                        }
+                        else
+                        {
+                            var properties = SymbolRepresentation.ParseFutureTicker(entry.Value.Underlying + entry.Value.ExpiryMonthYear);
+                            var expiryFunc = FuturesExpiryFunctions.FuturesExpiryFunction(entry.Value.Underlying);
+                            var expiryDate = expiryFunc(new DateTime(2000 + properties.ExpirationYearShort, properties.ExpirationMonth, properties.ExpirationDay));
+                            symbol = Symbol.CreateFuture(entry.Value.Underlying, entry.Value.Market, expiryDate);
+                        }
                         break;
                     default: throw new ArgumentOutOfRangeException(nameof(entry.Value.SecurityType), entry.Value.SecurityType, "Unsupported type: " + entry.Value.SecurityType);
                 }
