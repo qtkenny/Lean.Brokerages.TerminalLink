@@ -1,6 +1,9 @@
-﻿using System;
+﻿/*
+* QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
+* Lean Algorithmic Trading Engine v2.2 Copyright 2015 QuantConnect Corporation.
+*/
+
 using System.IO;
-using System.Runtime.Serialization;
 using Newtonsoft.Json;
 using NUnit.Framework;
 using QuantConnect.Bloomberg;

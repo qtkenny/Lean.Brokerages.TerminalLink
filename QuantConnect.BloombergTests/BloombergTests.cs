@@ -9,7 +9,6 @@ using System.Linq;
 using System.Threading;
 using NodaTime;
 using NUnit.Framework;
-using QuantConnect.Bloomberg;
 using QuantConnect.Data;
 using QuantConnect.Data.Auxiliary;
 using QuantConnect.Data.Market;
@@ -31,13 +30,13 @@ namespace QuantConnect.BloombergTests
         [Test]
         public void ClientConnects()
         {
-            using (CreateBrokerage()) { }
+            using (BloombergCommon.CreateBrokerage()) { }
         }
 
         [Test]
         public void SubscribesToMultipleSymbols()
         {
-            using (var bb = CreateBrokerage())
+            using (var bb = BloombergCommon.CreateBrokerage())
             {
                 var symbols = new List<Symbol>
                 {
@@ -66,7 +65,7 @@ namespace QuantConnect.BloombergTests
             var mapFileProvider = new LocalDiskMapFileProvider();
             var factorFileProvider = new LocalDiskFactorFileProvider(mapFileProvider);
 
-            using (var brokerage = CreateBrokerage())
+            using (var brokerage = BloombergCommon.CreateBrokerage())
             {
                 var historyProvider = new BrokerageHistoryProvider();
 
@@ -457,11 +456,6 @@ namespace QuantConnect.BloombergTests
                 },
 
             }.Select(x => new TestCaseData(x).SetName(x.Name)).ToArray();
-        }
-
-        private BloombergBrokerage CreateBrokerage()
-        {
-            return new BloombergBrokerage(null, ApiType.Desktop, Bloomberg.Environment.Beta, "localhost", 8194);
         }
     }
 }

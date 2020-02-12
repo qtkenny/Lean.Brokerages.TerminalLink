@@ -6,14 +6,11 @@
 using System;
 using System.Linq;
 using NUnit.Framework;
-using QuantConnect.Bloomberg;
-using QuantConnect.Configuration;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;
 using QuantConnect.Interfaces;
 using QuantConnect.Securities;
 using QuantConnect.Tests.Brokerages;
-using Environment = QuantConnect.Bloomberg.Environment;
 
 namespace QuantConnect.BloombergTests
 {
@@ -26,12 +23,7 @@ namespace QuantConnect.BloombergTests
         /// <returns>A connected brokerage instance</returns>
         protected override IBrokerage CreateBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider)
         {
-            var apiType = Config.Get("bloomberg-api-type", ApiType.Desktop.ToString()).ConvertTo<ApiType>();
-            var environment = Config.Get("bloomberg-environment", Environment.Beta.ToString()).ConvertTo<Environment>();
-            var serverHost = Config.Get("bloomberg-server-host", "localhost");
-            var serverPort = Config.GetInt("bloomberg-server-host", 8194);
-
-            return new BloombergBrokerage(orderProvider, apiType, environment, serverHost, serverPort);
+            return BloombergCommon.CreateBrokerage(orderProvider, securityProvider);
         }
 
         /// <summary>

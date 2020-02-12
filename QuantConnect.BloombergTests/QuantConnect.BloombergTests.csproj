@@ -61,6 +61,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BloombergCommon.cs" />
     <Compile Include="BloombergBrokerageTests.cs" />
     <Compile Include="BloombergSymbolMapperTests.cs" />
     <Compile Include="BloombergSymbolTests.cs" />

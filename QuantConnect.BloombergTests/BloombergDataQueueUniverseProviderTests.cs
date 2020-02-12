@@ -5,12 +5,11 @@
 
 using System.Linq;
 using NUnit.Framework;
-using QuantConnect.Bloomberg;
 using QuantConnect.Logging;
 
 namespace QuantConnect.BloombergTests
 {
-    [TestFixture]
+    [TestFixture, Ignore("These tests require a local Bloomberg terminal.")]
     public class BloombergDataQueueUniverseProviderTests
     {
         [SetUp]
@@ -22,7 +21,7 @@ namespace QuantConnect.BloombergTests
         [Test]
         public void FetchesFutureChain()
         {
-            using (var brokerage = CreateBrokerage())
+            using (var brokerage = BloombergCommon.CreateBrokerage())
             {
                 var symbols = brokerage.LookupSymbols("ES", SecurityType.Future).ToList();
 
@@ -33,17 +32,12 @@ namespace QuantConnect.BloombergTests
         [Test]
         public void FetchesOptionChain()
         {
-            using (var brokerage = CreateBrokerage())
+            using (var brokerage = BloombergCommon.CreateBrokerage())
             {
                 var symbols = brokerage.LookupSymbols("SPY", SecurityType.Option).ToList();
 
                 Assert.That(symbols.Count > 0);
             }
-        }
-
-        private static BloombergBrokerage CreateBrokerage()
-        {
-            return new BloombergBrokerage(null, ApiType.Desktop, Environment.Beta, "localhost", 8194);
         }
     }
 }
