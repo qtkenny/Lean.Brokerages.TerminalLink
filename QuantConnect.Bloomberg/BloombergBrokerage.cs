@@ -200,6 +200,12 @@ namespace QuantConnect.Bloomberg
         /// <returns>The current cash balance for each currency available for trading</returns>
         public override List<CashAmount> GetCashBalance()
         {
+            // TODO: When the below portfolio management system is implemented, this should be replaced with a solution that also works for the UAT / beta environment.
+            if (Environment == Environment.Beta)
+            {
+                return new List<CashAmount> {new CashAmount(100_000, Currencies.USD)};
+            }
+
             // Bloomberg is not a portfolio management system, we'll need to fetch this information elsewhere
             return new List<CashAmount>();
         }
