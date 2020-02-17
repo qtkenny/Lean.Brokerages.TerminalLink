@@ -76,9 +76,7 @@
     <Compile Include="BloombergSymbol.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="bloomberg-symbol-map.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    <None Include="bloomberg-symbol-map.json" />
     <Compile Include="BloombergBrokerage.DataQueueUniverseProvider.cs" />
     <None Include="packages.config" />
   </ItemGroup>
