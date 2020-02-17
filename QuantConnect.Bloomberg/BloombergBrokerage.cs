@@ -531,7 +531,7 @@ namespace QuantConnect.Bloomberg
 
         private void SendOrderRequest(Request request, int orderId)
         {
-            var correlationId = new CorrelationID();
+            var correlationId = GetNewCorrelationId();
             _requestMessageHandlers.AddOrUpdate(correlationId, _orderSubscriptionHandler);
             _orderMap.AddOrUpdate(correlationId, orderId);
 
