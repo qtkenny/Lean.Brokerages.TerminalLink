@@ -202,11 +202,14 @@ namespace QuantConnect.Bloomberg
                             case "SubscriptionStarted":
                                 Log.Trace(prefix + "subscription started");
                                 break;
+                            case "SubscriptionStreamsActivated":
+                                Log.Trace(prefix + "subscription activated");
+                                break;
                             case "SubscriptionTerminated":
                                 Log.Trace(prefix + "subscription terminated");
                                 break;
                             case "SubscriptionFailure":
-                                Log.Error($"{prefix}subscription failed: {DescribeCorrelationIds(message.CorrelationIDs)}");
+                                Log.Error($"{prefix}subscription failed: {DescribeCorrelationIds(message.CorrelationIDs)}{message}");
                                 break;
                             default:
                                 Log.Trace(message.ToString());
@@ -236,6 +239,9 @@ namespace QuantConnect.Bloomberg
                                         break;
                                     case TickType.OpenInterest:
                                         EmitOpenInterestTick(key.Symbol, message);
+                                        break;
+                                    default:
+                                        Log.Error("TickType is not configured: " + key.TickType);
                                         break;
                                 }
                             }

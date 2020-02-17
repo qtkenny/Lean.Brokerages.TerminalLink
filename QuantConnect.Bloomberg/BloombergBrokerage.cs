@@ -430,7 +430,8 @@ namespace QuantConnect.Bloomberg
 
         private void ProcessSubscriptionDataEvent(Event @event, Session session)
         {
-            Log.Trace("BloombergBrokerage.ProcessSubscriptionDataEvent(): Processing SUBSCRIPTION_DATA event.");
+            // TODO: BBG sends heartbeats for the broker connection, resulting in a lot of logging.  Maybe this should be a verbose message?
+            //Log.Trace("BloombergBrokerage.ProcessSubscriptionDataEvent(): Processing SUBSCRIPTION_DATA event.");
 
             foreach (var message in @event)
             {
@@ -542,7 +543,7 @@ namespace QuantConnect.Bloomberg
                 }
                 else
                 {
-                    Log.Debug($"Order was not sent - execution is disabled [{request}] [{correlationId}]");
+                    Log.Trace($"Order was not sent - execution is disabled [{request}] [{correlationId}]");
                 }
             }
             catch (Exception e)

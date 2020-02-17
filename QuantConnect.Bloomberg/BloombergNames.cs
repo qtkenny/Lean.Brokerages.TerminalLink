@@ -30,6 +30,7 @@ namespace QuantConnect.Bloomberg
         // SUBSCRIPTION_STATUS + SUBSCRIPTION_DATA
         public static readonly Name SubscriptionFailure = new Name("SubscriptionFailure");
         public static readonly Name SubscriptionStarted = new Name("SubscriptionStarted");
+        public static readonly Name SubscriptionStreamsActivated = new Name("SubscriptionStreamsActivated");
         public static readonly Name SubscriptionTerminated = new Name("SubscriptionTerminated");
     }
 }
