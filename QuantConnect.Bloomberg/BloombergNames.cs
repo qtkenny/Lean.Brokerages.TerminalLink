@@ -26,13 +26,13 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         public static readonly Name EMSXStatus = new Name("EMSX_STATUS");
         /// <summary>
-        /// Value: EMSX_FILL_PRICE
+        /// Value: EMSX_AVG_PRICE
         /// </summary>
-        public static readonly Name EMSXFillPrice = new Name("EMSX_FILL_PRICE");
+        public static readonly Name EMSXAvgPrice = new Name("EMSX_AVG_PRICE");
         /// <summary>
-        /// Value: EMSX_FILL_AMOUNT
+        /// Value: EMSX_FILLED
         /// </summary>
-        public static readonly Name EMSXFillAmount = new Name("EMSX_FILL_AMOUNT");
+        public static readonly Name EMSXFilled = new Name("EMSX_FILLED");
         /// <summary>
         /// Value: ErrorInfo
         /// </summary>

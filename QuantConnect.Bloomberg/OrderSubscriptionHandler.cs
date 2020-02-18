@@ -150,10 +150,11 @@ namespace QuantConnect.Bloomberg
             {
                 var orderStatus = _brokerage.ConvertOrderStatus(message.GetElementAsString(BloombergNames.EMSXStatus));
                 var orderEvent = new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bloomberg Order Event") {Status = orderStatus};
+                // TODO: Lean is expecting the fill quantity to be the amount filled in this event. BBG provide the total filled.
                 if (orderStatus == OrderStatus.Filled || orderStatus == OrderStatus.PartiallyFilled)
                 {
-                    orderEvent.FillPrice = Convert.ToDecimal(message.GetElementAsFloat32(BloombergNames.EMSXFillPrice));
-                    orderEvent.FillQuantity = Convert.ToDecimal(message.GetElementAsInt64(BloombergNames.EMSXFillAmount));
+                    orderEvent.FillPrice = Convert.ToDecimal(message.GetElementAsFloat32(BloombergNames.EMSXAvgPrice));
+                    orderEvent.FillQuantity = Convert.ToDecimal(message.GetElementAsInt64(BloombergNames.EMSXFilled));
                 }
 
                 _brokerage.FireOrderEvent(orderEvent);
