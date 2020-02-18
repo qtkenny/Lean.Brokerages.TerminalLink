@@ -47,6 +47,7 @@ namespace QuantConnect.Bloomberg
         private readonly BloombergSymbolMapper _symbolMapper = new BloombergSymbolMapper();
 
         private readonly SchemaFieldDefinitions _orderFieldDefinitions = new SchemaFieldDefinitions();
+        private readonly SchemaFieldDefinitions _routeFieldDefinitions = new SchemaFieldDefinitions();
 
         private readonly ConcurrentDictionary<CorrelationID, IMessageHandler> _requestMessageHandlers = new ConcurrentDictionary<CorrelationID, IMessageHandler>();
         private readonly ConcurrentDictionary<CorrelationID, IMessageHandler> _subscriptionMessageHandlers = new ConcurrentDictionary<CorrelationID, IMessageHandler>();
@@ -371,6 +372,7 @@ namespace QuantConnect.Bloomberg
         private void InitializeFieldData()
         {
             _orderFieldDefinitions.Clear();
+            _routeFieldDefinitions.Clear();
 
             var orderRouteFields = _serviceEms.GetEventDefinition("OrderRouteFields");
             var typeDef = orderRouteFields.TypeDefinition;
@@ -384,6 +386,11 @@ namespace QuantConnect.Bloomberg
                 if (f.IsOrderField())
                 {
                     _orderFieldDefinitions.Add(f);
+                }
+
+                if (f.IsRouteField())
+                {
+                    _routeFieldDefinitions.Add(f);
                 }
             }
         }
@@ -617,6 +624,17 @@ namespace QuantConnect.Bloomberg
             Subscribe(topic, _orderSubscriptionHandler);
 
             _blotterInitializedEvent.WaitOne();
+        }
+
+        private void SubscribeRouteEvents()
+        {
+            // Fields are shared with orders
+            var fields = _routeFieldDefinitions.Select(x => x.Name);
+
+            var serviceName = GetServiceName(ServiceType.Ems);
+            var topic = $"{serviceName}/route?fields={string.Join(",", fields)}";
+
+            Subscribe(topic, _orderSubscriptionHandler);
         }
 
         public void SetBlotterInitialized()
