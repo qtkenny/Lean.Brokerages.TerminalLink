@@ -217,14 +217,25 @@ namespace QuantConnect.Bloomberg
         /// <returns>True if the request for a new order has been placed, false otherwise</returns>
         public override bool PlaceOrder(Order order)
         {
-            var request = _serviceEms.CreateRequest("CreateOrder");
-
+            var request = _serviceEms.CreateRequest(BloombergNames.CreateOrderAndRouteEx.ToString());
             request.Set("EMSX_TICKER", _symbolMapper.GetBrokerageSymbol(order.Symbol));
             request.Set("EMSX_AMOUNT", Convert.ToInt32(order.AbsoluteQuantity));
             request.Set("EMSX_ORDER_TYPE", ConvertOrderType(order.Type));
             request.Set("EMSX_TIF", ConvertTimeInForce(order.TimeInForce));
-            request.Set("EMSX_HAND_INSTRUCTION", "ANY");
+            // TODO: EMSX_HAND_INSTRUCTION.  EMSX documentation says this value can be 'ANY', but in actual use, an error is returned.
+            request.Set("EMSX_HAND_INSTRUCTION", "DMA");
             request.Set("EMSX_SIDE", order.Direction == OrderDirection.Buy ? "BUY" : "SELL");
+            // TODO: Implement - EMSX_ACCOUNT
+            request.Set("EMSX_ACCOUNT", "<account>");
+            // TODO: Implement - EMSX_BROKER
+            request.Set("EMSX_BROKER", "<broker>");
+            // ATS = Automated Trading Strategy.  Required field for particular exchanges.
+            request.Set("EMSX_NOTES", "ATS");
+
+            // Set fields that map back to internal order ids
+            request.Set(BloombergNames.EMSXReferenceOrderIdRequest, order.Id);
+            // TODO: This is potentially not required.  Currently, we map 1:1 between an order & the route.  BBG technically suports multiple routes.
+            request.Set(BloombergNames.EMSXRouteRefId, order.Id.ToString());
 
             switch (order.Type)
             {
@@ -254,9 +265,9 @@ namespace QuantConnect.Bloomberg
         /// <returns>True if the request was made for the order to be updated, false otherwise</returns>
         public override bool UpdateOrder(Order order)
         {
-            var request = _serviceEms.CreateRequest("ModifyOrderEx");
 
             request.Set("EMSX_SEQUENCE", Convert.ToInt32(order.BrokerId[0]));
+            var request = _serviceEms.CreateRequest(BloombergNames.ModifyOrderEx.ToString());
             request.Set("EMSX_TICKER", _symbolMapper.GetBrokerageSymbol(order.Symbol));
             request.Set("EMSX_AMOUNT", Convert.ToInt32(order.AbsoluteQuantity));
             request.Set("EMSX_ORDER_TYPE", ConvertOrderType(order.Type));
@@ -274,7 +285,7 @@ namespace QuantConnect.Bloomberg
         /// <returns>True if the request was made for the order to be canceled, false otherwise</returns>
         public override bool CancelOrder(Order order)
         {
-            var request = _serviceEms.CreateRequest("DeleteOrder");
+            var request = _serviceEms.CreateRequest(BloombergNames.DeleteOrder.ToString());
 
             request.Set("EMSX_SEQUENCE", Convert.ToInt32(order.BrokerId[0]));
 
