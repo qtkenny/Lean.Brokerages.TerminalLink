@@ -666,10 +666,10 @@ namespace QuantConnect.Bloomberg
                 case "LMT":
                     return OrderType.Limit;
 
-                case "STP":
+                case "ST":
                     return OrderType.StopMarket;
 
-                case "SLT":
+                case "SL":
                     return OrderType.StopLimit;
 
                 default:
@@ -680,7 +680,7 @@ namespace QuantConnect.Bloomberg
         private string ConvertOrderType(OrderType orderType)
         {
             // TODO: check order types, only MKT is used in documentation examples
-
+            // EMSX API - pg. 78
             switch (orderType)
             {
                 case OrderType.Market:
@@ -690,10 +690,10 @@ namespace QuantConnect.Bloomberg
                     return "LMT";
 
                 case OrderType.StopMarket:
-                    return "STP";
+                    return "ST";
 
                 case OrderType.StopLimit:
-                    return "SLT";
+                    return "SL";
 
                 default:
                     throw new NotSupportedException($"Unsupported order type: {orderType}");
