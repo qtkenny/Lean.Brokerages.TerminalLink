@@ -12,7 +12,6 @@ using System.Threading;
 using Bloomberglp.Blpapi;
 using QuantConnect.Brokerages;
 using QuantConnect.Configuration;
-using QuantConnect.Data.Fundamental;
 using QuantConnect.Interfaces;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
@@ -27,6 +26,9 @@ namespace QuantConnect.Bloomberg
     {
         private readonly string _serverHost;
         private readonly int _serverPort;
+        private readonly string _broker;
+        private readonly string _account;
+        private readonly string _notes;
         private readonly bool _execution;
 
         private readonly SessionOptions _sessionOptions;
@@ -70,6 +72,9 @@ namespace QuantConnect.Bloomberg
             Environment = environment;
             _serverHost = serverHost;
             _serverPort = serverPort;
+            _broker = Config.GetValue<string>("bloomberg-emsx-broker");
+            _account = Config.GetValue<string>("bloomberg-emsx-account");
+            _notes = Config.GetValue<string>("bloomberg-emsx-notes");
             _execution = Config.GetBool("bloomberg-execution");
 
             if (apiType != ApiType.Desktop)
@@ -220,23 +225,36 @@ namespace QuantConnect.Bloomberg
         {
             var request = _serviceEms.CreateRequest(BloombergNames.CreateOrderAndRouteEx.ToString());
             request.Set("EMSX_TICKER", _symbolMapper.GetBrokerageSymbol(order.Symbol));
+            request.Set("EMSX_SIDE", ConvertOrderDirection(order.Direction));
+            if (!string.IsNullOrWhiteSpace(_broker))
+            {
+                request.Set("EMSX_BROKER", _broker);
+            }
+
+            request.Set("EMSX_HAND_INSTRUCTION", "DMA");
+            // Set fields that map back to internal order ids
+            request.Set(BloombergNames.EMSXReferenceOrderIdRequest, order.Id);
+            // TODO: This is potentially not required.  Currently, we map 1:1 between an order & the route, assuming DMA.  BBG technically supports multiple routes.
+            if (request.HasElement(BloombergNames.EMSXRouteRefId)) request.Set(BloombergNames.EMSXRouteRefId, order.Id.ToString());
+            PopulateRequest(request, order);
+            SendOrderRequest(request, order.Id);
+            return true;
+        }
+
+        private void PopulateRequest(Request request, Order order)
+        { 
             request.Set("EMSX_AMOUNT", Convert.ToInt32(order.AbsoluteQuantity));
             request.Set("EMSX_ORDER_TYPE", ConvertOrderType(order.Type));
             request.Set("EMSX_TIF", ConvertTimeInForce(order.TimeInForce));
-            // TODO: EMSX_HAND_INSTRUCTION.  EMSX documentation says this value can be 'ANY', but in actual use, an error is returned.
-            request.Set("EMSX_HAND_INSTRUCTION", "DMA");
-            request.Set("EMSX_SIDE", order.Direction == OrderDirection.Buy ? "BUY" : "SELL");
-            // TODO: Implement - EMSX_ACCOUNT
-            request.Set("EMSX_ACCOUNT", "<account>");
-            // TODO: Implement - EMSX_BROKER
-            request.Set("EMSX_BROKER", "<broker>");
-            // ATS = Automated Trading Strategy.  Required field for particular exchanges.
-            request.Set("EMSX_NOTES", "ATS");
+            if (!string.IsNullOrWhiteSpace(_account))
+            {
+                request.Set("EMSX_ACCOUNT", _account);
+            }
 
-            // Set fields that map back to internal order ids
-            request.Set(BloombergNames.EMSXReferenceOrderIdRequest, order.Id);
-            // TODO: This is potentially not required.  Currently, we map 1:1 between an order & the route.  BBG technically suports multiple routes.
-            request.Set(BloombergNames.EMSXRouteRefId, order.Id.ToString());
+            if (!string.IsNullOrWhiteSpace(_notes))
+            {
+                request.Set("EMSX_NOTES", _notes);
+            }
 
             switch (order.Type)
             {
@@ -253,10 +271,13 @@ namespace QuantConnect.Bloomberg
                     request.Set("EMSX_LIMIT_PRICE", Convert.ToDouble(((StopLimitOrder)order).LimitPrice));
                     break;
             }
+        }
 
-            SendOrderRequest(request, order.Id);
+        private static string ConvertOrderDirection(OrderDirection direction)
+        {
+            if (direction == OrderDirection.Hold) throw new ArgumentException("Invalid direction: Hold", nameof(direction));
 
-            return true;
+            return direction.ToString().ToUpperInvariant();
         }
 
         /// <summary>
@@ -272,13 +293,14 @@ namespace QuantConnect.Bloomberg
                 Log.Error("Unable to update - cannot find a sequence for order id: " + order.Id);
                 return false;
             }
+            
+            Log.Trace($"Updating order {order.Id}, sequence:{sequence}");
             var request = _serviceEms.CreateRequest(BloombergNames.ModifyRouteEx.ToString());
             request.Set(BloombergNames.EMSXSequence, sequence);
-            request.Set("EMSX_TICKER", _symbolMapper.GetBrokerageSymbol(order.Symbol));
-            request.Set("EMSX_AMOUNT", Convert.ToInt32(order.AbsoluteQuantity));
-            request.Set("EMSX_ORDER_TYPE", ConvertOrderType(order.Type));
-            request.Set("EMSX_TIF", ConvertTimeInForce(order.TimeInForce));
-
+            // We modify the route, assuming the 1:1 order to route created in PlaceOrder.
+            const int routeId = 1;
+            request.Set(BloombergNames.EMSXRouteId, routeId);
+            PopulateRequest(request, order);
             SendOrderRequest(request, order.Id);
 
             return true;
