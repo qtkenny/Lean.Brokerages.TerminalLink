@@ -4,7 +4,8 @@
 */
 
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.Diagnostics;
 using Bloomberglp.Blpapi;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
@@ -18,6 +19,9 @@ namespace QuantConnect.Bloomberg
         private readonly BloombergBrokerage _brokerage;
         private readonly IOrderProvider _orderProvider;
         private readonly BloombergOrders _orders;
+        // TODO: These concurrent dictionaries are not currently being cleaned up after orders are completed.
+        private readonly ConcurrentDictionary<int, int> _sequenceToOrderId = new ConcurrentDictionary<int, int>();
+        private readonly ConcurrentDictionary<int, int> _orderToSequenceId = new ConcurrentDictionary<int, int>();
 
         public OrderSubscriptionHandler(BloombergBrokerage brokerage, IOrderProvider orderProvider, BloombergOrders orders)
         {
@@ -26,155 +30,199 @@ namespace QuantConnect.Bloomberg
             _orders = orders;
         }
 
-        public void ProcessMessage(Message message, int orderId)
+        public bool TryGetSequenceId(int orderId, out int sequence)
         {
-            Log.Trace("OrderSubscriptionHandler: Processing message");
-            Log.Trace($"Message: {message}");
+            return _orderToSequenceId.TryGetValue(orderId, out sequence);
+        }
 
-            if (message.MessageType.Equals(BloombergNames.SubscriptionStarted))
+        private static void LogRequestCompletion(Message message)
+        {
+            Log.Trace($"OrderSubscriptionHandler.LogRequestCompletion(): {message.MessageType} - {GetSequence(message)}");
+        }
+
+        private static int GetSequence(Message message)
+        {
+            return message.GetElementAsInt32(BloombergNames.EMSXSequence);
+        }
+
+        private static int? GetRoute(Message message)
+        {
+            return message.HasElement(BloombergNames.EMSXRouteId) ? message.GetElementAsInt32(BloombergNames.EMSXRouteId) : (int?) null;
+        }
+
+        private void OnOrderRouting(Message message)
+        {
+            var eventStatus = GetEventStatus(message);
+            if (eventStatus == EventStatus.Heartbeat)
             {
-                Log.Trace("Order subscription started");
                 return;
             }
 
-            var eventStatus = (EventStatus)message.GetElementAsInt32("EVENT_STATUS");
-
+            var sequence = GetSequence(message);
+            var route = GetRoute(message);
+            var subType = message.GetElementAsString(BloombergNames.MessageSubType);
+            Log.Trace($"OrderSubscriptionHandler: Message received: '{eventStatus}' [sequence:{sequence},route:{route},sub-type:{subType}]");
             switch (eventStatus)
             {
-                case EventStatus.Heartbeat:
-                    Log.Trace("OrderSubscriptionHandler: HEARTBEAT received");
-                    break;
-
                 case EventStatus.InitialPaint:
-                    {
-                        Log.Trace("OrderSubscriptionHandler: INIT_PAINT message received");
-                        Log.Trace($"Message: {message}");
-                        var sequence = message.GetElementAsInt32("EMSX_SEQUENCE");
-                        var order = _orders.GetBySequenceNumber(sequence);
-                        if (order == null)
-                        {
-                            // Order not found
-                            order = _orders.CreateOrder(sequence);
-                        }
-
-                        order.PopulateFields(message, false);
-                    }
+                    // Initial order statuses.
+                    var order = _orders.GetBySequenceNumber(sequence) ?? _orders.CreateOrder(sequence);
+                    order.PopulateFields(message, false);
                     break;
-
-                case EventStatus.New:
-                    {
-                        // new
-                        Log.Trace("OrderSubscriptionHandler: NEW_ORDER_ROUTE message received");
-                        Log.Trace($"Message: {message}");
-
-                        var sequence = message.GetElementAsInt32("EMSX_SEQUENCE");
-                        var bbOrder = _orders.GetBySequenceNumber(sequence);
-                        if (bbOrder == null)
-                        {
-                            // Order not found
-                            bbOrder = _orders.CreateOrder(sequence);
-                        }
-
-                        bbOrder.PopulateFields(message, false);
-
-                        var order = _orderProvider.GetOrderById(orderId);
-                        if (order == null)
-                        {
-                            Log.Error($"OrderSubscriptionHandler: OrderId not found: {orderId}");
-                        }
-                        else
-                        {
-                            order.BrokerId.Add(sequence.ToString());
-
-                            _brokerage.FireOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bloomberg Order Event")
-                            {
-                                Status = OrderStatus.Submitted
-                            });
-                        }
-                    }
-                    break;
-
-                case EventStatus.Update:
-                    {
-                        // update
-                        Log.Trace("OrderSubscriptionHandler: UPD_ORDER_ROUTE message received");
-                        Log.Trace($"Message: {message}");
-
-                        // Order should already exist. If it doesn't create it anyway.
-                        var sequence = message.GetElementAsInt32("EMSX_SEQUENCE");
-                        var bbOrder = _orders.GetBySequenceNumber(sequence);
-                        if (bbOrder == null)
-                        {
-                            // Order not found
-                            Log.Trace("OrderSubscriptionHandler: WARNING > Update received for unknown order");
-                            bbOrder = _orders.CreateOrder(sequence);
-                        }
-
-                        bbOrder.PopulateFields(message, true);
-
-                        var order = _orderProvider.GetOrderById(orderId);
-                        if (order == null)
-                        {
-                            Log.Error($"OrderSubscriptionHandler: OrderId not found: {orderId}");
-                        }
-                        else
-                        {
-                            var orderStatus = _brokerage.ConvertOrderStatus(message.GetElementAsString("EMSX_STATUS"));
-
-                            var orderEvent = new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bloomberg Order Event")
-                            {
-                                Status = orderStatus
-                            };
-
-                            if (orderStatus == OrderStatus.Filled || orderStatus == OrderStatus.PartiallyFilled)
-                            {
-                                orderEvent.FillPrice = Convert.ToDecimal(message.GetElementAsFloat32("EMSX_FILL_PRICE"));
-                                orderEvent.FillQuantity = Convert.ToDecimal(message.GetElementAsInt64("EMSX_FILL_AMOUNT"));
-                            }
-
-                            _brokerage.FireOrderEvent(orderEvent);
-                        }
-                    }
-                    break;
-
-                case EventStatus.Delete:
-                    {
-                        // deleted/expired
-                        Log.Trace("OrderSubscriptionHandler: DELETE message received");
-                        Log.Trace($"Message: {message}");
-
-                        // Order should already exist. If it doesn't create it anyway.
-                        var sequence = message.GetElementAsInt32("EMSX_SEQUENCE");
-                        var bbOrder = _orders.GetBySequenceNumber(sequence);
-                        if (bbOrder == null)
-                        {
-                            // Order not found
-                            Log.Trace("OrderSubscriptionHandler: WARNING > Delete received for unknown order");
-                            bbOrder = _orders.CreateOrder(sequence);
-                        }
-
-                        bbOrder.PopulateFields(message, false);
-
-                        var order = _orderProvider.GetOrderById(orderId);
-                        if (order == null)
-                        {
-                            Log.Error($"OrderSubscriptionHandler: OrderId not found: {orderId}");
-                        }
-                        else
-                        {
-                            _brokerage.FireOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bloomberg Order Event")
-                            {
-                                Status = OrderStatus.Canceled
-                            });
-                        }
-                    }
-                    break;
-
                 case EventStatus.EndPaint:
-                    // End of initial paint messages
+                    // End of the stream of initial orders.
                     Log.Trace("OrderSubscriptionHandler: End of Initial Paint");
                     _brokerage.SetBlotterInitialized();
                     break;
+                case EventStatus.New:
+                    OnNewOrder(message, sequence);
+                    break;
+                case EventStatus.Update:
+                    OnOrderUpdate(message, sequence);
+                    break;
+                case EventStatus.Delete:
+                    OnOrderDelete(message, sequence);
+                    break;
+                default:
+                    Log.Trace("Order route fields update: " + eventStatus);
+                    break;
+            }
+        }
+
+        private void OnNewOrder(Message message, int sequence)
+        {
+            var orderId = GetOurOrderId(message);
+            _sequenceToOrderId[sequence] = orderId;
+            _orderToSequenceId[orderId] = sequence;
+            Log.Trace($"OrderSubscriptionHandler.OnNewOrder():{orderId}, EMSX Sequence:{sequence}");
+
+            var bbOrder = _orders.GetBySequenceNumber(sequence) ?? _orders.CreateOrder(sequence);
+            bbOrder.PopulateFields(message, false);
+
+            var order = _orderProvider.GetOrderById(orderId);
+            if (order == null)
+            {
+                Log.Error($"OrderSubscriptionHandler.OnNewOrder: OrderId not found: {orderId}, EMSX Sequence: {sequence}");
+            }
+            else
+            {
+                // TODO: This is not persisted at the moment.
+                order.BrokerId.Add(sequence.ToString());
+                _brokerage.FireOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bloomberg Order Event") {Status = OrderStatus.Submitted});
+            }
+        }
+
+        private static int GetOurOrderId(Message message)
+        {
+            if (!message.HasElement(BloombergNames.EMSXReferenceOrderIdResponse))
+            {
+                throw new Exception($"Message does not contain expected field: {BloombergNames.EMSXReferenceOrderIdResponse}, message:{message}");
+            }
+
+            var element = message.GetElementAsString(BloombergNames.EMSXReferenceOrderIdResponse);
+            if (!int.TryParse(element, out var id))
+            {
+                throw new Exception("Reference order could not be parsed to an integer, message: " + message);
+            }
+
+            return id;
+        }
+
+        private void OnOrderUpdate(Message message, int sequence)
+        {
+            var orderId = GetOurOrderId(message);
+            // Order should already exist. If it doesn't create it anyway.
+            var bbOrder = _orders.GetBySequenceNumber(sequence);
+            if (bbOrder == null)
+            {
+                // Order not found
+                Log.Trace("OrderSubscriptionHandler: WARNING > Update received for unknown order");
+                bbOrder = _orders.CreateOrder(sequence);
+            }
+
+            bbOrder.PopulateFields(message, true);
+            var order = _orderProvider.GetOrderById(orderId);
+            if (order == null)
+            {
+                Log.Error($"OrderSubscriptionHandler: OrderId not found: {orderId}");
+            }
+            else
+            {
+                var orderStatus = _brokerage.ConvertOrderStatus(message.GetElementAsString(BloombergNames.EMSXStatus));
+                var orderEvent = new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bloomberg Order Event") {Status = orderStatus};
+                if (orderStatus == OrderStatus.Filled || orderStatus == OrderStatus.PartiallyFilled)
+                {
+                    orderEvent.FillPrice = Convert.ToDecimal(message.GetElementAsFloat32(BloombergNames.EMSXFillPrice));
+                    orderEvent.FillQuantity = Convert.ToDecimal(message.GetElementAsInt64(BloombergNames.EMSXFillAmount));
+                }
+
+                _brokerage.FireOrderEvent(orderEvent);
+            }
+        }
+
+        private void OnOrderDelete(Message message, int sequence)
+        {
+            // Deletion messages from EMSX don't include the reference id
+            if (!_sequenceToOrderId.TryGetValue(sequence, out var orderId))
+            {
+                Log.Error("Unknown order: emsx id:" + sequence);
+                return;
+            }
+
+            // Order should already exist. If it doesn't create it anyway.
+            var bbOrder = _orders.GetBySequenceNumber(sequence);
+            if (bbOrder == null)
+            {
+                // Order not found
+                Log.Trace("OrderSubscriptionHandler: WARNING > Delete received for unknown order");
+                bbOrder = _orders.CreateOrder(sequence);
+            }
+
+            bbOrder.PopulateFields(message, false);
+
+            var order = _orderProvider.GetOrderById(orderId);
+            if (order == null)
+            {
+                Log.Error($"OrderSubscriptionHandler: OrderId not found: {orderId}");
+            }
+            else
+            {
+                _brokerage.FireOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bloomberg Order Event") {Status = OrderStatus.Canceled});
+            }
+        }
+
+        private static EventStatus GetEventStatus(Message message)
+        {
+            return (EventStatus) message.GetElement(BloombergNames.EventStatus).GetValue();
+        }
+
+        public void ProcessMessage(Message message)
+        {
+            var msgType = message.MessageType;
+            if (msgType.Equals(BloombergNames.SubscriptionStarted))
+            {
+                Log.Trace("Order subscription started");
+            }
+            else if (msgType.Equals(BloombergNames.SubscriptionStreamsActivated))
+            {
+                Log.Trace("Order subscription streams activated");
+            }
+            else if (msgType.Equals(BloombergNames.CreateOrderAndRouteEx) || msgType.Equals(BloombergNames.ModifyOrderEx) || msgType.Equals(BloombergNames.DeleteOrder))
+            {
+                LogRequestCompletion(message);
+            }
+            else if (msgType.Equals(BloombergNames.OrderRouteFields))
+            {
+                OnOrderRouting(message);
+            }
+            else if (msgType.Equals(BloombergNames.OrderErrorInfo))
+            {
+                Log.Error("Order subscription error: " + message);
+            }
+            else
+            {
+                Log.Error($"Unknown message type: {msgType}, message:{message}");
+                Debugger.Break();
             }
         }
     }

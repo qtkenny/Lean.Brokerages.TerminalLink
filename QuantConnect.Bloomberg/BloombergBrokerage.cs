@@ -12,6 +12,7 @@ using System.Threading;
 using Bloomberglp.Blpapi;
 using QuantConnect.Brokerages;
 using QuantConnect.Configuration;
+using QuantConnect.Data.Fundamental;
 using QuantConnect.Interfaces;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
@@ -53,7 +54,7 @@ namespace QuantConnect.Bloomberg
 
         private readonly IOrderProvider _orderProvider;
         private readonly ManualResetEvent _blotterInitializedEvent = new ManualResetEvent(false);
-        private IMessageHandler _orderSubscriptionHandler;
+        private OrderSubscriptionHandler _orderSubscriptionHandler;
         private BloombergOrders _orders;
         private bool _isConnected;
 
@@ -265,9 +266,15 @@ namespace QuantConnect.Bloomberg
         /// <returns>True if the request was made for the order to be updated, false otherwise</returns>
         public override bool UpdateOrder(Order order)
         {
+            // TODO: Should this use the broker id?  At the moment broker id isn't able to be persisted back into the order transaction handler.
+            if (!_orderSubscriptionHandler.TryGetSequenceId(order.Id, out var sequence))
+            {
+                Log.Error("Unable to update - cannot find a sequence for order id: " + order.Id);
+                return false;
+            }
 
-            request.Set("EMSX_SEQUENCE", Convert.ToInt32(order.BrokerId[0]));
             var request = _serviceEms.CreateRequest(BloombergNames.ModifyOrderEx.ToString());
+            request.Set(BloombergNames.EMSXSequence, sequence);
             request.Set("EMSX_TICKER", _symbolMapper.GetBrokerageSymbol(order.Symbol));
             request.Set("EMSX_AMOUNT", Convert.ToInt32(order.AbsoluteQuantity));
             request.Set("EMSX_ORDER_TYPE", ConvertOrderType(order.Type));
@@ -286,9 +293,15 @@ namespace QuantConnect.Bloomberg
         public override bool CancelOrder(Order order)
         {
             var request = _serviceEms.CreateRequest(BloombergNames.DeleteOrder.ToString());
+            // TODO: Should this use the broker id?  At the moment broker id isn't able to be persisted back into the order transaction handler.
+            if (!_orderSubscriptionHandler.TryGetSequenceId(order.Id, out var sequence))
+            {
+                Log.Error("Unable to cancel - cannot find a sequence for order id: " + order.Id);
+                return false;
+            }
 
-            request.Set("EMSX_SEQUENCE", Convert.ToInt32(order.BrokerId[0]));
-
+            Log.Trace($"Cancelling order {order.Id}, sequence:{sequence}");
+            request.GetElement(BloombergNames.EMSXSequence).AppendValue(sequence);
             SendOrderRequest(request, order.Id);
 
             return true;
@@ -452,16 +465,17 @@ namespace QuantConnect.Bloomberg
 
             foreach (var message in @event)
             {
-                var correlationId = message.CorrelationID;
-
-                IMessageHandler handler;
-                if (!_subscriptionMessageHandlers.TryGetValue(correlationId, out handler))
+                foreach (var correlationId in message.CorrelationIDs)
                 {
-                    Log.Error($"BloombergBrokerage.ProcessSubscriptionDataEvent(): Unexpected SUBSCRIPTION_DATA event received (CID={correlationId}): {message}");
-                }
-                else
-                {
-                    handler.ProcessMessage(message, 0);
+                    IMessageHandler handler;
+                    if (!_subscriptionMessageHandlers.TryGetValue(correlationId, out handler))
+                    {
+                        Log.Error($"BloombergBrokerage.ProcessSubscriptionDataEvent(): Unexpected SUBSCRIPTION_DATA event received (CID={correlationId}): {message}");
+                    }
+                    else
+                    {
+                        handler.ProcessMessage(message);
+                    }
                 }
             }
         }
@@ -472,16 +486,17 @@ namespace QuantConnect.Bloomberg
 
             foreach (var message in @event)
             {
-                var correlationId = message.CorrelationID;
-
-                IMessageHandler handler;
-                if (!_subscriptionMessageHandlers.TryGetValue(correlationId, out handler))
+                foreach (var correlationId in message.CorrelationIDs)
                 {
-                    Log.Error($"BloombergBrokerage.ProcessSubscriptionStatusEvent(): Unexpected SUBSCRIPTION_STATUS event received (CID={correlationId}): {message}");
-                }
-                else
-                {
-                    handler.ProcessMessage(message, 0);
+                    IMessageHandler handler;
+                    if (!_subscriptionMessageHandlers.TryGetValue(correlationId, out handler))
+                    {
+                        Log.Error($"BloombergBrokerage.ProcessSubscriptionStatusEvent(): Unexpected SUBSCRIPTION_STATUS event received (CID={correlationId}): {message}");
+                    }
+                    else
+                    {
+                        handler.ProcessMessage(message);
+                    }
                 }
             }
         }
@@ -492,28 +507,30 @@ namespace QuantConnect.Bloomberg
 
             foreach (var message in @event)
             {
-                var correlationId = message.CorrelationID;
-
-                IMessageHandler handler;
-                if (!_requestMessageHandlers.TryGetValue(correlationId, out handler))
+                foreach(var correlationId in message.CorrelationIDs)
                 {
-                    Log.Error($"BloombergBrokerage.ProcessResponse(): Unexpected RESPONSE event received (CID={correlationId}): {message}");
-                }
-                else
-                {
-                    int orderId;
-                    if (!_orderMap.TryGetValue(correlationId, out orderId))
+                    IMessageHandler handler;
+                    if (!_requestMessageHandlers.TryGetValue(correlationId, out handler))
                     {
-                        Log.Error($"BloombergBrokerage.ProcessResponse(): OrderId not found for CorrelationId: {correlationId}");
+                        Log.Error($"BloombergBrokerage.ProcessResponse(): Unexpected RESPONSE event received (CID={correlationId}): {message}");
                     }
+                    else
+                    {
+                        int orderId;
+                        if (!_orderMap.TryGetValue(correlationId, out orderId))
+                        {
+                            Log.Error($"BloombergBrokerage.ProcessResponse(): OrderId not found for CorrelationId: {correlationId}");
+                        }
+                        else
+                        {
+                            handler.ProcessMessage(message);
 
-                    handler.ProcessMessage(message, orderId);
+                            _requestMessageHandlers.TryRemove(correlationId, out handler);
+                            _orderMap.TryRemove(correlationId, out orderId);
 
-
-                    _requestMessageHandlers.TryRemove(correlationId, out handler);
-                    _orderMap.TryRemove(correlationId, out orderId);
-
-                    Log.Trace($"BloombergBrokerage.ProcessResponse(): MessageHandler removed [{correlationId}]");
+                            Log.Trace($"BloombergBrokerage.ProcessResponse(): MessageHandler removed [{correlationId}]");
+                        }
+                    }
                 }
             }
         }
