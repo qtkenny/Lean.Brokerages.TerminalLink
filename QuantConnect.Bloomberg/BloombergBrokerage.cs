@@ -272,8 +272,7 @@ namespace QuantConnect.Bloomberg
                 Log.Error("Unable to update - cannot find a sequence for order id: " + order.Id);
                 return false;
             }
-
-            var request = _serviceEms.CreateRequest(BloombergNames.ModifyOrderEx.ToString());
+            var request = _serviceEms.CreateRequest(BloombergNames.ModifyRouteEx.ToString());
             request.Set(BloombergNames.EMSXSequence, sequence);
             request.Set("EMSX_TICKER", _symbolMapper.GetBrokerageSymbol(order.Symbol));
             request.Set("EMSX_AMOUNT", Convert.ToInt32(order.AbsoluteQuantity));
@@ -292,7 +291,6 @@ namespace QuantConnect.Bloomberg
         /// <returns>True if the request was made for the order to be canceled, false otherwise</returns>
         public override bool CancelOrder(Order order)
         {
-            var request = _serviceEms.CreateRequest(BloombergNames.DeleteOrder.ToString());
             // TODO: Should this use the broker id?  At the moment broker id isn't able to be persisted back into the order transaction handler.
             if (!_orderSubscriptionHandler.TryGetSequenceId(order.Id, out var sequence))
             {
@@ -301,6 +299,7 @@ namespace QuantConnect.Bloomberg
             }
 
             Log.Trace($"Cancelling order {order.Id}, sequence:{sequence}");
+            var request = _serviceEms.CreateRequest(BloombergNames.CancelOrderEx.ToString());
             request.GetElement(BloombergNames.EMSXSequence).AppendValue(sequence);
             SendOrderRequest(request, order.Id);
 
