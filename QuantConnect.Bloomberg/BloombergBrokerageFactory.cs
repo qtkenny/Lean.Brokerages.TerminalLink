@@ -77,7 +77,7 @@ namespace QuantConnect.Bloomberg
                 throw new Exception(string.Join(System.Environment.NewLine, errors));
             }
 
-            var brokerage = new BloombergBrokerage(algorithm.Transactions, apiType, environment, serverHost, serverPort);
+            var brokerage = new BloombergBrokerage(algorithm.Transactions, apiType, environment, new BloombergSymbolMapper(), serverHost, serverPort);
             Composer.Instance.AddPart<IDataQueueHandler>(brokerage);
 
             return brokerage;

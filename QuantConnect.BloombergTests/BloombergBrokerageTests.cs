@@ -5,6 +5,7 @@
 
 using System;
 using System.Linq;
+using Moq;
 using NUnit.Framework;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;

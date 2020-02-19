@@ -3,6 +3,7 @@
 * Lean Algorithmic Trading Engine v2.2 Copyright 2015 QuantConnect Corporation.
 */
 
+using Moq;
 using QuantConnect.Bloomberg;
 using QuantConnect.Configuration;
 using QuantConnect.Securities;
@@ -18,8 +19,7 @@ namespace QuantConnect.BloombergTests
             var serverHost = Config.Get("bloomberg-server-host", "localhost");
             var serverPort = Config.GetInt("bloomberg-server-host", 8194);
 
-            return new BloombergBrokerage(orderProvider, apiType, environment, serverHost, serverPort);
+            return new BloombergBrokerage(orderProvider, apiType, environment, Mock.Of<IBloombergSymbolMapper>(), serverHost, serverPort);
         }
-
     }
 }

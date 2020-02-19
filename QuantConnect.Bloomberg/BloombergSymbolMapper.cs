@@ -9,7 +9,6 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
-using QuantConnect.Brokerages;
 using QuantConnect.Securities.Future;
 using static QuantConnect.StringExtensions;
 
@@ -18,7 +17,7 @@ namespace QuantConnect.Bloomberg
     /// <summary>
     /// Provides the mapping between Lean symbols and Bloomberg symbols.
     /// </summary>
-    public class BloombergSymbolMapper : ISymbolMapper
+    public class BloombergSymbolMapper : IBloombergSymbolMapper
     {
         // Manual mapping of Bloomberg tickers to Lean symbols
         private readonly Dictionary<string, Symbol> _mapBloombergToLean = new Dictionary<string, Symbol>();

@@ -82,6 +82,7 @@
     <Compile Include="BloombergSubscriptionKey.cs" />
     <Compile Include="BloombergSymbolMapper.cs" />
     <Compile Include="Enums.cs" />
+    <Compile Include="IBloombergSymbolMapper.cs" />
     <Compile Include="IMessageHandler.cs" />
     <Compile Include="OrderSubscriptionHandler.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

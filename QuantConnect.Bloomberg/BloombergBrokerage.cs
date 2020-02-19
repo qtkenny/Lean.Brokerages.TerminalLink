@@ -44,7 +44,7 @@ namespace QuantConnect.Bloomberg
         private readonly ConcurrentDictionary<string, BloombergSubscriptions> _subscriptionsByTopicName = new ConcurrentDictionary<string, BloombergSubscriptions>();
         private readonly ConcurrentDictionary<CorrelationID, BloombergSubscriptionKey> _subscriptionKeysByCorrelationId =
             new ConcurrentDictionary<CorrelationID, BloombergSubscriptionKey>();
-        private readonly BloombergSymbolMapper _symbolMapper = new BloombergSymbolMapper();
+        private readonly IBloombergSymbolMapper _symbolMapper;
 
         private readonly SchemaFieldDefinitions _orderFieldDefinitions = new SchemaFieldDefinitions();
         private readonly SchemaFieldDefinitions _routeFieldDefinitions = new SchemaFieldDefinitions();
@@ -64,10 +64,12 @@ namespace QuantConnect.Bloomberg
         /// <summary>
         /// Initializes a new instance of the <see cref="BloombergBrokerage"/> class
         /// </summary>
-        public BloombergBrokerage(IOrderProvider orderProvider, ApiType apiType, Environment environment, string serverHost, int serverPort)
+        public BloombergBrokerage(IOrderProvider orderProvider, ApiType apiType, Environment environment, 
+            IBloombergSymbolMapper symbolMapper, string serverHost, int serverPort)
             : base("Bloomberg brokerage")
         {
             _orderProvider = orderProvider;
+            _symbolMapper = symbolMapper;
 
             ApiType = apiType;
             Environment = environment;

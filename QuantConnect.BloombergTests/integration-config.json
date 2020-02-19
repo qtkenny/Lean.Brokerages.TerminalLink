@@ -1,0 +1,18 @@
+﻿{
+  // Test configuration.  Only futures are supported.
+  "order-type": "Limit",
+  "security-type": "Future",
+  "symbol-base": "", // e.g. Futures.Currencies.AUD
+  "market": "", // e.g. Market.USA
+  "bloomberg-symbol": "", // Actual bloomberg name.
+
+  // bloomberg configuration
+  "bloomberg-server-host": "127.0.0.1",
+  "bloomberg-server-port": 8194,
+  "bloomberg-environment": "Beta", // Production, Beta
+  "bloomberg-api-type": "Desktop", // QuantConnect.Bloomberg.ApiType: server, desktop, bpipe
+  "bloomberg-emsx-broker": "",
+  "bloomberg-emsx-account": "",
+  "bloomberg-emsx-notes": "",
+  "bloomberg-execution": false
+}
