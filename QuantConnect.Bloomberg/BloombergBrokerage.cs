@@ -574,7 +574,7 @@ namespace QuantConnect.Bloomberg
 
         private void Subscribe(string topic, IMessageHandler handler)
         {
-            var correlationId = new CorrelationID();
+            var correlationId = GetNewCorrelationId();
             _subscriptionMessageHandlers.AddOrUpdate(correlationId, handler);
 
             Log.Trace($"Added Subscription message handler: {correlationId}");
