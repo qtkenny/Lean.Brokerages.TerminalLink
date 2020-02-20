@@ -3,6 +3,7 @@
 * Lean Algorithmic Trading Engine v2.2 Copyright 2015 QuantConnect Corporation.
 */
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -23,9 +24,11 @@ namespace QuantConnect.Bloomberg
             var order = new BloombergOrder(_orderFieldDefinitions, sequence);
 
             _orders.Add(sequence, order);
-
+            OrderCreated?.Invoke(this, order);
             return order;
         }
+
+        public event EventHandler<BloombergOrder> OrderCreated;
 
         public BloombergOrder GetBySequenceNumber(int sequence)
         {

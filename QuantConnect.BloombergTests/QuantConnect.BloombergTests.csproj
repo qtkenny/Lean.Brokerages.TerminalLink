@@ -86,6 +86,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BloombergCommon.cs" />
+    <Compile Include="BloombergBrokerageIntegrationTests.cs" />
     <Compile Include="BloombergBrokerageTests.cs" />
     <Compile Include="BloombergSchemaTests.cs" />
     <Compile Include="BloombergSymbolMapperTests.cs" />
@@ -97,6 +98,9 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="bloomberg-symbol-map-tests.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="integration-config.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="packages.config" />

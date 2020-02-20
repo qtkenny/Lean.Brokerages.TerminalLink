@@ -10,6 +10,8 @@ using System.Threading;
 using Moq;
 using NodaTime;
 using NUnit.Framework;
+using QuantConnect.Bloomberg;
+using QuantConnect.Configuration;
 using QuantConnect.Data;
 using QuantConnect.Data.Auxiliary;
 using QuantConnect.Data.Market;
@@ -22,6 +24,14 @@ namespace QuantConnect.BloombergTests
     [TestFixture, Ignore("These tests have only been tested with the API emulator")]
     public class BloombergTests
     {
+        [TestFixtureSetUp]
+        public void SetupFixture()
+        {
+            const string dataDirectory = "../../../../Lean/Data";
+            Config.Set("data-folder", dataDirectory);
+            Globals.Reset();
+        }
+
         [SetUp]
         public void SetUp()
         {
