@@ -55,7 +55,6 @@ namespace QuantConnect.Bloomberg
         private readonly IOrderProvider _orderProvider;
         private readonly ManualResetEvent _blotterInitializedEvent = new ManualResetEvent(false);
         private OrderSubscriptionHandler _orderSubscriptionHandler;
-        private BloombergOrders _orders;
         private bool _isConnected;
 
         /// <summary>
@@ -92,6 +91,8 @@ namespace QuantConnect.Bloomberg
             _sessionMarketData = new Session(sessionOptions, OnBloombergMarketDataEvent);
             _sessionReferenceData = new Session(sessionOptions);
         }
+
+        internal BloombergOrders Orders { get; private set; }
 
         /// <summary>
         /// The API type (Desktop, Server or BPIPE)
@@ -160,8 +161,8 @@ namespace QuantConnect.Bloomberg
 
             InitializeFieldData();
 
-            _orders = new BloombergOrders(_orderFieldDefinitions);
-            _orderSubscriptionHandler = new OrderSubscriptionHandler(this, _orderProvider, _orders);
+            Orders = new BloombergOrders(_orderFieldDefinitions);
+            _orderSubscriptionHandler = new OrderSubscriptionHandler(this, _orderProvider, Orders);
             if (_execution)
             {
                 SubscribeOrderEvents();
@@ -189,7 +190,7 @@ namespace QuantConnect.Bloomberg
         /// <returns>The open orders returned from Bloomberg</returns>
         public override List<Order> GetOpenOrders()
         {
-            return _orders.Select(ConvertOrder).ToList();
+            return Orders.Select(ConvertOrder).ToList();
         }
 
         /// <summary>
