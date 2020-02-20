@@ -24,6 +24,7 @@ namespace QuantConnect.BloombergTests
         {
             using (var brokerage = BloombergCommon.CreateBrokerage())
             {
+                brokerage.Connect();
                 var symbols = brokerage.LookupSymbols("ES", SecurityType.Future).ToList();
 
                 Assert.That(symbols.Count > 0);
@@ -35,6 +36,7 @@ namespace QuantConnect.BloombergTests
         {
             using (var brokerage = BloombergCommon.CreateBrokerage())
             {
+                brokerage.Connect();
                 var symbols = brokerage.LookupSymbols("SPY", SecurityType.Option).ToList();
 
                 Assert.That(symbols.Count > 0);

@@ -30,15 +30,12 @@ namespace QuantConnect.Bloomberg
         private readonly string _account;
         private readonly string _notes;
         private readonly bool _execution;
-
-        private readonly SessionOptions _sessionOptions;
         private readonly Session _sessionMarketData;
-
         private readonly Session _sessionReferenceData;
-        private readonly Service _serviceReferenceData;
+        private readonly Session _sessionEms;
 
-        private Session _sessionEms;
         private Service _serviceEms;
+        private Service _serviceReferenceData;
 
         private long _nextCorrelationId;
         private readonly ConcurrentDictionary<string, BloombergSubscriptions> _subscriptionsByTopicName = new ConcurrentDictionary<string, BloombergSubscriptions>();
@@ -85,40 +82,15 @@ namespace QuantConnect.Bloomberg
                 throw new NotSupportedException("Only the Desktop API is supported for now.");
             }
 
-            _sessionOptions = new SessionOptions
+            var sessionOptions = new SessionOptions
             {
                 ServerHost = serverHost,
                 ServerPort = serverPort
             };
 
-            Log.Trace($"BloombergBrokerage(): Starting market data session: {_serverHost}:{_serverPort}:{Environment}.");
-            _sessionMarketData = new Session(_sessionOptions, OnBloombergMarketDataEvent);
-            if (!_sessionMarketData.Start())
-            {
-                throw new Exception("Unable to start market data session.");
-            }
-
-            Log.Trace("BloombergBrokerage(): Opening market data service.");
-            var marketDataServiceName = GetServiceName(ServiceType.MarketData);
-            if (!_sessionMarketData.OpenService(marketDataServiceName))
-            {
-                throw new Exception("Unable to open market data service.");
-            }
-
-            Log.Trace($"BloombergBrokerage(): Starting reference data session: {_serverHost}:{_serverPort}:{Environment}.");
-            _sessionReferenceData = new Session(_sessionOptions);
-            if (!_sessionReferenceData.Start())
-            {
-                throw new Exception("Unable to start reference data session.");
-            }
-
-            Log.Trace("BloombergBrokerage(): Opening reference data service.");
-            var referenceDataServiceName = GetServiceName(ServiceType.ReferenceData);
-            if (!_sessionReferenceData.OpenService(referenceDataServiceName))
-            {
-                throw new Exception("Unable to open reference data service.");
-            }
-            _serviceReferenceData = _sessionReferenceData.GetService(referenceDataServiceName);
+            _sessionEms = new Session(sessionOptions, OnBloombergEvent);
+            _sessionMarketData = new Session(sessionOptions, OnBloombergMarketDataEvent);
+            _sessionReferenceData = new Session(sessionOptions);
         }
 
         /// <summary>
@@ -144,7 +116,6 @@ namespace QuantConnect.Bloomberg
         public override void Connect()
         {
             Log.Trace($"BloombergBrokerage.Connect(): Starting EMS session: {_serverHost}:{_serverPort}:{Environment}.");
-            _sessionEms = new Session(_sessionOptions, OnBloombergEvent);
             if (!_sessionEms.Start())
             {
                 throw new Exception("Unable to start EMS session.");
@@ -158,6 +129,34 @@ namespace QuantConnect.Bloomberg
                 throw new Exception("Unable to open EMS service.");
             }
             _serviceEms = _sessionEms.GetService(emsServiceName);
+
+            // Initialize Market Data
+            Log.Trace($"BloombergBrokerage(): Starting market data session: {_serverHost}:{_serverPort}:{Environment}.");
+            if (!_sessionMarketData.Start())
+            {
+                throw new Exception("Unable to start market data session.");
+            }
+
+            Log.Trace("BloombergBrokerage(): Opening market data service.");
+            var marketDataServiceName = GetServiceName(ServiceType.MarketData);
+            if (!_sessionMarketData.OpenService(marketDataServiceName))
+            {
+                throw new Exception("Unable to open market data service.");
+            }
+            // Initialize reference data
+            Log.Trace($"BloombergBrokerage(): Starting reference data session: {_serverHost}:{_serverPort}:{Environment}.");
+            if (!_sessionReferenceData.Start())
+            {
+                throw new Exception("Unable to start reference data session.");
+            }
+
+            Log.Trace("BloombergBrokerage(): Opening reference data service.");
+            var referenceDataServiceName = GetServiceName(ServiceType.ReferenceData);
+            if (!_sessionReferenceData.OpenService(referenceDataServiceName))
+            {
+                throw new Exception("Unable to open reference data service.");
+            }
+            _serviceReferenceData = _sessionReferenceData.GetService(referenceDataServiceName);
 
             InitializeFieldData();
 
