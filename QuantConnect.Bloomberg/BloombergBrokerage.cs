@@ -842,5 +842,10 @@ namespace QuantConnect.Bloomberg
         {
             OnOrderEvent(orderEvent);
         }
+
+        internal void FireBrokerMessage(BrokerageMessageEvent message)
+        {
+            OnMessage(message);
+        }
     }
 }

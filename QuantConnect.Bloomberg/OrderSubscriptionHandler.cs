@@ -7,6 +7,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using Bloomberglp.Blpapi;
+using QuantConnect.Brokerages;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
 using QuantConnect.Orders.Fees;
@@ -39,6 +40,7 @@ namespace QuantConnect.Bloomberg
         {
             var sequence = GetSequence(message);
             Log.Trace($"OrderSubscriptionHandler.LogRequestCompletion(): {message.MessageType} - {sequence}");
+            _brokerage.FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Information, sequence, "Request completed: " + message.MessageType));
         }
 
         private static int GetSequence(Message message)
@@ -222,6 +224,7 @@ namespace QuantConnect.Bloomberg
             else if (msgType.Equals(BloombergNames.OrderErrorInfo))
             {
                 Log.Error("Order subscription error: " + message);
+                _brokerage.FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, -1, "Error: " + message));
             }
             else
             {
