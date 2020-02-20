@@ -237,8 +237,6 @@ namespace QuantConnect.Bloomberg
             request.Set("EMSX_HAND_INSTRUCTION", "DMA");
             // Set fields that map back to internal order ids
             request.Set(BloombergNames.EMSXReferenceOrderIdRequest, order.Id);
-            // TODO: This is potentially not required.  Currently, we map 1:1 between an order & the route, assuming DMA.  BBG technically supports multiple routes.
-            if (request.HasElement(BloombergNames.EMSXRouteRefId)) request.Set(BloombergNames.EMSXRouteRefId, order.Id.ToString());
             PopulateRequest(request, order);
             SendOrderRequest(request, order.Id);
             return true;

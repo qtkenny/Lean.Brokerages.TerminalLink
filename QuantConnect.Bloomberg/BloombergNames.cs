@@ -45,10 +45,6 @@ namespace QuantConnect.Bloomberg
         /// Value: EMSX_ORD_REF_ID
         /// </summary>
         public static readonly Name EMSXReferenceOrderIdResponse = new Name("EMSX_ORD_REF_ID");
-        /// <summary>
-        /// Value: EMSX_ROUTE_REF_ID
-        /// </summary>
-        public static readonly Name EMSXRouteRefId = new Name("EMSX_ROUTE_REF_ID");
         #endregion EMSX
 
         public static readonly Name EventStatus = new Name("EVENT_STATUS");
