@@ -5,7 +5,7 @@
     "Market": "usa"
   },
   "Test Future": {
-    "Underlying": "FUT",
+    "Underlying": "6A", // AUD
     "SecurityType": "Future",
     "Market": "usa",
     "ExpiryMonthYear": "H0"

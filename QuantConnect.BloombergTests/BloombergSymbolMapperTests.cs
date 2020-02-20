@@ -7,6 +7,7 @@ using System;
 using System.IO;
 using NUnit.Framework;
 using QuantConnect.Bloomberg;
+using QuantConnect.Securities;
 
 namespace QuantConnect.BloombergTests
 {
@@ -36,7 +37,7 @@ namespace QuantConnect.BloombergTests
             var future = underTest.GetLeanSymbol(futureTicker);
             Assert.AreEqual(SecurityType.Future, future.ID.SecurityType);
             Assert.AreEqual(Market.USA, future.ID.Market);
-            Assert.AreEqual("FUT01H0", future.Value);
+            Assert.AreEqual(Futures.Currencies.AUD + "13H0", future.Value);
             Assert.AreEqual(futureTicker, underTest.GetBrokerageSymbol(future));
         }
 
