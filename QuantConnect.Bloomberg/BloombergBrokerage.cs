@@ -297,11 +297,8 @@ namespace QuantConnect.Bloomberg
             }
             
             Log.Trace($"Updating order {order.Id}, sequence:{sequence}");
-            var request = _serviceEms.CreateRequest(BloombergNames.ModifyRouteEx.ToString());
+            var request = _serviceEms.CreateRequest(BloombergNames.ModifyOrderEx.ToString());
             request.Set(BloombergNames.EMSXSequence, sequence);
-            // We modify the route, assuming the 1:1 order to route created in PlaceOrder.
-            const int routeId = 1;
-            request.Set(BloombergNames.EMSXRouteId, routeId);
             PopulateRequest(request, order);
             SendOrderRequest(request, order.Id);
 
@@ -323,7 +320,7 @@ namespace QuantConnect.Bloomberg
             }
 
             Log.Trace($"Cancelling order {order.Id}, sequence:{sequence}");
-            var request = _serviceEms.CreateRequest(BloombergNames.CancelOrderEx.ToString());
+            var request = _serviceEms.CreateRequest(BloombergNames.DeleteOrder.ToString());
             request.GetElement(BloombergNames.EMSXSequence).AppendValue(sequence);
             SendOrderRequest(request, order.Id);
 

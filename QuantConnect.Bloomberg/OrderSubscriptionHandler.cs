@@ -35,14 +35,17 @@ namespace QuantConnect.Bloomberg
             return _orderToSequenceId.TryGetValue(orderId, out sequence);
         }
 
-        private static void LogRequestCompletion(Message message)
+        private void LogRequestCompletion(Message message)
         {
-            Log.Trace($"OrderSubscriptionHandler.LogRequestCompletion(): {message.MessageType} - {GetSequence(message)}");
+            var sequence = GetSequence(message);
+            Log.Trace($"OrderSubscriptionHandler.LogRequestCompletion(): {message.MessageType} - {sequence}");
         }
 
         private static int GetSequence(Message message)
         {
-            return message.GetElementAsInt32(BloombergNames.EMSXSequence);
+            if (message.HasElement(BloombergNames.EMSXSequence)) return message.GetElementAsInt32(BloombergNames.EMSXSequence);
+
+            return -1;
         }
 
         private static int? GetRoute(Message message)
@@ -208,7 +211,7 @@ namespace QuantConnect.Bloomberg
             {
                 Log.Trace("Order subscription streams activated");
             }
-            else if (msgType.Equals(BloombergNames.CreateOrderAndRouteEx) || msgType.Equals(BloombergNames.ModifyRouteEx) || msgType.Equals(BloombergNames.CancelOrderEx))
+            else if (msgType.Equals(BloombergNames.CreateOrderAndRouteEx) || msgType.Equals(BloombergNames.ModifyOrderEx) || msgType.Equals(BloombergNames.DeleteOrder))
             {
                 LogRequestCompletion(message);
             }

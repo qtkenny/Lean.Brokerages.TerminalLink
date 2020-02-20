@@ -61,13 +61,13 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         public static readonly Name CreateOrderAndRouteEx = new Name("CreateOrderAndRouteEx");
         /// <summary>
-        /// Value: ModifyRouteEx
+        /// Value: ModifyOrderEx
         /// </summary>
-        public static readonly Name ModifyRouteEx = new Name("ModifyRouteEx");
+        public static readonly Name ModifyOrderEx = new Name("ModifyOrderEx");
         /// <summary>
-        /// Value: CancelOrderEx
+        /// Value: DeleteOrder
         /// </summary>
-        public static readonly Name CancelOrderEx = new Name("CancelOrderEx");
+        public static readonly Name DeleteOrder = new Name("DeleteOrder");
 
         // ADMIN
         public static readonly Name SlowConsumerWarning = new Name("SlowConsumerWarning");
