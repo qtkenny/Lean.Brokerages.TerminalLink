@@ -221,7 +221,7 @@ namespace QuantConnect.Bloomberg
             {
                 OnOrderRouting(message);
             }
-            else if (msgType.Equals(BloombergNames.OrderErrorInfo))
+            else if (msgType.Equals(BloombergNames.ErrorInfo))
             {
                 Log.Error("Order subscription error: " + message);
                 _brokerage.FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, -1, "Error: " + message));

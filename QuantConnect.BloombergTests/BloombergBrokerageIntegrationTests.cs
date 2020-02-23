@@ -1,11 +1,15 @@
 ﻿using System;
+using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Moq;
+using NodaTime;
 using NUnit.Framework;
 using QuantConnect.Bloomberg;
 using QuantConnect.Brokerages;
 using QuantConnect.Configuration;
+using QuantConnect.Data;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
 using QuantConnect.Securities;
@@ -16,7 +20,7 @@ namespace QuantConnect.BloombergTests
 {
     [TestFixture]
     //[Ignore("Broker tests should be executed manually")]
-    [Timeout(10000)]
+    [Timeout(60000)]
     public class BloombergBrokerageIntegrationTests
     {
         private static readonly Action<Order, int> OrderIdSetter;
@@ -43,11 +47,6 @@ namespace QuantConnect.BloombergTests
             nextMonth = new DateTime(nextMonth.Year, nextMonth.Month, 01);
             var expiry = expiryFunction.Invoke(nextMonth);
             TestSymbol = Symbol.CreateFuture(symbolBase, Config.GetValue<string>("market"), expiry);
-
-            // Setup & map a Bloomberg symbol
-            var bbgSymbol = Config.GetValue<string>("bloomberg-symbol");
-            MockBloombergSymbolMapper.Setup(x => x.GetBrokerageSymbol(TestSymbol)).Returns(bbgSymbol);
-            MockBloombergSymbolMapper.Setup(x => x.GetLeanSymbol(bbgSymbol)).Returns(TestSymbol);
         }
 
         [TestFixtureSetUp]
@@ -73,6 +72,11 @@ namespace QuantConnect.BloombergTests
         [TestCase(2, 3, 1)]
         public async Task Can_Manipulate_Order(int initialQuantity, params int[] updatedQuantities)
         {
+            // Setup & map a Bloomberg symbol
+            var bbgSymbol = Config.GetValue<string>("bloomberg-symbol");
+            MockBloombergSymbolMapper.Setup(x => x.GetBrokerageSymbol(TestSymbol)).Returns(bbgSymbol);
+            MockBloombergSymbolMapper.Setup(x => x.GetLeanSymbol(bbgSymbol)).Returns(TestSymbol);
+
             // Setup
             var order = Order.CreateOrder(new SubmitOrderRequest(Config.GetValue<OrderType>("order-type"), Config.GetValue<SecurityType>("security-type"), TestSymbol,
                 initialQuantity, 1, 100, DateTime.Now, null, new OrderProperties {TimeInForce = TimeInForce.Day}));
@@ -104,7 +108,36 @@ namespace QuantConnect.BloombergTests
             Assert.AreEqual("CANCEL", fieldStatus.CurrentValue);
         }
 
-        private static async Task<BrokerageMessageEvent> OnNextMessage(Func<Order, bool> function, Order order, params Task[] additionalTasksToAwait)
+        [Test]
+        [TestCase("BHP AU Equity", 15, Resolution.Daily, TickType.Trade)]
+        [TestCase("ADH0 Curncy", 2, Resolution.Daily, TickType.Trade)]
+        [TestCase("ADH0 Curncy", 2, Resolution.Daily, TickType.Quote)]
+        [TestCase("ADH0 Curncy", 1, Resolution.Minute, TickType.Trade)]
+        [TestCase("ADH0 Curncy", 2, Resolution.Minute, TickType.Quote)]
+        public void Can_Request_History(string bbSymbol, int days, Resolution resolution, TickType tickType)
+        {
+            MockBloombergSymbolMapper.Setup(x => x.GetLeanSymbol(bbSymbol)).Returns(TestSymbol);
+            MockBloombergSymbolMapper.Setup(x => x.GetBrokerageSymbol(TestSymbol)).Returns(bbSymbol);
+            // Always rewind 1 day, so we guarantee market will be open.
+            var endDate = DateTime.UtcNow.AddDays(-1);
+            switch (endDate.DayOfWeek) {
+                case DayOfWeek.Sunday: endDate = endDate.AddDays(-2);
+                    break;
+                case DayOfWeek.Saturday: endDate = endDate.AddDays(-1);
+                    break;
+            }
+            var startDate = endDate.AddDays(-days);
+            var stopwatch = Stopwatch.StartNew();
+            var request = new HistoryRequest(startDate, endDate, null, TestSymbol, resolution, SecurityExchangeHours.AlwaysOpen(DateTimeZone.Utc), DateTimeZone.Utc, null, true,
+                false, DataNormalizationMode.Raw, tickType);
+            var history = _underTest.GetHistory(request).ToList();
+            stopwatch.Stop();
+            Assert.IsNotEmpty(history);
+            Console.Out.WriteLine("Results: " + history.Count);
+            Console.Out.WriteLine("   Time: " + stopwatch.Elapsed.ToString("c"));
+        }
+
+        private static async Task<BrokerageMessageEvent> OnNextMessage<T, TResult>(Func<T, TResult> function, T order, params Task[] additionalTasksToAwait)
         {
             var brokerMessageTask = OnEvent<BloombergBrokerage, BrokerageMessageEvent>(_underTest, (b, e) => b.Message += e, (b, e) => b.Message -= e);
             function(order);

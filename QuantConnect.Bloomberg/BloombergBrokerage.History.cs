@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Bloomberglp.Blpapi;
+using QuantConnect.Brokerages;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;
 using QuantConnect.Logging;
@@ -179,59 +180,80 @@ namespace QuantConnect.Bloomberg
                 .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone).Date;
             var endDate = historyRequest.EndTimeUtc
                 .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone).Date;
+            request.Append(BloombergNames.Securities, _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
 
-            request.Append("securities", _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
-
-            var fields = request.GetElement("fields");
-            fields.AppendValue("OPEN");
-            fields.AppendValue("HIGH");
-            fields.AppendValue("LOW");
-            fields.AppendValue("CLOSE");
-            fields.AppendValue("VOLUME");
+            var fields = request.GetElement(BloombergNames.Fields);
+            fields.AppendValue(BloombergNames.Open.ToString());
+            fields.AppendValue(BloombergNames.High.ToString());
+            fields.AppendValue(BloombergNames.Low.ToString());
+            fields.AppendValue(BloombergNames.Close.ToString());
+            fields.AppendValue(BloombergNames.Volume.ToString());
 
             request.Set("periodicitySelection", "DAILY");
             request.Set("startDate", startDate.ToString("yyyyMMdd"));
             request.Set("endDate", endDate.ToString("yyyyMMdd"));
 
-            var correlationId = GetNewCorrelationId();
-            _sessionReferenceData.SendRequest(request, correlationId);
+            return RequestTradeBars(historyRequest, Time.OneDay, request, BloombergNames.SecurityData, BloombergNames.FieldData);
+        }
 
-            // TODO: with real API - use reset event to wait for async responses received in OnBloombergEvent
-
-            while (true)
+        private static TradeBar CreateTradeBar(HistoryRequest request, Element row, TimeSpan period)
+        {
+            var bar = new TradeBar {Symbol = request.Symbol, Period = period};
+            if (row.HasElement(BloombergNames.Date))
             {
-                var eventObj = _sessionReferenceData.NextEvent();
-                foreach (var msg in eventObj)
-                {
-                    if (Equals(msg.CorrelationID, correlationId))
-                    {
-                        var rows = msg.AsElement["securityData"]["fieldData"];
-
-                        for (var i = 0; i < rows.NumValues; i++)
-                        {
-                            var row = rows.GetValueAsElement(i);
-                            var date = row["date"].GetValueAsDate();
-
-                            yield return new TradeBar
-                            {
-                                Symbol = historyRequest.Symbol,
-                                Time = new DateTime(date.Year, date.Month, date.DayOfMonth),
-                                Period = Time.OneDay,
-                                Open = Convert.ToDecimal(row["OPEN"].GetValueAsFloat64()),
-                                High = Convert.ToDecimal(row["HIGH"].GetValueAsFloat64()),
-                                Low = Convert.ToDecimal(row["LOW"].GetValueAsFloat64()),
-                                Close = Convert.ToDecimal(row["CLOSE"].GetValueAsFloat64()),
-                                Volume = Convert.ToDecimal(row["VOLUME"].GetValueAsFloat64())
-                            };
-                        }
-                    }
-                }
-
-                if (eventObj.Type == Event.EventType.RESPONSE)
-                {
-                    yield break;
-                }
+                var date = row[BloombergNames.Date].GetValueAsDate();
+                bar.Time = new DateTime(date.Year, date.Month, date.DayOfMonth);
+                bar.Period = Time.OneDay;
             }
+            else if (row.HasElement("time"))
+            {
+                var time = row["time"].GetValueAsDatetime();
+                var barTime = new DateTime(time.Year, time.Month, time.DayOfMonth, time.Hour, time.Minute, time.Second).ConvertFromUtc(request.ExchangeHours.TimeZone);
+                bar.Time = barTime;
+            }
+            else
+            {
+                throw new Exception($"Date or time was not received [symbol:{request.Symbol},bbg-row:{row}]");
+            }
+
+            if (TryReadDecimal(row, BloombergNames.Open, out var open))
+            {
+                bar.Open = open;
+            }
+
+            if (TryReadDecimal(row, BloombergNames.High, out var high))
+            {
+                bar.High = high;
+            }
+
+            if (TryReadDecimal(row, BloombergNames.Low, out var low))
+            {
+                bar.Low = low;
+            }
+
+            if (TryReadDecimal(row, BloombergNames.Close, out var close))
+            {
+                bar.Close = close;
+            }
+
+            if (TryReadDecimal(row, BloombergNames.Volume, out var volume))
+            {
+                bar.Volume = volume;
+            }
+
+            return bar;
+        }
+
+        private static bool TryReadDecimal(Element element, Name name, out decimal result)
+        {
+            if (element.HasElement(name))
+            {
+                result = Convert.ToDecimal(element.GetElementAsFloat64(name));
+                return true;
+            }
+
+            result = decimal.Zero;
+            return false;
         }
 
         private static int GetIntervalMinutes(Resolution resolution)
@@ -262,53 +284,46 @@ namespace QuantConnect.Bloomberg
 
             request.Set("security", _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
             request.Set("eventType", eventType);
-
             request.Set("interval", GetIntervalMinutes(historyRequest.Resolution));
             request.Set("startDateTime", new Datetime(startDateTime.RoundDown(period)));
             request.Set("endDateTime", new Datetime(endDateTime.RoundDown(period)));
 
+            return RequestTradeBars(historyRequest, period, request, BloombergNames.BarData, BloombergNames.BarTickData);
+        }
+
+        // TODO: with real API - use reset event to wait for async responses received in OnBloombergEvent
+        private IEnumerable<TradeBar> RequestTradeBars(HistoryRequest historyRequest, TimeSpan period, Request request, Name arrayName, Name arrayItemName)
+        {
             var correlationId = GetNewCorrelationId();
             _sessionReferenceData.SendRequest(request, correlationId);
-
-            // TODO: with real API - use reset event to wait for async responses received in OnBloombergEvent
-
-            while (true)
+            var responsePending = true;
+            var bars = new List<TradeBar>();
+            while (responsePending)
             {
                 var eventObj = _sessionReferenceData.NextEvent();
-                foreach (var msg in eventObj)
+
+                var msg = eventObj.GetMessages().FirstOrDefault(f => f.CorrelationIDs.Contains(correlationId));
+                if (msg == default)
                 {
-                    if (Equals(msg.CorrelationID, correlationId))
-                    {
-                        var rows = msg["barData"]["barTickData"];
-
-                        for (var i = 0; i < rows.NumValues; i++)
-                        {
-                            var row = rows.GetValueAsElement(i);
-                            var time = row["time"].GetValueAsDatetime();
-
-                            var barTime = new DateTime(time.Year, time.Month, time.DayOfMonth, time.Hour, time.Minute, time.Second)
-                                .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone);
-
-                            yield return new TradeBar
-                            {
-                                Symbol = historyRequest.Symbol,
-                                Time = barTime,
-                                Period = period,
-                                Open = Convert.ToDecimal(row.GetElementAsFloat64("open")),
-                                High = Convert.ToDecimal(row.GetElementAsFloat64("high")),
-                                Low = Convert.ToDecimal(row.GetElementAsFloat64("low")),
-                                Close = Convert.ToDecimal(row.GetElementAsFloat64("close")),
-                                Volume = Convert.ToDecimal(row.GetElementAsInt64("volume"))
-                            };
-                        }
-                    }
+                    continue;
                 }
 
-                if (eventObj.Type == Event.EventType.RESPONSE)
+                responsePending = eventObj.Type != Event.EventType.RESPONSE;
+                if (msg.HasElement(BloombergNames.ResponseError))
                 {
-                    yield break;
+                    FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, -1, "Error: " + msg));
+                    continue;
+                }
+
+                var rows = msg.AsElement[arrayName][arrayItemName];
+                for (var i = 0; i < rows.NumValues; i++)
+                {
+                    var row = rows.GetValueAsElement(i);
+                    bars.Add(CreateTradeBar(historyRequest, row, period));
                 }
             }
+
+            return bars;
         }
 
         private IEnumerable<Tick> GetIntradayTickData(HistoryRequest historyRequest)

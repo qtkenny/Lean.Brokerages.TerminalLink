@@ -34,10 +34,6 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         public static readonly Name EMSXFilled = new Name("EMSX_FILLED");
         /// <summary>
-        /// Value: ErrorInfo
-        /// </summary>
-        public static readonly Name OrderErrorInfo = new Name("ErrorInfo");
-        /// <summary>
         /// Value: EMSX_ORDER_REF_ID
         /// </summary>
         public static readonly Name EMSXReferenceOrderIdRequest = new Name("EMSX_ORDER_REF_ID");
@@ -85,5 +81,23 @@ namespace QuantConnect.Bloomberg
         public static readonly Name SubscriptionStarted = new Name("SubscriptionStarted");
         public static readonly Name SubscriptionStreamsActivated = new Name("SubscriptionStreamsActivated");
         public static readonly Name SubscriptionTerminated = new Name("SubscriptionTerminated");
+
+        // RESPONSE VALUES
+        public static readonly Name ErrorInfo = new Name("ErrorInfo");
+        public static readonly Name SecurityData = new Name("securityData");
+        public static readonly Name FieldData = new Name("fieldData");
+        public static readonly Name Date = new Name("date");
+        public static readonly Name ResponseError = new Name("responseError");
+
+        // REF DATA REQUEST
+        public static readonly Name Fields = new Name("fields");
+        public static readonly Name Securities = new Name("securities");
+        public static readonly Name Open = new Name("OPEN");
+        public static readonly Name High = new Name("HIGH");
+        public static readonly Name Low = new Name("LOW");
+        public static readonly Name Close = new Name("CLOSE");
+        public static readonly Name Volume = new Name("VOLUME");
+        public static readonly Name BarData = new Name("barData");
+        public static readonly Name BarTickData = new Name("barTickData");
     }
 }

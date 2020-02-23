@@ -63,9 +63,9 @@ namespace QuantConnect.Bloomberg
         {
             var request = _serviceReferenceData.CreateRequest("ReferenceDataRequest");
 
-            request.Append("securities", ticker);
+            request.Append(BloombergNames.Securities, ticker);
 
-            request.Append("fields", BloombergFieldNames.FuturesChain);
+            request.Append(BloombergNames.Fields, BloombergFieldNames.FuturesChain);
 
             var overrides = request.GetElement("overrides");
 
@@ -90,7 +90,7 @@ namespace QuantConnect.Bloomberg
                 foreach (var msg in eventObj.Where(m => Equals(m.CorrelationID, correlationId)))
                 {
                     // Security data is an array.
-                    var securityData = msg.AsElement["securityData"];
+                    var securityData = msg.AsElement[BloombergNames.SecurityData];
                     for (var i = 0; i < securityData.NumValues; i++)
                     {
                         var securityItem = (Element) securityData.GetValue(i);
@@ -102,7 +102,7 @@ namespace QuantConnect.Bloomberg
                             yield break;
                         }
 
-                        var fieldData = securityItem["fieldData"];
+                        var fieldData = securityItem[BloombergNames.FieldData];
                         if (fieldData.HasElement(BloombergFieldNames.FuturesChain, true))
                         {
                             var chainTickers = fieldData.GetElement(BloombergFieldNames.FuturesChain);
