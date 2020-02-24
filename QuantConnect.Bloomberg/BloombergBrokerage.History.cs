@@ -193,7 +193,7 @@ namespace QuantConnect.Bloomberg
             request.Set("startDate", startDate.ToString("yyyyMMdd"));
             request.Set("endDate", endDate.ToString("yyyyMMdd"));
 
-            return RequestTradeBars(historyRequest, Time.OneDay, request, BloombergNames.SecurityData, BloombergNames.FieldData);
+            return RequestAndParse(request, BloombergNames.SecurityData, BloombergNames.FieldData, row => CreateTradeBar(historyRequest, row, Time.OneDay));
         }
 
         private static TradeBar CreateTradeBar(HistoryRequest request, Element row, TimeSpan period)
@@ -288,16 +288,16 @@ namespace QuantConnect.Bloomberg
             request.Set("startDateTime", new Datetime(startDateTime.RoundDown(period)));
             request.Set("endDateTime", new Datetime(endDateTime.RoundDown(period)));
 
-            return RequestTradeBars(historyRequest, period, request, BloombergNames.BarData, BloombergNames.BarTickData);
+            return RequestAndParse(request, BloombergNames.BarData, BloombergNames.BarTickData, row => CreateTradeBar(historyRequest, row, period));
         }
 
         // TODO: with real API - use reset event to wait for async responses received in OnBloombergEvent
-        private IEnumerable<TradeBar> RequestTradeBars(HistoryRequest historyRequest, TimeSpan period, Request request, Name arrayName, Name arrayItemName)
+        private IEnumerable<T> RequestAndParse<T>(Request request, Name arrayName, Name arrayItemName, Func<Element, T> createFunc)
         {
             var correlationId = GetNewCorrelationId();
             _sessionReferenceData.SendRequest(request, correlationId);
             var responsePending = true;
-            var bars = new List<TradeBar>();
+            var bars = new List<T>();
             while (responsePending)
             {
                 var eventObj = _sessionReferenceData.NextEvent();
@@ -319,7 +319,7 @@ namespace QuantConnect.Bloomberg
                 for (var i = 0; i < rows.NumValues; i++)
                 {
                     var row = rows.GetValueAsElement(i);
-                    bars.Add(CreateTradeBar(historyRequest, row, period));
+                    bars.Add(createFunc(row));
                 }
             }
 
