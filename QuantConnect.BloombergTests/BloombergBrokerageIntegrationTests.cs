@@ -129,12 +129,16 @@ namespace QuantConnect.BloombergTests
             MockBloombergSymbolMapper.Setup(x => x.GetBrokerageSymbol(TestSymbol)).Returns(bbSymbol);
             // Always rewind 1 day, so we guarantee market will be open.
             var endDate = DateTime.UtcNow.AddDays(-1);
-            switch (endDate.DayOfWeek) {
-                case DayOfWeek.Sunday: endDate = endDate.AddDays(-2);
+            switch (endDate.DayOfWeek)
+            {
+                case DayOfWeek.Sunday:
+                    endDate = endDate.AddDays(-2);
                     break;
-                case DayOfWeek.Saturday: endDate = endDate.AddDays(-1);
+                case DayOfWeek.Saturday:
+                    endDate = endDate.AddDays(-1);
                     break;
             }
+
             var startDate = endDate.AddDays(-days);
             var stopwatch = Stopwatch.StartNew();
             var request = new HistoryRequest(startDate, endDate, null, TestSymbol, resolution, SecurityExchangeHours.AlwaysOpen(DateTimeZone.Utc), DateTimeZone.Utc, null, true,
