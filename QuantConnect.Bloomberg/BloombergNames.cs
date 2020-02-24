@@ -99,5 +99,18 @@ namespace QuantConnect.Bloomberg
         public static readonly Name Volume = new Name("VOLUME");
         public static readonly Name BarData = new Name("barData");
         public static readonly Name BarTickData = new Name("barTickData");
+        public static readonly Name TickData = new Name("tickData");
+        public static readonly Name Time = new Name("time");
+        public static readonly Name Trade = new Name("TRADE");
+        public static readonly Name BestBid = new Name("BID_BEST");
+        public static readonly Name BestAsk = new Name("ASK_BEST");
+        public static readonly Name Security = new Name("security");
+        public static readonly Name EventType = new Name("eventType");
+        public static readonly Name EventTypes = new Name("eventTypes");
+        public static readonly Name StartDateTime = new Name("startDateTime");
+        public static readonly Name EndDateTime = new Name("endDateTime");
+        public static readonly Name Size = new Name("size");
+        public static readonly Name Value = new Name("value");
+        public static readonly Name Type = new Name("type");
     }
 }

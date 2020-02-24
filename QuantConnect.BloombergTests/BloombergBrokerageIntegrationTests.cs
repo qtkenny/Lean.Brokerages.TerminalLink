@@ -119,17 +119,20 @@ namespace QuantConnect.BloombergTests
         }
 
         [Test]
-        [TestCase("BHP AU Equity", 15, Resolution.Daily, TickType.Trade)]
-        [TestCase("ADH0 Curncy", 2, Resolution.Daily, TickType.Trade)]
-        [TestCase("ADH0 Curncy", 2, Resolution.Daily, TickType.Quote)]
-        [TestCase("ADH0 Curncy", 1, Resolution.Minute, TickType.Trade)]
-        [TestCase("ADH0 Curncy", 2, Resolution.Minute, TickType.Quote)]
-        public void Can_Request_History(string bbSymbol, int days, Resolution resolution, TickType tickType)
+        [TestCase("BHP AU Equity", 15 * 60 * 24, Resolution.Daily, TickType.Trade)]
+        // Tick-level data for tick types
+        [TestCase("BHP AU Equity", 1, Resolution.Tick, TickType.Quote)]
+        [TestCase("BHP AU Equity", 1, Resolution.Tick, TickType.Trade)]
+        [TestCase("ADH0 Curncy", 2 * 60 * 24, Resolution.Daily, TickType.Trade)]
+        [TestCase("ADH0 Curncy", 2 * 60 * 24, Resolution.Daily, TickType.Quote)]
+        [TestCase("ADH0 Curncy", 1 * 60 * 24, Resolution.Minute, TickType.Trade)]
+        [TestCase("ADH0 Curncy", 2 * 60 * 24, Resolution.Minute, TickType.Quote)]
+        public void Can_Request_History(string bbSymbol, int minutes, Resolution resolution, TickType tickType)
         {
             MockBloombergSymbolMapper.Setup(x => x.GetLeanSymbol(bbSymbol)).Returns(TestSymbol);
             MockBloombergSymbolMapper.Setup(x => x.GetBrokerageSymbol(TestSymbol)).Returns(bbSymbol);
             // Always rewind 1 day, so we guarantee market will be open.
-            var endDate = DateTime.UtcNow.AddDays(-1);
+            var endDate = new DateTime(2020, 02, 24, 01, 00, 00, DateTimeKind.Utc);
             switch (endDate.DayOfWeek)
             {
                 case DayOfWeek.Sunday:
@@ -140,7 +143,7 @@ namespace QuantConnect.BloombergTests
                     break;
             }
 
-            var startDate = endDate.AddDays(-days);
+            var startDate = endDate.AddMinutes(-minutes);
             var stopwatch = Stopwatch.StartNew();
             var request = new HistoryRequest(startDate, endDate, null, TestSymbol, resolution, SecurityExchangeHours.AlwaysOpen(DateTimeZone.Utc), DateTimeZone.Utc, null, true,
                 false, DataNormalizationMode.Raw, tickType);

@@ -205,9 +205,9 @@ namespace QuantConnect.Bloomberg
                 bar.Time = new DateTime(date.Year, date.Month, date.DayOfMonth);
                 bar.Period = Time.OneDay;
             }
-            else if (row.HasElement("time"))
+            else if (row.HasElement(BloombergNames.Time))
             {
-                var time = row["time"].GetValueAsDatetime();
+                var time = row[BloombergNames.Time].GetValueAsDatetime();
                 var barTime = new DateTime(time.Year, time.Month, time.DayOfMonth, time.Hour, time.Minute, time.Second).ConvertFromUtc(request.ExchangeHours.TimeZone);
                 bar.Time = barTime;
             }
@@ -283,16 +283,16 @@ namespace QuantConnect.Bloomberg
                 .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone);
 
             request.Set("security", _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
-            request.Set("eventType", eventType);
+            request.Set(BloombergNames.EventType, eventType);
             request.Set("interval", GetIntervalMinutes(historyRequest.Resolution));
-            request.Set("startDateTime", new Datetime(startDateTime.RoundDown(period)));
-            request.Set("endDateTime", new Datetime(endDateTime.RoundDown(period)));
+            request.Set(BloombergNames.StartDateTime, new Datetime(startDateTime.RoundDown(period)));
+            request.Set(BloombergNames.EndDateTime, new Datetime(endDateTime.RoundDown(period)));
 
             return RequestAndParse(request, BloombergNames.BarData, BloombergNames.BarTickData, row => CreateTradeBar(historyRequest, row, period));
         }
 
         // TODO: with real API - use reset event to wait for async responses received in OnBloombergEvent
-        private IEnumerable<T> RequestAndParse<T>(Request request, Name arrayName, Name arrayItemName, Func<Element, T> createFunc)
+        private IReadOnlyCollection<T> RequestAndParse<T>(Request request, Name arrayName, Name arrayItemName, Func<Element, T> createFunc)
         {
             var correlationId = GetNewCorrelationId();
             _sessionReferenceData.SendRequest(request, correlationId);
@@ -335,113 +335,91 @@ namespace QuantConnect.Bloomberg
             var endDateTime = historyRequest.EndTimeUtc
                 .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone);
 
-            request.Set("security", _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
+            request.Set(BloombergNames.Security, _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
 
-            if (historyRequest.TickType == TickType.Trade)
-            {
-                request.Append("eventTypes", "TRADE");
-            }
-            else if (historyRequest.TickType == TickType.Quote)
-            {
-                request.Append("eventTypes", "BID");
-                request.Append("eventTypes", "ASK");
-            }
-            else
-            {
-                throw new NotSupportedException($"GetIntradayTickData(): unsupported tick type: {historyRequest.TickType}");
+            switch (historyRequest.TickType) {
+                case TickType.Trade: request.Append(BloombergNames.EventTypes, BloombergNames.Trade);
+                    break;
+                case TickType.Quote:
+                    request.Append(BloombergNames.EventTypes, BloombergNames.BestBid);
+                    request.Append(BloombergNames.EventTypes, BloombergNames.BestAsk);
+
+                    break;
+                default: throw new NotSupportedException($"GetIntradayTickData(): unsupported tick type: {historyRequest.TickType}");
             }
 
-            request.Set("startDateTime", new Datetime(startDateTime));
-            request.Set("endDateTime", new Datetime(endDateTime));
+            request.Set(BloombergNames.StartDateTime, new Datetime(startDateTime));
+            request.Set(BloombergNames.EndDateTime, new Datetime(endDateTime));
             request.Set("includeConditionCodes", true);
 
             var correlationId = GetNewCorrelationId();
             _sessionReferenceData.SendRequest(request, correlationId);
 
-            // TODO: with real API - use reset event to wait for async responses received in OnBloombergEvent
-
-            while (true)
+            var tickData = RequestAndParse(request, BloombergNames.TickData, BloombergNames.TickData, row => CreateTick(historyRequest, row));
+            if (tickData.Count == 0 || historyRequest.TickType == TickType.Trade)
             {
-                var eventObj = _sessionReferenceData.NextEvent();
-                foreach (var msg in eventObj)
+                return tickData;
+            }
+
+            var results = new List<Tick>(tickData.Count - 1);
+            var previousTick = tickData.First();
+            foreach (var tick in tickData.Skip(1))
+            {
+                // Any fields that aren't set on this tick update, take the bid/ask values from the previous one.
+                if (tick.BidPrice == decimal.Zero)
                 {
-                    if (Equals(msg.CorrelationID, correlationId))
-                    {
-                        var rows = msg["tickData"]["tickData"];
-
-                        var bidPrice = 0m;
-                        var askPrice = 0m;
-                        var bidSize = 0m;
-                        var askSize = 0m;
-                        for (var i = 0; i < rows.NumValues; i++)
-                        {
-                            var row = rows.GetValueAsElement(i);
-                            var time = row["time"].GetValueAsDatetime();
-
-                            var tickTime = new DateTime(time.Year, time.Month, time.DayOfMonth, time.Hour, time.Minute, time.Second)
-                                .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone);
-                            var type = row.GetElementAsString("type");
-                            var value = Convert.ToDecimal(row.GetElementAsFloat64("value"));
-                            var size = Convert.ToDecimal(row.GetElementAsFloat64("size"));
-
-                            if (type == "TRADE")
-                            {
-                                yield return new Tick
-                                {
-                                    Symbol = historyRequest.Symbol,
-                                    Time = tickTime,
-                                    TickType = TickType.Trade,
-                                    Value = value,
-                                    Quantity = size
-                                };
-                            }
-                            else if (type == "BID")
-                            {
-                                bidPrice = value;
-                                bidSize = size;
-
-                                if (bidPrice > 0 && askPrice > 0)
-                                {
-                                    yield return new Tick
-                                    {
-                                        Symbol = historyRequest.Symbol,
-                                        Time = tickTime,
-                                        TickType = TickType.Quote,
-                                        BidPrice = bidPrice,
-                                        AskPrice = askPrice,
-                                        BidSize = bidSize,
-                                        AskSize = askSize
-                                    };
-                                }
-                            }
-                            else if (type == "ASK")
-                            {
-                                askPrice = value;
-                                askSize = size;
-
-                                if (bidPrice > 0 && askPrice > 0)
-                                {
-                                    yield return new Tick
-                                    {
-                                        Symbol = historyRequest.Symbol,
-                                        Time = tickTime,
-                                        TickType = TickType.Quote,
-                                        BidPrice = bidPrice,
-                                        AskPrice = askPrice,
-                                        BidSize = bidSize,
-                                        AskSize = askSize
-                                    };
-                                }
-                            }
-                        }
-                    }
+                    tick.BidPrice = previousTick.BidPrice;
                 }
 
-                if (eventObj.Type == Event.EventType.RESPONSE)
+                if (tick.BidSize == decimal.Zero)
                 {
-                    yield break;
+                    tick.BidSize = previousTick.BidSize;
+                }
+
+                if (tick.AskPrice == decimal.Zero)
+                {
+                    tick.AskPrice = previousTick.AskPrice;
+                }
+
+                if (tick.AskSize == decimal.Zero)
+                {
+                    tick.AskSize = previousTick.AskSize;
+                }
+
+                previousTick = tick;
+                if (tick.BidSize != decimal.Zero && tick.BidPrice != decimal.Zero && tick.AskSize != decimal.Zero && tick.AskPrice != decimal.Zero)
+                {
+                    results.Add(tick);
                 }
             }
+
+            return results;
+        }
+
+        private static Tick CreateTick(HistoryRequest historyRequest, Element row)
+        {
+            var time = row[BloombergNames.Time].GetValueAsDatetime();
+            var tickTime = time.ToSystemDateTime().ConvertFromUtc(historyRequest.ExchangeHours.TimeZone);
+            var type = row.GetElementAsString(BloombergNames.Type);
+            var value = Convert.ToDecimal(row.GetElementAsFloat64(BloombergNames.Value));
+            var size = Convert.ToDecimal(row.GetElementAsFloat64(BloombergNames.Size));
+
+            if (type == BloombergNames.Trade.ToString())
+            {
+                return new Tick {Symbol = historyRequest.Symbol, Time = tickTime, TickType = TickType.Trade, Value = value, Quantity = size};
+            }
+
+            if (type == BloombergNames.BestBid.ToString())
+            {
+                return new Tick {Symbol = historyRequest.Symbol, Time = tickTime, TickType = TickType.Quote, BidPrice = value, BidSize = size, };
+            }
+
+            if (type == BloombergNames.BestAsk.ToString())
+            {
+                return new Tick {Symbol = historyRequest.Symbol, Time = tickTime, TickType = TickType.Quote, AskPrice = value, AskSize = size};
+            }
+
+            throw new Exception($"Unknown tick type: {type} [row:{row}]");
         }
     }
 }
