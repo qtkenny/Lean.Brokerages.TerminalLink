@@ -77,7 +77,7 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         /// <param name="symbol">A Lean symbol instance</param>
         /// <returns>The Bloomberg symbol</returns>
-        public string GetBrokerageSymbol(Symbol symbol)
+        public virtual string GetBrokerageSymbol(Symbol symbol)
         {
             if (symbol == null || string.IsNullOrWhiteSpace(symbol.Value))
                 throw new ArgumentException("Invalid symbol: " + (symbol == null ? "null" : symbol.ToString()));
@@ -110,7 +110,7 @@ namespace QuantConnect.Bloomberg
         /// <param name="strike">The strike of the security (if applicable)</param>
         /// <param name="optionRight">The option right of the security (if applicable)</param>
         /// <returns>A new Lean Symbol instance</returns>
-        public Symbol GetLeanSymbol(
+        public virtual Symbol GetLeanSymbol(
             string brokerageSymbol,
             SecurityType securityType,
             string market,
@@ -126,7 +126,7 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         /// <param name="brokerageSymbol">The Bloomberg symbol</param>
         /// <returns>A new Lean Symbol instance</returns>
-        public Symbol GetLeanSymbol(string brokerageSymbol)
+        public virtual Symbol GetLeanSymbol(string brokerageSymbol)
         {
             if (string.IsNullOrWhiteSpace(brokerageSymbol))
                 throw new ArgumentException("Invalid brokerage symbol: " + brokerageSymbol);
@@ -171,6 +171,8 @@ namespace QuantConnect.Bloomberg
 
             throw new ArgumentException("Invalid brokerage symbol: " + brokerageSymbol);
         }
+
+        public IReadOnlyDictionary<Symbol, string> ManuallyMappedSymbols => _mapLeanToBloomberg.ToDictionary(x => x.Key, x => x.Value);
 
         private string GetBloombergTopicName(Symbol symbol)
         {
