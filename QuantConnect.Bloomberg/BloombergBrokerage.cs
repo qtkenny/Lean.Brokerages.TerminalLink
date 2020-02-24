@@ -116,6 +116,11 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         public override void Connect()
         {
+            if (IsConnected)
+            {
+                return;
+            }
+
             Log.Trace($"BloombergBrokerage.Connect(): Starting EMS session: {_serverHost}:{_serverPort}:{Environment}.");
             if (!_sessionEms.Start())
             {
