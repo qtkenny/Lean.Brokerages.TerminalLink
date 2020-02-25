@@ -136,7 +136,6 @@ namespace QuantConnect.BloombergTests
         }
 
         [Test]
-        [TestCase("BHP AU Equity", OneDay * 15, Resolution.Daily, TickType.Trade)]
         // Tick-level data for tick types
         [TestCase("BHP AU Equity", 1, Resolution.Tick, TickType.Quote)]
         [TestCase("BHP AU Equity", 1, Resolution.Tick, TickType.Trade)]
@@ -149,6 +148,14 @@ namespace QuantConnect.BloombergTests
         // Long
         [TestCase("ZGF0 COMB Curncy", OneDay * 32, Resolution.Minute, TickType.Quote)]
         [TestCase("ZGG0 COMB Curncy", OneDay * 32, Resolution.Minute, TickType.Quote)]
+        // Extra asset classes
+        [TestCase("BHP AU Equity", OneDay, Resolution.Daily, TickType.Trade)]
+        [TestCase("AAPL US Equity", OneDay, Resolution.Daily, TickType.Trade)]
+        // Active month
+        [TestCase("BO1 COMB Comdty", OneDay * 16, Resolution.Minute, TickType.Quote, Ignore = true)]
+        [TestCase("BOA COMB Comdty", OneDay * 16, Resolution.Minute, TickType.Quote, Ignore = true)]
+        [TestCase("BO1 COMB Comdty", OneDay * 16, Resolution.Daily, TickType.Quote, Ignore = true)]
+        [TestCase("BOA COMB Comdty", OneDay * 16, Resolution.Daily, TickType.Quote, Ignore = true)]
         public void Can_Request_History(string bbSymbol, int minutes, Resolution resolution, TickType tickType)
         {
             Log.Trace("Receiving data for: " + bbSymbol);
