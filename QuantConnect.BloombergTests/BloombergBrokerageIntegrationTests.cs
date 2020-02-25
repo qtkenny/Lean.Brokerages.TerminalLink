@@ -24,16 +24,17 @@ namespace QuantConnect.BloombergTests
     [Timeout(60000)]
     public class BloombergBrokerageIntegrationTests
     {
+        private static readonly ConsoleLogHandler FixtureLogHandler = new ConsoleLogHandler();
         private static readonly Action<Order, int> OrderIdSetter;
-        private static readonly ConsoleLogHandler ConsoleLogHandler = new ConsoleLogHandler();
         private static readonly Symbol TestSymbol;
         private static readonly Mock<IOrderProvider> MockOrderProvider = new Mock<IOrderProvider>();
         private static readonly Mock<BloombergSymbolMapper> MockBloombergSymbolMapper = new Mock<BloombergSymbolMapper>("integration-bloomberg-symbol-map.json") {CallBase = true};
         private static BloombergBrokerage _underTest;
+        private ConsoleLogHandler _singleTestLogHandler;
 
         static BloombergBrokerageIntegrationTests()
         {
-            Log.LogHandler = ConsoleLogHandler;
+            Log.LogHandler = FixtureLogHandler;
             Config.SetConfigurationFile("integration-config.json");
             Config.Reset();
 
@@ -53,17 +54,34 @@ namespace QuantConnect.BloombergTests
         [TestFixtureSetUp]
         public static void SetupFixture()
         {
+            // Ensure the log handler is still attached.
+            Log.LogHandler = FixtureLogHandler;
             _underTest = new BloombergBrokerage(MockOrderProvider.Object, ApiType.Desktop, Environment.Beta, MockBloombergSymbolMapper.Object,
                 Config.GetValue<string>("bloomberg-server-host"), Config.GetValue<int>("bloomberg-server-port"));
             _underTest.Connect();
         }
 
+        [SetUp]
+        public void SetUp()
+        {
+            // A log handler exists for single tests so that their output will be logged into the test unit runner for that test.
+            _singleTestLogHandler = new ConsoleLogHandler();
+            Log.LogHandler = _singleTestLogHandler;
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            _singleTestLogHandler?.Dispose();
+        }
+
         [TestFixtureTearDown]
         public static void PackUpFixture()
         {
+            Log.LogHandler = FixtureLogHandler;
             _underTest?.Disconnect();
             _underTest?.Dispose();
-            ConsoleLogHandler?.Dispose();
+            FixtureLogHandler?.Dispose();
         }
 
         [Test]
@@ -129,6 +147,7 @@ namespace QuantConnect.BloombergTests
         [TestCase("ADH0 Curncy", 2 * 60 * 24, Resolution.Minute, TickType.Quote)]
         public void Can_Request_History(string bbSymbol, int minutes, Resolution resolution, TickType tickType)
         {
+            Log.Trace("Receiving data for: " + bbSymbol);
             MockBloombergSymbolMapper.Setup(x => x.GetLeanSymbol(bbSymbol)).Returns(TestSymbol);
             MockBloombergSymbolMapper.Setup(x => x.GetBrokerageSymbol(TestSymbol)).Returns(bbSymbol);
             // Always rewind 1 day, so we guarantee market will be open.
@@ -150,8 +169,10 @@ namespace QuantConnect.BloombergTests
             var history = _underTest.GetHistory(request).ToList();
             stopwatch.Stop();
             Assert.IsNotEmpty(history);
-            Console.Out.WriteLine("Results: " + history.Count);
-            Console.Out.WriteLine("   Time: " + stopwatch.Elapsed.ToString("c"));
+            Log.Trace("Results: " + history.Count);
+            Log.Trace("   Time: " + stopwatch.Elapsed.ToString("c"));
+            Log.Trace("Receiving data for: " + bbSymbol);
+        }
         }
 
         private static IEnumerable<Symbol> GetSymbols()
