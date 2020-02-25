@@ -9,6 +9,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
+using QuantConnect.Logging;
 using QuantConnect.Securities.Future;
 using static QuantConnect.StringExtensions;
 
@@ -35,7 +36,18 @@ namespace QuantConnect.Bloomberg
         {
             if (!File.Exists(bbNameMapFullName)) return;
 
-            MappingInfo = JsonConvert.DeserializeObject<Dictionary<string, BloombergMappingInfo>>(File.ReadAllText(bbNameMapFullName));
+            try
+            {
+                MappingInfo = JsonConvert.DeserializeObject<Dictionary<string, BloombergMappingInfo>>(File.ReadAllText(bbNameMapFullName));
+            }
+            catch (Exception e)
+            {
+                Log.Error(e, "Unable to load file: " + bbNameMapFullName);
+            }
+            finally
+            {
+                if (MappingInfo == null) MappingInfo = new Dictionary<string, BloombergMappingInfo>(0);
+            }
 
             _mapBloombergToLean = new Dictionary<string, Symbol>();
             _mapLeanToBloomberg = new Dictionary<Symbol, string>();

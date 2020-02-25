@@ -256,4 +256,3 @@ Cli\.Tests/TestData/OneRealOpra/
 
 # Integration Specifics
 QuantConnect.BloombergTests/integration-config.json
-QuantConnect.BloombergTests/integration-bloomberg-symbol-map.json
