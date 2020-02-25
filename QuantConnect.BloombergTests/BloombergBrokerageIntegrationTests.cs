@@ -27,6 +27,7 @@ namespace QuantConnect.BloombergTests
     [Timeout(60000)]
     public class BloombergBrokerageIntegrationTests
     {
+        private const int OneDay = 60 * 24;
         private static readonly ConsoleLogHandler FixtureLogHandler = new ConsoleLogHandler();
         private static readonly Action<Order, int> OrderIdSetter;
         private static readonly Symbol TestSymbol;
@@ -140,14 +141,19 @@ namespace QuantConnect.BloombergTests
         }
 
         [Test]
-        [TestCase("BHP AU Equity", 15 * 60 * 24, Resolution.Daily, TickType.Trade)]
+        [TestCase("BHP AU Equity", OneDay * 15, Resolution.Daily, TickType.Trade)]
         // Tick-level data for tick types
         [TestCase("BHP AU Equity", 1, Resolution.Tick, TickType.Quote)]
         [TestCase("BHP AU Equity", 1, Resolution.Tick, TickType.Trade)]
-        [TestCase("ADH0 Curncy", 2 * 60 * 24, Resolution.Daily, TickType.Trade)]
-        [TestCase("ADH0 Curncy", 2 * 60 * 24, Resolution.Daily, TickType.Quote)]
-        [TestCase("ADH0 Curncy", 1 * 60 * 24, Resolution.Minute, TickType.Trade)]
-        [TestCase("ADH0 Curncy", 2 * 60 * 24, Resolution.Minute, TickType.Quote)]
+        // Multi-day
+        [TestCase("ADH0 Curncy", OneDay * 2, Resolution.Daily, TickType.Trade)]
+        [TestCase("ADH0 Curncy", OneDay * 2, Resolution.Daily, TickType.Quote)]
+        // Minute-level resolution
+        [TestCase("ADH0 Curncy", OneDay, Resolution.Minute, TickType.Trade)]
+        [TestCase("ADH0 Curncy", OneDay, Resolution.Minute, TickType.Quote)]
+        // Long
+        [TestCase("ZGF0 COMB Curncy", OneDay * 32, Resolution.Minute, TickType.Quote)]
+        [TestCase("ZGG0 COMB Curncy", OneDay * 32, Resolution.Minute, TickType.Quote)]
         public void Can_Request_History(string bbSymbol, int minutes, Resolution resolution, TickType tickType)
         {
             Log.Trace("Receiving data for: " + bbSymbol);
