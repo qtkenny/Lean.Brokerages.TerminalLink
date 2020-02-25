@@ -90,13 +90,16 @@
     <Compile Include="BloombergBrokerageTests.cs" />
     <Compile Include="BloombergSchemaTests.cs" />
     <Compile Include="BloombergSymbolMapperTests.cs" />
-    <Compile Include="BloombergSymbolTests.cs" />
+    <Compile Include="BloombergMappingInfoTests.cs" />
     <Compile Include="BloombergTests.cs" />
     <Compile Include="BloombergDataQueueUniverseProviderTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
+    <None Include="integration-bloomberg-symbol-map.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="bloomberg-symbol-map-tests.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

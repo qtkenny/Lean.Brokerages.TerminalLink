@@ -6,6 +6,9 @@
   "market": "", // e.g. Market.USA
   "bloomberg-symbol": "", // Actual bloomberg name.
 
+  // Lean properties
+  "data-folder": "../../../../Lean/Data",
+
   // bloomberg configuration
   "bloomberg-server-host": "127.0.0.1",
   "bloomberg-server-port": 8194,

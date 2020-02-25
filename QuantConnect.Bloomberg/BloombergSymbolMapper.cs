@@ -35,41 +35,10 @@ namespace QuantConnect.Bloomberg
         {
             if (!File.Exists(bbNameMapFullName)) return;
 
-            var data = JsonConvert.DeserializeObject<Dictionary<string, BloombergSymbol>>(File.ReadAllText(bbNameMapFullName));
-            _mapBloombergToLean = new Dictionary<string, Symbol>(data.Count);
-            _mapLeanToBloomberg = new Dictionary<Symbol, string>(data.Count);
-            foreach (var entry in data.Where(entry => !string.IsNullOrWhiteSpace(entry.Key)))
-            {
-                if (_mapBloombergToLean.ContainsKey(entry.Key))
-                {
-                    throw new Exception("Key is not unique: " + entry.Key);
-                }
+            MappingInfo = JsonConvert.DeserializeObject<Dictionary<string, BloombergMappingInfo>>(File.ReadAllText(bbNameMapFullName));
 
-                Symbol symbol;
-                switch (entry.Value.SecurityType)
-                {
-                    case SecurityType.Equity:
-                        symbol = Symbol.Create(entry.Value.Underlying, SecurityType.Equity, entry.Value.Market, entry.Value.Alias);
-                        break;
-                    case SecurityType.Future:
-                        if (string.IsNullOrWhiteSpace(entry.Value.ExpiryMonthYear))
-                        {
-                            symbol = Symbol.Create(entry.Value.Underlying, SecurityType.Future, entry.Value.Market, entry.Value.Alias);
-                        }
-                        else
-                        {
-                            var properties = SymbolRepresentation.ParseFutureTicker(entry.Value.Underlying + entry.Value.ExpiryMonthYear);
-                            var expiryFunc = FuturesExpiryFunctions.FuturesExpiryFunction(entry.Value.Underlying);
-                            var expiryDate = expiryFunc(new DateTime(2000 + properties.ExpirationYearShort, properties.ExpirationMonth, properties.ExpirationDay));
-                            symbol = Symbol.CreateFuture(entry.Value.Underlying, entry.Value.Market, expiryDate);
-                        }
-                        break;
-                    default: throw new ArgumentOutOfRangeException(nameof(entry.Value.SecurityType), entry.Value.SecurityType, "Unsupported type: " + entry.Value.SecurityType);
-                }
-
-                _mapBloombergToLean.Add(entry.Key, symbol);
-                _mapLeanToBloomberg.Add(symbol, entry.Key);
-            }
+            _mapBloombergToLean = new Dictionary<string, Symbol>();
+            _mapLeanToBloomberg = new Dictionary<Symbol, string>();
         }
 
         /// <summary>
@@ -125,6 +94,28 @@ namespace QuantConnect.Bloomberg
         /// Converts a Bloomberg symbol to a Lean symbol instance
         /// </summary>
         /// <param name="brokerageSymbol">The Bloomberg symbol</param>
+        /// <param name="securityType">The security type</param>
+        public virtual Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType)
+        {
+            if (string.IsNullOrWhiteSpace(brokerageSymbol))
+                throw new ArgumentException("Invalid brokerage symbol: " + brokerageSymbol);
+
+            if (securityType == SecurityType.Future)
+            {
+                if (!_mapBloombergToLean.TryGetValue(brokerageSymbol, out var leanSymbol))
+                {
+                    leanSymbol = BuildLeanSymbolFromFutureTicker(brokerageSymbol);
+                }
+                return leanSymbol;
+            }
+
+            return GetLeanSymbol(brokerageSymbol);
+        }
+
+        /// <summary>
+        /// Converts a Bloomberg symbol to a Lean symbol instance
+        /// </summary>
+        /// <param name="brokerageSymbol">The Bloomberg symbol</param>
         /// <returns>A new Lean Symbol instance</returns>
         public virtual Symbol GetLeanSymbol(string brokerageSymbol)
         {
@@ -172,12 +163,17 @@ namespace QuantConnect.Bloomberg
             throw new ArgumentException("Invalid brokerage symbol: " + brokerageSymbol);
         }
 
-        public IReadOnlyDictionary<Symbol, string> ManuallyMappedSymbols => _mapLeanToBloomberg.ToDictionary(x => x.Key, x => x.Value);
+        public Dictionary<string, BloombergMappingInfo> MappingInfo { get; }
 
         private string GetBloombergTopicName(Symbol symbol)
         {
-            if (_mapLeanToBloomberg.TryGetValue(symbol, out var ticker))
+            if (symbol.SecurityType == SecurityType.Future)
             {
+                if (!_mapLeanToBloomberg.TryGetValue(symbol, out var ticker))
+                {
+                    ticker = BuildFutureTickerFromLeanSymbol(symbol);
+                }
+
                 return ticker;
             }
 
@@ -193,6 +189,71 @@ namespace QuantConnect.Bloomberg
 
             return topicName;
         }
+
+        private string BuildFutureTickerFromLeanSymbol(Symbol symbol)
+        {
+            var entry = MappingInfo.FirstOrDefault(x => x.Value.Underlying == symbol.Value);
+            if (entry.Value == null)
+            {
+                throw new Exception($"Lean ticker not found: {symbol.Value}");
+            }
+                
+            var ticker = $"{entry.Key}{entry.Value.RootLookupSuffix} {entry.Value.TickerSuffix}";
+
+            _mapBloombergToLean.Add(ticker, symbol);
+            _mapLeanToBloomberg.Add(symbol, ticker);
+
+            return ticker;
+        }
+
+        private Symbol BuildLeanSymbolFromFutureTicker(string brokerageSymbol)
+        {
+            if (brokerageSymbol.Length < 2)
+            {
+                throw new Exception("Future ticker length must be at least 2.");
+            }
+
+            var rootTicker = brokerageSymbol.Substring(0, 2);
+
+            if (!MappingInfo.TryGetValue(rootTicker, out var info))
+            {
+                throw new Exception($"Root ticker not found: {rootTicker}");
+            }
+
+            var parts = brokerageSymbol.Substring(2).Split(' ');
+
+            Symbol symbol;
+            if (parts[0] == info.RootLookupSuffix)
+            {
+                // canonical future symbol
+                symbol = Symbol.Create(info.Underlying, SecurityType.Future, info.Market, $"/{info.Underlying}");
+            }
+            else
+            {
+                // future contract
+                var ticker = info.Underlying + parts[0];
+
+                var newTicker = ticker;
+                var properties = SymbolRepresentation.ParseFutureTicker(newTicker);
+                var expiryFunc = FuturesExpiryFunctions.FuturesExpiryFunction(info.Underlying);
+
+                var year = DateTime.UtcNow.Year;
+                year = year - year % (properties.ExpirationYearShort < 10 ? 10 : 100) + properties.ExpirationYearShort;
+
+                var expiryDate = expiryFunc(new DateTime(year, properties.ExpirationMonth, properties.ExpirationDay));
+                symbol = Symbol.CreateFuture(info.Underlying, info.Market, expiryDate);
+            }
+
+            _mapBloombergToLean.Add(brokerageSymbol, symbol);
+
+            if (!_mapLeanToBloomberg.ContainsKey(symbol))
+            {
+                _mapLeanToBloomberg.Add(symbol, brokerageSymbol);
+            }
+
+            return symbol;
+        }
+
 
         private string GetBloombergSymbol(Symbol symbol)
         {

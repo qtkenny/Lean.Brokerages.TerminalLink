@@ -11,11 +11,11 @@ using QuantConnect.Bloomberg;
 namespace QuantConnect.BloombergTests
 {
     [TestFixture]
-    public class BloombergSymbolTests
+    public class BloombergMappingInfoTests
     {
         private static readonly JsonSerializer Serializer = new JsonSerializer();
-        private readonly BloombergSymbol _underTest =
-            new BloombergSymbol {Alias = "Alias1", Market = "Market1", ExpiryMonthYear = "Exp1", Underlying = "Underlying1", SecurityType = SecurityType.Cfd};
+        private readonly BloombergMappingInfo _underTest =
+            new BloombergMappingInfo {Alias = "Alias1", Market = "Market1", Underlying = "Underlying1", SecurityType = SecurityType.Cfd, TickerSuffix = "1", RootLookupSuffix = "A"};
 
         [Test]
         public void Can_Serialize_And_Deserialize()
@@ -25,12 +25,13 @@ namespace QuantConnect.BloombergTests
             var actual = Deserialize(json);
             Assert.AreEqual(_underTest.Underlying, actual.Underlying);
             Assert.AreEqual(_underTest.Market, actual.Market);
-            Assert.AreEqual(_underTest.ExpiryMonthYear, actual.ExpiryMonthYear);
             Assert.AreEqual(_underTest.SecurityType, actual.SecurityType);
             Assert.AreEqual(_underTest.Alias, actual.Alias);
+            Assert.AreEqual(_underTest.RootLookupSuffix, actual.RootLookupSuffix);
+            Assert.AreEqual(_underTest.TickerSuffix, actual.TickerSuffix);
         }
 
-        private static string Serialize(BloombergSymbol symbol)
+        private static string Serialize(BloombergMappingInfo symbol)
         {
             using (var writer = new StringWriter())
             {
@@ -40,11 +41,11 @@ namespace QuantConnect.BloombergTests
             }
         }
 
-        private static BloombergSymbol Deserialize(string json)
+        private static BloombergMappingInfo Deserialize(string json)
         {
             using (var reader = new JsonTextReader(new StringReader(json)))
             {
-                return Serializer.Deserialize<BloombergSymbol>(reader);
+                return Serializer.Deserialize<BloombergMappingInfo>(reader);
             }
         }
     }

@@ -6,7 +6,7 @@ namespace QuantConnect.Bloomberg
     ///     Breakdown of a Bloomberg symbol to the Lean equivalent.
     /// </summary>
     /// <see cref="QuantConnect.Symbol" />
-    public class BloombergSymbol
+    public class BloombergMappingInfo
     {
         /// <summary>
         ///     Equivalent to <see cref="SecurityIdentifier.Symbol" />
@@ -34,9 +34,14 @@ namespace QuantConnect.Bloomberg
         #region Futures
 
         /// <summary>
-        /// Expiry details of the future (optional).
+        /// The suffix used to obtain the BBG ticker (e.g. "COMB Comdty")
         /// </summary>
-        public string ExpiryMonthYear { get; set; }
+        public string TickerSuffix { get; set; }
+
+        /// <summary>
+        /// The suffix appended to the BBG root symbol when requesting the full chain (e.g. "1")
+        /// </summary>
+        public string RootLookupSuffix { get; set; }
 
         #endregion
     }

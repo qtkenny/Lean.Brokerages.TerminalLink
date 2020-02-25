@@ -111,7 +111,11 @@ namespace QuantConnect.Bloomberg
                                 var chainTicker = chainTickers.GetValueAsElement(index);
                                 var contractTicker = chainTicker.GetElementAsString("Security Description");
 
-                                var contractSymbol = _symbolMapper.GetLeanSymbol(contractTicker);
+                                Log.Trace($"BloombergBrokerage.GetChain(): BBG contract ticker: {contractTicker}");
+
+                                var contractSymbol = _symbolMapper.GetLeanSymbol(contractTicker, SecurityType.Future);
+
+                                Log.Trace($"BloombergBrokerage.GetChain(): LEAN symbol: {contractSymbol.Value} [{contractSymbol}]");
 
                                 yield return contractSymbol;
                             }

@@ -5,8 +5,6 @@ namespace QuantConnect.Bloomberg
 {
     public interface IBloombergSymbolMapper : ISymbolMapper
     {
-        Symbol GetLeanSymbol(string brokerageSymbol);
-
-        IReadOnlyDictionary<Symbol, string> ManuallyMappedSymbols { get; }
+        Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType);
     }
 }

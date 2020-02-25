@@ -28,7 +28,7 @@ namespace QuantConnect.BloombergTests
         private static readonly ConsoleLogHandler ConsoleLogHandler = new ConsoleLogHandler();
         private static readonly Symbol TestSymbol;
         private static readonly Mock<IOrderProvider> MockOrderProvider = new Mock<IOrderProvider>();
-        private static readonly Mock<BloombergSymbolMapper> MockBloombergSymbolMapper = new Mock<BloombergSymbolMapper>("bloomberg-symbol-map-tests.json") {CallBase = true};
+        private static readonly Mock<BloombergSymbolMapper> MockBloombergSymbolMapper = new Mock<BloombergSymbolMapper>("integration-bloomberg-symbol-map.json") {CallBase = true};
         private static BloombergBrokerage _underTest;
 
         static BloombergBrokerageIntegrationTests()
@@ -70,6 +70,7 @@ namespace QuantConnect.BloombergTests
         [TestCaseSource(nameof(GetSymbols))]
         public void Can_Lookup_Futures(Symbol symbol)
         {
+            Log.LogHandler = new ConsoleLogHandler();
             var result = _underTest.LookupSymbols(symbol.Value, symbol.SecurityType).ToList();
             Assert.IsNotEmpty(result);
         }
@@ -152,7 +153,7 @@ namespace QuantConnect.BloombergTests
 
         private static IEnumerable<Symbol> GetSymbols()
         {
-            return MockBloombergSymbolMapper.Object.ManuallyMappedSymbols.Keys;
+            return MockBloombergSymbolMapper.Object.MappingInfo.Select(x => Symbol.Create(x.Value.Underlying, x.Value.SecurityType, x.Value.Market));
         }
 
         private static async Task<BrokerageMessageEvent> OnNextMessage<T, TResult>(Func<T, TResult> function, T order, params Task[] additionalTasksToAwait)

@@ -1,13 +1,31 @@
 {
-  "Test Equity": {
-    "Underlying": "EQU",
-    "SecurityType": "Equity",
-    "Market": "usa"
-  },
-  "Test Future": {
-    "Underlying": "6A", // AUD
-    "SecurityType": "Future",
-    "Market": "usa",
-    "ExpiryMonthYear": "H0"
-  }
+    "BO": {
+        "Underlying": "ZL",
+        "SecurityType": "Future",
+        "Market": "usa",
+        "TickerSuffix": "COMB Comdty",
+        "RootLookupSuffix": "1"
+    },
+
+    "C ": {
+        "Underlying": "ZC",
+        "SecurityType": "Future",
+        "Market": "usa",
+        "TickerSuffix": "COMB Comdty",
+        "RootLookupSuffix": "1"
+    },
+
+    "CL": {
+        "Underlying": "CL",
+        "SecurityType": "Future",
+        "Market": "usa",
+        "TickerSuffix": "COMB Comdty",
+        "RootLookupSuffix": "1"
+    },
+
+    "SPY": {
+        "Underlying": "SPY",
+        "SecurityType": "Equity",
+        "Market": "usa"
+    }
 }
