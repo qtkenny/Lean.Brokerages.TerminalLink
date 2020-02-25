@@ -16,7 +16,6 @@ using QuantConnect.Logging;
 using QuantConnect.Orders;
 using QuantConnect.Packets;
 using QuantConnect.Securities;
-using QuantConnect.Securities.Future;
 using Environment = QuantConnect.Bloomberg.Environment;
 using HistoryRequest = QuantConnect.Data.HistoryRequest;
 
@@ -47,12 +46,8 @@ namespace QuantConnect.BloombergTests
             OrderIdSetter = (o, i) => propertyInfo?.SetValue(o, i);
 
             // Setup the lean symbol
-            var symbolBase = Config.GetValue<string>("symbol-base");
-            var expiryFunction = FuturesExpiryFunctions.FuturesExpiryFunction(symbolBase);
-            var nextMonth = DateTime.Now.AddMonths(1);
-            nextMonth = new DateTime(nextMonth.Year, nextMonth.Month, 01);
-            var expiry = expiryFunction.Invoke(nextMonth);
-            TestSymbol = Symbol.CreateFuture(symbolBase, Config.GetValue<string>("market"), expiry);
+            var symbolBase = Config.GetValue("symbol-base", Futures.Grains.SoybeanOil);
+            TestSymbol = Symbol.CreateFuture(symbolBase, Market.USA, DateTime.UtcNow.AddDays(5));
         }
 
         [TestFixtureSetUp]
