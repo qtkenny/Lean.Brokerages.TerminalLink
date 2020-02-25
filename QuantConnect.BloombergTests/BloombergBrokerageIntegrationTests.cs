@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Moq;
 using NodaTime;
@@ -10,12 +11,14 @@ using NUnit.Framework;
 using QuantConnect.Bloomberg;
 using QuantConnect.Brokerages;
 using QuantConnect.Configuration;
-using QuantConnect.Data;
+using QuantConnect.Data.Market;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
+using QuantConnect.Packets;
 using QuantConnect.Securities;
 using QuantConnect.Securities.Future;
 using Environment = QuantConnect.Bloomberg.Environment;
+using HistoryRequest = QuantConnect.Data.HistoryRequest;
 
 namespace QuantConnect.BloombergTests
 {
@@ -173,6 +176,28 @@ namespace QuantConnect.BloombergTests
             Log.Trace("   Time: " + stopwatch.Elapsed.ToString("c"));
             Log.Trace("Receiving data for: " + bbSymbol);
         }
+
+        [Test]
+        [TestCase("BHP AU Equity")]
+        [TestCase("BOA COMB Comdty")]
+        public void Can_Retrieve_Live_Data(string bbgSymbol)
+        {
+            MockBloombergSymbolMapper.Setup(x => x.GetBrokerageSymbol(TestSymbol)).Returns(bbgSymbol);
+            MockBloombergSymbolMapper.Setup(x => x.GetLeanSymbol(bbgSymbol)).Returns(TestSymbol);
+            _underTest.Subscribe(new LiveNodePacket(), new[] {TestSymbol});
+            Tick[] ticks;
+            while (true)
+            {
+                ticks = (Tick[]) _underTest.GetNextTicks();
+                if (ticks != null && ticks.Length > 0)
+                {
+                    break;
+                }
+
+                Thread.Sleep(0);
+            }
+
+            Assert.That(ticks, Is.Not.Empty.And.All.Matches<Tick>(p => Equals(p.Symbol, TestSymbol)));
         }
 
         private static IEnumerable<Symbol> GetSymbols()
