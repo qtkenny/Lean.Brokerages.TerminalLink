@@ -46,7 +46,8 @@ namespace QuantConnect.Bloomberg
             { "bloomberg-api-type", Config.Get("bloomberg-api-type") },
             { "bloomberg-environment", Config.Get("bloomberg-environment") },
             { "bloomberg-server-host", Config.Get("bloomberg-server-host") },
-            { "bloomberg-server-port", Config.Get("bloomberg-server-port") }
+            { "bloomberg-server-port", Config.Get("bloomberg-server-port") },
+            { "bloomberg-symbol-map-file", Config.Get("bloomberg-symbol-map-file") }
         };
 
         /// <summary>
@@ -70,6 +71,7 @@ namespace QuantConnect.Bloomberg
             var environment = Read<Environment>(job.BrokerageData, "bloomberg-environment", errors);
             var serverHost = Read<string>(job.BrokerageData, "bloomberg-server-host", errors);
             var serverPort = Read<int>(job.BrokerageData, "bloomberg-server-port", errors);
+            var symbolMapFile = Read<string>(job.BrokerageData, "bloomberg-symbol-map-file", errors);
 
             if (errors.Count != 0)
             {
@@ -77,7 +79,7 @@ namespace QuantConnect.Bloomberg
                 throw new Exception(string.Join(System.Environment.NewLine, errors));
             }
 
-            var brokerage = new BloombergBrokerage(algorithm.Transactions, apiType, environment, new BloombergSymbolMapper(), serverHost, serverPort);
+            var brokerage = new BloombergBrokerage(algorithm.Transactions, apiType, environment, new BloombergSymbolMapper(symbolMapFile), serverHost, serverPort);
             Composer.Instance.AddPart<IDataQueueHandler>(brokerage);
 
             return brokerage;
