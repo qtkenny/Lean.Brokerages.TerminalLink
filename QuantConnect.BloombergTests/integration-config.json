@@ -6,14 +6,11 @@
   "market": "", // e.g. Market.USA
   "bloomberg-symbol": "", // Actual bloomberg name.
 
-  // Lean properties
-  "data-folder": "../../../../Lean/Data",
-
   // bloomberg configuration
-  "bloomberg-server-host": "127.0.0.1",
-  "bloomberg-server-port": 8194,
-  "bloomberg-emsx-broker": "",
-  "bloomberg-emsx-account": "",
-  "bloomberg-emsx-notes": "",
-  "bloomberg-execution": false
+  "bloomberg-server-host": "172.16.101.42",
+  "bloomberg-server-port": 5190,
+  "bloomberg-emsx-broker": "ABNB",
+  "bloomberg-emsx-account": "GESTESTAPAC",
+  "bloomberg-emsx-notes": "ATS",
+  "bloomberg-execution": true
 }
