@@ -12,8 +12,6 @@
   // bloomberg configuration
   "bloomberg-server-host": "127.0.0.1",
   "bloomberg-server-port": 8194,
-  "bloomberg-environment": "Beta", // Production, Beta
-  "bloomberg-api-type": "Desktop", // QuantConnect.Bloomberg.ApiType: server, desktop, bpipe
   "bloomberg-emsx-broker": "",
   "bloomberg-emsx-account": "",
   "bloomberg-emsx-notes": "",
