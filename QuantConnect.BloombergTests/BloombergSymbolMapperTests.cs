@@ -4,10 +4,8 @@
 */
 
 using System;
-using System.IO;
 using NUnit.Framework;
 using QuantConnect.Bloomberg;
-using QuantConnect.Securities;
 
 namespace QuantConnect.BloombergTests
 {
@@ -19,7 +17,7 @@ namespace QuantConnect.BloombergTests
         [Test]
         public void ThrowsOnNullOrEmptySymbol()
         {
-            var mapper = new BloombergSymbolMapper();
+            var mapper = new BloombergSymbolMapper(TestFileName);
 
             Assert.Throws<ArgumentException>(() => mapper.GetLeanSymbol(null, SecurityType.Forex, Market.FXCM));
 
@@ -46,16 +44,17 @@ namespace QuantConnect.BloombergTests
 
             symbol = Symbol.Create("EURUSD", SecurityType.Forex, Market.Oanda);
             brokerageSymbol = mapper.GetBrokerageSymbol(symbol);
-            Assert.AreEqual("EUR BVAL Curncy", brokerageSymbol);
+            Assert.AreEqual("EURUSD Curncy", brokerageSymbol);
 
             // canonical symbol for future chain
             symbol = Symbol.Create("ZL", SecurityType.Future, Market.USA);
             brokerageSymbol = mapper.GetBrokerageSymbol(symbol);
             Assert.AreEqual("BO1 COMB Comdty", brokerageSymbol);
 
+            // option contract
             symbol = Symbol.CreateOption("SPY", Market.USA, OptionStyle.American, OptionRight.Call, 200, new DateTime(2019, 12, 31));
             brokerageSymbol = mapper.GetBrokerageSymbol(symbol);
-            Assert.AreEqual("SPY UO 12/31/19 C 200.00 Equity", brokerageSymbol);
+            Assert.AreEqual("SPY UO 12/31/19 C200.00 Equity", brokerageSymbol);
         }
 
         [Test]
@@ -68,7 +67,7 @@ namespace QuantConnect.BloombergTests
             Assert.AreEqual(SecurityType.Equity, symbol.ID.SecurityType);
             Assert.AreEqual(Market.USA, symbol.ID.Market);
 
-            symbol = mapper.GetLeanSymbol("EUR BVAL Curncy");
+            symbol = mapper.GetLeanSymbol("EURUSD Curncy");
             Assert.AreEqual("EURUSD", symbol.Value);
             Assert.AreEqual(SecurityType.Forex, symbol.ID.SecurityType);
             Assert.AreEqual(Market.FXCM, symbol.ID.Market);
@@ -133,7 +132,7 @@ namespace QuantConnect.BloombergTests
             Assert.AreEqual(SecurityType.Future, symbol.ID.SecurityType);
             Assert.AreEqual(Market.USA, symbol.ID.Market);
 
-            symbol = mapper.GetLeanSymbol("SPY UO 12/31/19 C 200.00 Equity");
+            symbol = mapper.GetLeanSymbol("SPY UO 12/31/19 C200.00 Equity");
             Assert.AreEqual("SPY", symbol.Underlying.Value);
             Assert.AreEqual(OptionRight.Call, symbol.ID.OptionRight);
             Assert.AreEqual(200m, symbol.ID.StrikePrice);

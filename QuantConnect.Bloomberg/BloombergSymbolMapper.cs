@@ -11,6 +11,7 @@ using System.Linq;
 using Newtonsoft.Json;
 using QuantConnect.Logging;
 using QuantConnect.Securities.Future;
+using QuantConnect.Util;
 using static QuantConnect.StringExtensions;
 
 namespace QuantConnect.Bloomberg
@@ -26,6 +27,8 @@ namespace QuantConnect.Bloomberg
         // Manual mapping of Lean symbols back to Bloomberg tickets
         private readonly Dictionary<Symbol, string> _mapLeanToBloomberg = new Dictionary<Symbol, string>();
 
+        private readonly HashSet<string> _forexCurrencies = Currencies.CurrencyPairs.ToHashSet();
+
         public BloombergSymbolMapper() : this("bloomberg-symbol-map.json") { }
 
         /// <summary>
@@ -34,7 +37,10 @@ namespace QuantConnect.Bloomberg
         /// <param name="bbNameMapFullName">Full file name of the map file</param>
         public BloombergSymbolMapper(string bbNameMapFullName)
         {
-            if (!File.Exists(bbNameMapFullName)) return;
+            if (!File.Exists(bbNameMapFullName))
+            {
+                throw new Exception($"Symbol map file not found: {bbNameMapFullName}");
+            }
 
             try
             {
@@ -99,7 +105,7 @@ namespace QuantConnect.Bloomberg
             decimal strike = 0,
             OptionRight optionRight = OptionRight.Call)
         {
-            return GetLeanSymbol(brokerageSymbol);
+            return GetLeanSymbol(brokerageSymbol, securityType);
         }
 
         /// <summary>
@@ -107,7 +113,7 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         /// <param name="brokerageSymbol">The Bloomberg symbol</param>
         /// <param name="securityType">The security type</param>
-        public virtual Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType)
+        public virtual Symbol GetLeanSymbol(string brokerageSymbol, SecurityType? securityType = null)
         {
             if (string.IsNullOrWhiteSpace(brokerageSymbol))
                 throw new ArgumentException("Invalid brokerage symbol: " + brokerageSymbol);
@@ -116,7 +122,12 @@ namespace QuantConnect.Bloomberg
             {
                 if (!_mapBloombergToLean.TryGetValue(brokerageSymbol, out var leanSymbol))
                 {
-                    leanSymbol = BuildLeanSymbolFromFutureTicker(brokerageSymbol);
+                    if (TryBuildLeanSymbolFromFutureTicker(brokerageSymbol, out leanSymbol))
+                    {
+                        return leanSymbol;
+                    }
+
+                    throw new Exception($"Ticker cannot be parsed as a future symbol: {brokerageSymbol}");
                 }
                 return leanSymbol;
             }
@@ -129,47 +140,26 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         /// <param name="brokerageSymbol">The Bloomberg symbol</param>
         /// <returns>A new Lean Symbol instance</returns>
-        public virtual Symbol GetLeanSymbol(string brokerageSymbol)
+        private Symbol GetLeanSymbol(string brokerageSymbol)
         {
-            if (string.IsNullOrWhiteSpace(brokerageSymbol))
-                throw new ArgumentException("Invalid brokerage symbol: " + brokerageSymbol);
-
-            if (_mapBloombergToLean.TryGetValue(brokerageSymbol, out var leanSymbol))
+            if (TryBuildLeanSymbolFromFutureTicker(brokerageSymbol, out var leanSymbol))
             {
                 return leanSymbol;
             }
 
-            var parts = brokerageSymbol.Split(' ');
-
-            var securityType = GetLeanSecurityType(parts);
-            var market = GetLeanMarket(parts);
-
-            if (parts.Length == 3)
+            if (TryBuildLeanSymbolFromForexTicker(brokerageSymbol, out leanSymbol))
             {
-                var ticker = parts[0];
-
-                if (securityType == SecurityType.Forex)
-                {
-                    ticker += "USD";
-                }
-                else if (securityType == SecurityType.Future)
-                {
-                    var properties = SymbolRepresentation.ParseFutureTicker(ticker);
-                    return Symbol.CreateFuture(
-                        properties.Underlying,
-                        market,
-                        new DateTime(properties.ExpirationYearShort + 2000, properties.ExpirationMonth, properties.ExpirationDay));
-                }
-
-                return Symbol.Create(ticker, securityType, market);
+                return leanSymbol;
             }
-            if (parts.Length > 3)
+
+            if (TryBuildLeanSymbolFromOptionTicker(brokerageSymbol, out leanSymbol))
             {
-                var underlying = parts[0];
-                var right = parts[3] == "C" ? OptionRight.Call : OptionRight.Put;
-                var strike = Convert.ToDecimal(parts[4], CultureInfo.InvariantCulture);
-                var expiry = DateTime.ParseExact(parts[2], "MM/dd/yy", CultureInfo.InvariantCulture);
-                return Symbol.CreateOption(underlying, Market.USA, OptionStyle.American, right, strike, expiry);
+                return leanSymbol;
+            }
+
+            if (TryBuildLeanSymbolFromEquityTicker(brokerageSymbol, out leanSymbol))
+            {
+                return leanSymbol;
             }
 
             throw new ArgumentException("Invalid brokerage symbol: " + brokerageSymbol);
@@ -218,23 +208,121 @@ namespace QuantConnect.Bloomberg
             return ticker;
         }
 
-        private Symbol BuildLeanSymbolFromFutureTicker(string brokerageSymbol)
+        private bool TryBuildLeanSymbolFromForexTicker(string brokerageSymbol, out Symbol symbol)
         {
+            symbol = null;
+
+            var parts = brokerageSymbol.Split(' ');
+            if (parts.Length != 2)
+            {
+                return false;
+            }
+
+            if (parts[1] != "Curncy")
+            {
+                return false;
+            }
+
+            var ticker = parts[0];
+
+            if (ticker.Length != 6)
+            {
+                return false;
+            }
+
+            if (!_forexCurrencies.Contains(ticker))
+            {
+                return false;
+            }
+
+            symbol = Symbol.Create(ticker, SecurityType.Forex, Market.FXCM);
+
+            return true;
+        }
+
+        private bool TryBuildLeanSymbolFromOptionTicker(string brokerageSymbol, out Symbol symbol)
+        {
+            symbol = null;
+
+            var parts = brokerageSymbol.Split(' ');
+
+            if (parts.Length != 5)
+            {
+                return false;
+            }
+
+            var underlying = parts[0];
+
+            if (parts[3].Length < 2)
+            {
+                return false;
+            }
+
+            var callOrPut = parts[3][0];
+            if (callOrPut != 'C' && callOrPut != 'P')
+            {
+                return false;
+            }
+
+            var right = callOrPut == 'C' ? OptionRight.Call : OptionRight.Put;
+
+            var strikeString = parts[3].Substring(1);
+
+            if (!decimal.TryParse(strikeString, NumberStyles.Any, CultureInfo.InvariantCulture, out var strike))
+            {
+                return false;
+            }
+
+            if (!DateTime.TryParseExact(parts[2], "MM/dd/yy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var expiry))
+            {
+                return false;
+            }
+
+            symbol = Symbol.CreateOption(underlying, Market.USA, OptionStyle.American, right, strike, expiry);
+
+            return true;
+        }
+
+        private bool TryBuildLeanSymbolFromEquityTicker(string brokerageSymbol, out Symbol symbol)
+        {
+            symbol = null;
+
+            var parts = brokerageSymbol.Split(' ');
+
+            if (parts.Length != 3)
+            {
+                return false;
+            }
+
+            if (parts[2] != "Equity")
+            {
+                return false;
+            }
+
+            symbol = Symbol.Create(parts[0], SecurityType.Equity, Market.USA);
+
+            return true;
+        }
+
+        private bool TryBuildLeanSymbolFromFutureTicker(string brokerageSymbol, out Symbol symbol)
+        {
+            symbol = null;
             if (brokerageSymbol.Length < 2)
             {
-                throw new Exception("Future ticker length must be at least 2.");
+                // Future ticker length must be at least 2.
+                return false;
             }
 
             var rootTicker = brokerageSymbol.Substring(0, 2);
 
             if (!MappingInfo.TryGetValue(rootTicker, out var info))
             {
-                throw new Exception($"Root ticker not found: {rootTicker}");
+                // Root ticker not found in futures map file
+                return false;
             }
 
             var parts = brokerageSymbol.Substring(2).Split(' ');
 
-            Symbol symbol;
             if (parts[0] == info.RootLookupSuffix)
             {
                 // canonical future symbol
@@ -256,14 +344,10 @@ namespace QuantConnect.Bloomberg
                 symbol = Symbol.CreateFuture(info.Underlying, info.Market, expiryDate);
             }
 
-            _mapBloombergToLean.Add(brokerageSymbol, symbol);
+            _mapBloombergToLean[brokerageSymbol] = symbol;
+            _mapLeanToBloomberg[symbol] = brokerageSymbol;
 
-            if (!_mapLeanToBloomberg.ContainsKey(symbol))
-            {
-                _mapLeanToBloomberg.Add(symbol, brokerageSymbol);
-            }
-
-            return symbol;
+            return true;
         }
 
 
@@ -271,24 +355,13 @@ namespace QuantConnect.Bloomberg
         {
             if (symbol.SecurityType == SecurityType.Forex)
             {
-                // TODO: documentation does not mention non-USD fx pairs, needs to be tested
-
-                if (symbol.Value.EndsWith("USD"))
-                {
-                    return symbol.Value.Substring(0, 3);
-                }
-                if (symbol.Value.StartsWith("USD"))
-                {
-                    return symbol.Value.Substring(3);
-                }
-
-                throw new NotSupportedException($"Unsupported Forex symbol: {symbol.Value}");
+                return symbol.Value;
             }
 
             if (symbol.SecurityType == SecurityType.Option)
             {
                 // Equity options: Root Ticker x Exchange Code x Expiry MM/DD/YY (or Expiry M/Y only) x C or P x Strike Price
-                return Invariant($"{symbol.Underlying.Value} UO {symbol.ID.Date:MM/dd/yy} {(symbol.ID.OptionRight == OptionRight.Call ? "C" : "P")} {symbol.ID.StrikePrice:F2}");
+                return Invariant($"{symbol.Underlying.Value} UO {symbol.ID.Date:MM/dd/yy} {(symbol.ID.OptionRight == OptionRight.Call ? "C" : "P")}{symbol.ID.StrikePrice:F2}");
             }
 
             return symbol.Value;
@@ -298,7 +371,7 @@ namespace QuantConnect.Bloomberg
         {
             if (securityType == SecurityType.Forex)
             {
-                return "BVAL";
+                return string.Empty;
             }
 
             if (securityType == SecurityType.Future)
@@ -344,46 +417,6 @@ namespace QuantConnect.Bloomberg
                 default:
                     throw new NotSupportedException($"Unsupported security type: {securityType}");
             }
-        }
-
-        private SecurityType GetLeanSecurityType(string[] brokerageSymbolParts)
-        {
-            if (brokerageSymbolParts[1] == "BVAL")
-            {
-                return SecurityType.Forex;
-            }
-            if (brokerageSymbolParts[1] == "COMB")
-            {
-                return SecurityType.Future;
-            }
-            if (brokerageSymbolParts.Length > 3)
-            {
-                return SecurityType.Option;
-            }
-            if (brokerageSymbolParts[1] == "US" && brokerageSymbolParts[2] == "Equity")
-            {
-                return SecurityType.Equity;
-            }
-
-            return SecurityType.Base;
-        }
-
-        private string GetLeanMarket(string[] brokerageSymbolParts)
-        {
-            if (brokerageSymbolParts[1] == "BVAL")
-            {
-                return Market.FXCM;
-            }
-            if (brokerageSymbolParts[1] == "COMB")
-            {
-                return Market.USA;
-            }
-            if (brokerageSymbolParts[1] == "US")
-            {
-                return Market.USA;
-            }
-
-            return string.Empty;
         }
     }
 }
