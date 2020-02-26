@@ -5,7 +5,7 @@
     /// </summary>
     public static class BloombergFieldNames
     {
-        public const string OpenInterest = "OPEN_INT";
+        public const string OpenInterest = "RT_OPEN_INTEREST";
         public const string LastPrice = "LAST_PRICE";
         public const string LastTradeSize = "SIZE_LAST_TRADE";
         public const string Bid = "BID";
