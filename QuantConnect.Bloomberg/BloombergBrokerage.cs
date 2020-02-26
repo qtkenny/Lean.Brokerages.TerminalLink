@@ -460,6 +460,10 @@ namespace QuantConnect.Bloomberg
                 {
                     Log.Trace("BloombergBrokerage.ProcessAdminEvent(): Slow Consumer Warning cleared.");
                 }
+                else
+                {
+                    Log.Trace($"BloombergBrokerage.ProcessAdminEvent(): Unknown message type '{message.MessageType}': {message}");
+                }
             }
         }
 
@@ -487,6 +491,10 @@ namespace QuantConnect.Bloomberg
                 {
                     Log.Trace("BloombergBrokerage.ProcessSessionEvent(): Session connection down.");
                 }
+                else
+                {
+                    Log.Trace($"BloombergBrokerage.ProcessSessionEvent(): Unknown message type: '{message.MessageType}': {message}");
+                }
             }
         }
 
@@ -501,6 +509,10 @@ namespace QuantConnect.Bloomberg
                 else if (message.MessageType.Equals(BloombergNames.ServiceOpenFailure))
                 {
                     Log.Trace("BloombergBrokerage.ProcessServiceEvent(): Service open failed.");
+                }
+                else
+                {
+                    Log.Trace($"BloombergBrokerage.ProcessServiceEvent(): Unknown message type '{message.MessageType}': {message}");
                 }
             }
         }
@@ -566,7 +578,7 @@ namespace QuantConnect.Bloomberg
                         int orderId;
                         if (!_orderMap.TryGetValue(correlationId, out orderId))
                         {
-                            Log.Error($"BloombergBrokerage.ProcessResponse(): OrderId not found for CorrelationId: {correlationId}");
+                            Log.Error($"BloombergBrokerage.ProcessResponse(): OrderId not found (CID={correlationId}):{message}");
                         }
                         else
                         {
@@ -575,7 +587,7 @@ namespace QuantConnect.Bloomberg
                             _requestMessageHandlers.TryRemove(correlationId, out handler);
                             _orderMap.TryRemove(correlationId, out orderId);
 
-                            Log.Trace($"BloombergBrokerage.ProcessResponse(): MessageHandler removed [{correlationId}]");
+                            Log.Trace($"BloombergBrokerage.ProcessResponse(): MessageHandler removed [CID={correlationId},order:{orderId}]");
                         }
                     }
                 }
@@ -586,7 +598,7 @@ namespace QuantConnect.Bloomberg
         {
             foreach (var message in @event)
             {
-                Log.Trace($"BloombergBrokerage.ProcessOtherEvent(): {@event.Type} - {message.MessageType}.");
+                Log.Trace($"BloombergBrokerage.ProcessOtherEvent(): {@event.Type} - {message.MessageType}: {message}");
             }
         }
 
@@ -620,6 +632,7 @@ namespace QuantConnect.Bloomberg
             {
                 if (_execution)
                 {
+                    Log.Trace($"Sending order request: '{request.Operation.Name}' [order:{orderId}, CID={correlationId}]: {request}");
                     _sessionEms.SendRequest(request, correlationId);
                 }
                 else

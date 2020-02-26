@@ -99,11 +99,18 @@ namespace QuantConnect.Bloomberg
         public static readonly Name EMSXReferenceOrderIdResponse = new Name("EMSX_ORD_REF_ID");
         #endregion EMSX
 
-        public static readonly Name EventStatus = new Name("EVENT_STATUS");
         /// <summary>
-        /// Value: MSG_SUB_TYPE
+        /// Value: MESSAGE
         /// </summary>
-        public static readonly Name MessageSubType = new Name("MSG_SUB_TYPE");
+        public static readonly Name Message = new Name("MESSAGE");
+        /// <summary>
+        /// Value: STATUS
+        /// </summary>
+        public static readonly Name Status = new Name("STATUS");
+        /// <summary>
+        /// Value: EVENT_STATUS
+        /// </summary>
+        public static readonly Name EventStatus = new Name("EVENT_STATUS");
         /// <summary>
         /// Value: CreateOrderAndRouteEx.  'Ex' is the extended method.
         /// </summary>

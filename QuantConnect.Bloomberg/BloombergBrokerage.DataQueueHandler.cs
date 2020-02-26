@@ -211,9 +211,7 @@ namespace QuantConnect.Bloomberg
                             case "SubscriptionFailure":
                                 Log.Error($"{prefix}subscription failed: {DescribeCorrelationIds(message.CorrelationIDs)}{message}");
                                 break;
-                            default:
-                                Log.Trace(message.ToString());
-                                break;
+                            default: throw new Exception($"Message type is not yet handled: {message.MessageType} [message:{message}]");
                         }
                     }
 
@@ -222,8 +220,6 @@ namespace QuantConnect.Bloomberg
                 case Event.EventType.SUBSCRIPTION_DATA:
                     foreach (var message in eventObj.GetMessages())
                     {
-                        //Log.Trace($"BloombergBrokerage.OnBloombergMarketDataEvent(): {message}");
-
                         foreach (var correlationId in message.CorrelationIDs)
                         {
                             if (_subscriptionKeysByCorrelationId.TryGetValue(correlationId, out var key))
@@ -253,13 +249,8 @@ namespace QuantConnect.Bloomberg
                     }
 
                     break;
-
-                default:
-                    foreach (var message in eventObj.GetMessages())
-                    {
-                        Log.Trace($"BloombergBrokerage.OnBloombergMarketDataEvent(): {message}");
-                    }
-
+                default: 
+                    Log.Error("Unhandled event type: {0}, event:{1}", eventObj.Type, eventObj);
                     break;
             }
         }

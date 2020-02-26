@@ -39,8 +39,9 @@ namespace QuantConnect.Bloomberg
         private void LogRequestCompletion(Message message)
         {
             var sequence = GetSequence(message);
-            Log.Trace($"OrderSubscriptionHandler.LogRequestCompletion(): {message.MessageType} - {sequence}");
-            _brokerage.FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Information, sequence, "Request completed: " + message.MessageType));
+            var text = message.HasElement(BloombergNames.Message) ? message.GetElementAsString(BloombergNames.Message) : message.ToString();
+            Log.Trace($"OrderSubscriptionHandler.LogRequestCompletion(): {message.MessageType} - {sequence}: {message}");
+            _brokerage.FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Information, sequence, $"Request completed: '{message.MessageType}': {text}"));
         }
 
         private static int GetSequence(Message message)
@@ -89,8 +90,7 @@ namespace QuantConnect.Bloomberg
                     OnOrderDelete(message, sequence);
                     break;
                 default:
-                    Log.Trace("Order route fields update: " + eventStatus);
-                    break;
+                    throw new Exception($"Unknown order fields update: {eventStatus} [message:{message}]");
             }
         }
 
