@@ -21,8 +21,13 @@ using QuantConnect.Logging;
 using QuantConnect.Orders;
 using QuantConnect.Packets;
 using QuantConnect.Securities;
+using DateTime = System.DateTime;
 using Environment = QuantConnect.Bloomberg.Environment;
 using HistoryRequest = QuantConnect.Data.HistoryRequest;
+using LimitOrder = QuantConnect.Orders.LimitOrder;
+using Order = QuantConnect.Orders.Order;
+using OrderType = QuantConnect.Orders.OrderType;
+using TimeInForce = QuantConnect.Orders.TimeInForce;
 
 namespace QuantConnect.BloombergTests
 {
@@ -34,7 +39,7 @@ namespace QuantConnect.BloombergTests
         private const int OneDay = 60 * 24;
         private static readonly ConsoleLogHandler FixtureLogHandler = new ConsoleLogHandler();
         private static readonly Action<Order, int> OrderIdSetter;
-        private static readonly Symbol TestSymbol;
+        private static readonly Symbol TestSymbol = Symbol.Empty;
         private static readonly Mock<IOrderProvider> MockOrderProvider = new Mock<IOrderProvider>();
         private static readonly Mock<BloombergSymbolMapper> MockBloombergSymbolMapper = new Mock<BloombergSymbolMapper>("integration-bloomberg-symbol-map.json") {CallBase = true};
         private static BloombergBrokerage _underTest;
@@ -49,10 +54,6 @@ namespace QuantConnect.BloombergTests
             // Work out the order
             var propertyInfo = typeof(LimitOrder).GetProperty(nameof(Order.Id), BindingFlags.Public | BindingFlags.Instance);
             OrderIdSetter = (o, i) => propertyInfo?.SetValue(o, i);
-
-            // Setup the lean symbol
-            var symbolBase = Config.GetValue("symbol-base", Futures.Grains.SoybeanOil);
-            TestSymbol = Symbol.CreateFuture(symbolBase, Market.USA, DateTime.UtcNow.AddDays(5));
         }
 
         [TestFixtureSetUp]
@@ -98,20 +99,22 @@ namespace QuantConnect.BloombergTests
         }
 
         [Test]
-        [TestCase(1, 2)]
-        [TestCase(2, 1)]
-        [TestCase(2, 1, 3)]
-        [TestCase(2, 3, 1)]
-        public async Task Can_Manipulate_Order(int initialQuantity, params int[] updatedQuantities)
+        [TestCase("NGA COMB Comdty", false, 1, 2)]
+        [TestCase("NGH0 COMB Comdty", true, 2, 3, 4)]
+        [TestCase("SSW SJ Equity", true, 2, 3, 4)]
+        [TestCase("BHP AU Equity", true, 5, 4, 3, 2)]
+        [TestCase("BOA COMB Comdty", true, 1, 2)]
+        [TestCase("BOH0 COMB Comdty", true, 2, 1)]
+        [TestCase("BOA COMB Comdty", true, 2, 3, 1)]
+        public async Task Can_Manipulate_Order(string bbgSymbol, bool delete, int initialQuantity, params int[] updatedQuantities)
         {
             // Setup & map a Bloomberg symbol
-            var bbgSymbol = Config.GetValue<string>("bloomberg-symbol");
             MockBloombergSymbolMapper.Setup(x => x.GetBrokerageSymbol(TestSymbol)).Returns(bbgSymbol);
             MockBloombergSymbolMapper.Setup(x => x.GetLeanSymbol(bbgSymbol, null)).Returns(TestSymbol);
 
             // Setup
-            var order = Order.CreateOrder(new SubmitOrderRequest(Config.GetValue<OrderType>("order-type"), Config.GetValue<SecurityType>("security-type"), TestSymbol,
-                initialQuantity, 1, 100, DateTime.Now, null, new OrderProperties {TimeInForce = TimeInForce.Day}));
+            var order = Order.CreateOrder(new SubmitOrderRequest(OrderType.Limit, SecurityType.Future, TestSymbol, initialQuantity, 1, 1, DateTime.Now, null,
+                new OrderProperties {TimeInForce = TimeInForce.Day}));
             var orderId = new Random().Next(0, int.MaxValue);
             OrderIdSetter(order, orderId);
             MockOrderProvider.Setup(x => x.GetOrderById(order.Id)).Returns(order);
@@ -128,16 +131,16 @@ namespace QuantConnect.BloombergTests
             foreach (var updateQuantity in updatedQuantities)
             {
                 order.ApplyUpdateOrderRequest(new UpdateOrderRequest(DateTime.Now, order.Id, new UpdateOrderFields {Quantity = updateQuantity}));
-                brokerMessage = await OnNextMessage(_underTest.UpdateOrder, order, AwaitFieldUpdate(fieldAmount));
+                brokerMessage = await OnNextMessage(_underTest.UpdateOrder, order, AwaitFieldUpdate(fieldAmount, updateQuantity.ToString()));
                 Assert.That(brokerMessage.Message, Contains.Substring(BloombergNames.ModifyOrderEx.ToString()));
-                Assert.AreEqual(updateQuantity, int.Parse(fieldAmount.CurrentValue));
             }
 
             // Cancel / delete
-            var fieldStatus = bbOrder.GetField("EMSX_STATUS");
-            brokerMessage = await OnNextMessage(_underTest.CancelOrder, order, AwaitFieldUpdate(fieldStatus));
-            Assert.That(brokerMessage.Message, Contains.Substring(BloombergNames.DeleteOrder.ToString()));
-            Assert.AreEqual("CANCEL", fieldStatus.CurrentValue);
+            if (delete)
+            {
+                brokerMessage = await OnNextMessage(_underTest.CancelOrder, order);
+                Assert.That(brokerMessage.Message, Contains.Substring(BloombergNames.CancelOrderEx.ToString()));
+            }
         }
 
         [Test]
@@ -156,6 +159,10 @@ namespace QuantConnect.BloombergTests
         // Extra asset classes
         [TestCase("BHP AU Equity", OneDay, Resolution.Daily, TickType.Trade)]
         [TestCase("AAPL US Equity", OneDay, Resolution.Daily, TickType.Trade)]
+        // First month
+        [TestCase("BO1 COMB Comdty", OneDay * 16, Resolution.Minute, TickType.Quote)]
+        [TestCase("BO1 COMB Comdty", OneDay * 16, Resolution.Daily, TickType.Quote)]
+        [TestCase("BO1 COMB Comdty", OneDay * 16, Resolution.Hour, TickType.Trade)]
         // Active month
         [TestCase("BO1 COMB Comdty", OneDay * 16, Resolution.Minute, TickType.Quote, Ignore = true)]
         [TestCase("BOA COMB Comdty", OneDay * 16, Resolution.Minute, TickType.Quote, Ignore = true)]
@@ -223,6 +230,10 @@ namespace QuantConnect.BloombergTests
             var brokerMessageTask = OnEvent<BloombergBrokerage, BrokerageMessageEvent>(_underTest, (b, e) => b.Message += e, (b, e) => b.Message -= e);
             function(order);
             var result = await brokerMessageTask;
+            if (result.Type == BrokerageMessageType.Error)
+            {
+                Assert.Fail("Request responded with an error #{0}: {1}", result.Code, result.Message);
+            }
             if (additionalTasksToAwait != null && additionalTasksToAwait.Length > 0)
             {
                 await Task.WhenAll(additionalTasksToAwait);
@@ -236,9 +247,9 @@ namespace QuantConnect.BloombergTests
             return OnEvent<BloombergOrders, BloombergOrder>(_underTest.Orders, (o, h) => o.OrderCreated += h, (o, h) => o.OrderCreated -= h);
         }
 
-        private static Task AwaitFieldUpdate(BloombergField bbOrder)
+        private static Task AwaitFieldUpdate(BloombergField bbOrder, string expectedValue)
         {
-            return OnEvent<BloombergField, EventArgs>(bbOrder, (o, h) => o.Updated += h, (o, h) => o.Updated -= h);
+            return OnEvent<BloombergField, EventArgs>(bbOrder, (o, h) => o.Updated += h, (o, h) => o.Updated -= h, r => bbOrder.CurrentValue == expectedValue);
         }
 
         /// <summary>
@@ -249,14 +260,16 @@ namespace QuantConnect.BloombergTests
         /// <param name="item"></param>
         /// <param name="subscribe"></param>
         /// <param name="unsubscribe"></param>
+        /// <param name="conditionalFunc"></param>
         /// <returns></returns>
-        private static Task<TResult> OnEvent<T, TResult>(T item, Action<T, EventHandler<TResult>> subscribe, Action<T, EventHandler<TResult>> unsubscribe)
+        private static Task<TResult> OnEvent<T, TResult>(T item, Action<T, EventHandler<TResult>> subscribe, Action<T, EventHandler<TResult>> unsubscribe,
+            Func<TResult, bool> conditionalFunc = null)
         {
             var taskCompletionSource = new TaskCompletionSource<TResult>();
 
             void Handler(object _, TResult e)
             {
-                taskCompletionSource.TrySetResult(e);
+                if (conditionalFunc == null || conditionalFunc(e)) taskCompletionSource.TrySetResult(e);
             }
 
             subscribe(item, Handler);
