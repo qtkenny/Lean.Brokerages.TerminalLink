@@ -206,7 +206,7 @@ namespace QuantConnect.Bloomberg
             {
                 Log.Trace("Order subscription streams activated");
             }
-            else if (msgType.Equals(BloombergNames.CreateOrderAndRouteEx) || msgType.Equals(BloombergNames.ModifyOrderEx) || msgType.Equals(BloombergNames.DeleteOrder))
+            else if (msgType.Equals(BloombergNames.CreateOrderAndRouteEx) || msgType.Equals(BloombergNames.ModifyOrderEx) || msgType.Equals(BloombergNames.CancelOrderEx))
             {
                 LogRequestCompletion(message);
             }

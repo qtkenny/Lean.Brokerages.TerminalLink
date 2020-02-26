@@ -341,7 +341,7 @@ namespace QuantConnect.Bloomberg
             }
 
             Log.Trace($"Cancelling order {order.Id}, sequence:{sequence}");
-            var request = _serviceEms.CreateRequest(BloombergNames.DeleteOrder.ToString());
+            var request = _serviceEms.CreateRequest(BloombergNames.CancelOrderEx.ToString());
             request.GetElement(BloombergNames.EMSXSequence).AppendValue(sequence);
             SendOrderRequest(request, order.Id);
 
