@@ -46,10 +46,20 @@ namespace QuantConnect.BloombergTests
             brokerageSymbol = mapper.GetBrokerageSymbol(symbol);
             Assert.AreEqual("EURUSD Curncy", brokerageSymbol);
 
-            // canonical symbol for future chain
+            // canonical symbol for future chain -- commodity
             symbol = Symbol.Create("ZL", SecurityType.Future, Market.USA);
             brokerageSymbol = mapper.GetBrokerageSymbol(symbol);
             Assert.AreEqual("BO1 COMB Comdty", brokerageSymbol);
+
+            // canonical symbol for future chain -- currency
+            symbol = Symbol.Create("6A", SecurityType.Future, Market.USA);
+            brokerageSymbol = mapper.GetBrokerageSymbol(symbol);
+            Assert.AreEqual("AD1 COMB Curncy", brokerageSymbol);
+
+            // canonical symbol for future chain -- index
+            symbol = Symbol.Create("ES", SecurityType.Future, Market.USA);
+            brokerageSymbol = mapper.GetBrokerageSymbol(symbol);
+            Assert.AreEqual("ES1 COMB Index", brokerageSymbol);
 
             // option contract
             symbol = Symbol.CreateOption("SPY", Market.USA, OptionStyle.American, OptionRight.Call, 200, new DateTime(2019, 12, 31));
@@ -71,6 +81,54 @@ namespace QuantConnect.BloombergTests
             Assert.AreEqual("EURUSD", symbol.Value);
             Assert.AreEqual(SecurityType.Forex, symbol.ID.SecurityType);
             Assert.AreEqual(Market.FXCM, symbol.ID.Market);
+
+            symbol = mapper.GetLeanSymbol("AD1 COMB Curncy", SecurityType.Future);
+            Assert.AreEqual("/6A", symbol.Value);
+            Assert.AreEqual("6A", symbol.ID.Symbol);
+            Assert.AreEqual(SecurityType.Future, symbol.ID.SecurityType);
+            Assert.AreEqual(Market.USA, symbol.ID.Market);
+
+            symbol = mapper.GetLeanSymbol("AD1 Curncy", SecurityType.Future);
+            Assert.AreEqual("/6A", symbol.Value);
+            Assert.AreEqual("6A", symbol.ID.Symbol);
+            Assert.AreEqual(SecurityType.Future, symbol.ID.SecurityType);
+            Assert.AreEqual(Market.USA, symbol.ID.Market);
+
+            symbol = mapper.GetLeanSymbol("ADH0 COMB Curncy", SecurityType.Future);
+            Assert.AreEqual("6A16H20", symbol.Value);
+            Assert.AreEqual("6A", symbol.ID.Symbol);
+            Assert.AreEqual(SecurityType.Future, symbol.ID.SecurityType);
+            Assert.AreEqual(Market.USA, symbol.ID.Market);
+
+            symbol = mapper.GetLeanSymbol("ADH0 Curncy", SecurityType.Future);
+            Assert.AreEqual("6A16H20", symbol.Value);
+            Assert.AreEqual("6A", symbol.ID.Symbol);
+            Assert.AreEqual(SecurityType.Future, symbol.ID.SecurityType);
+            Assert.AreEqual(Market.USA, symbol.ID.Market);
+
+            symbol = mapper.GetLeanSymbol("ES1 COMB Index", SecurityType.Future);
+            Assert.AreEqual("/ES", symbol.Value);
+            Assert.AreEqual("ES", symbol.ID.Symbol);
+            Assert.AreEqual(SecurityType.Future, symbol.ID.SecurityType);
+            Assert.AreEqual(Market.USA, symbol.ID.Market);
+
+            symbol = mapper.GetLeanSymbol("ES1 Index", SecurityType.Future);
+            Assert.AreEqual("/ES", symbol.Value);
+            Assert.AreEqual("ES", symbol.ID.Symbol);
+            Assert.AreEqual(SecurityType.Future, symbol.ID.SecurityType);
+            Assert.AreEqual(Market.USA, symbol.ID.Market);
+
+            symbol = mapper.GetLeanSymbol("ESH0 COMB Index", SecurityType.Future);
+            Assert.AreEqual("ES20H20", symbol.Value);
+            Assert.AreEqual("ES", symbol.ID.Symbol);
+            Assert.AreEqual(SecurityType.Future, symbol.ID.SecurityType);
+            Assert.AreEqual(Market.USA, symbol.ID.Market);
+
+            symbol = mapper.GetLeanSymbol("ESH0 Index", SecurityType.Future);
+            Assert.AreEqual("ES20H20", symbol.Value);
+            Assert.AreEqual("ES", symbol.ID.Symbol);
+            Assert.AreEqual(SecurityType.Future, symbol.ID.SecurityType);
+            Assert.AreEqual(Market.USA, symbol.ID.Market);
 
             symbol = mapper.GetLeanSymbol("BO1 COMB Comdty", SecurityType.Future);
             Assert.AreEqual("/ZL", symbol.Value);

@@ -1,4 +1,20 @@
 {
+    "ES": {
+        "Underlying": "ES",
+        "SecurityType": "Future",
+        "Market": "usa",
+        "TickerSuffix": "COMB Index",
+        "RootLookupSuffix": "1"
+    },
+
+    "AD": {
+        "Underlying": "6A",
+        "SecurityType": "Future",
+        "Market": "usa",
+        "TickerSuffix": "COMB Curncy",
+        "RootLookupSuffix": "1"
+    },
+
     "BO": {
         "Underlying": "ZL",
         "SecurityType": "Future",

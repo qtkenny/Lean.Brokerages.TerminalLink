@@ -1,4 +1,9 @@
-﻿using System;
+﻿/*
+* QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
+* Lean Algorithmic Trading Engine v2.2 Copyright 2015 QuantConnect Corporation.
+*/
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -102,7 +107,7 @@ namespace QuantConnect.BloombergTests
             // Setup & map a Bloomberg symbol
             var bbgSymbol = Config.GetValue<string>("bloomberg-symbol");
             MockBloombergSymbolMapper.Setup(x => x.GetBrokerageSymbol(TestSymbol)).Returns(bbgSymbol);
-            MockBloombergSymbolMapper.Setup(x => x.GetLeanSymbol(bbgSymbol)).Returns(TestSymbol);
+            MockBloombergSymbolMapper.Setup(x => x.GetLeanSymbol(bbgSymbol, null)).Returns(TestSymbol);
 
             // Setup
             var order = Order.CreateOrder(new SubmitOrderRequest(Config.GetValue<OrderType>("order-type"), Config.GetValue<SecurityType>("security-type"), TestSymbol,
@@ -159,7 +164,7 @@ namespace QuantConnect.BloombergTests
         public void Can_Request_History(string bbSymbol, int minutes, Resolution resolution, TickType tickType)
         {
             Log.Trace("Receiving data for: " + bbSymbol);
-            MockBloombergSymbolMapper.Setup(x => x.GetLeanSymbol(bbSymbol)).Returns(TestSymbol);
+            MockBloombergSymbolMapper.Setup(x => x.GetLeanSymbol(bbSymbol, null)).Returns(TestSymbol);
             MockBloombergSymbolMapper.Setup(x => x.GetBrokerageSymbol(TestSymbol)).Returns(bbSymbol);
             // Always rewind 1 day, so we guarantee market will be open.
             var endDate = new DateTime(2020, 02, 24, 01, 00, 00, DateTimeKind.Utc);
@@ -191,7 +196,7 @@ namespace QuantConnect.BloombergTests
         public void Can_Retrieve_Live_Data(string bbgSymbol)
         {
             MockBloombergSymbolMapper.Setup(x => x.GetBrokerageSymbol(TestSymbol)).Returns(bbgSymbol);
-            MockBloombergSymbolMapper.Setup(x => x.GetLeanSymbol(bbgSymbol)).Returns(TestSymbol);
+            MockBloombergSymbolMapper.Setup(x => x.GetLeanSymbol(bbgSymbol, null)).Returns(TestSymbol);
             _underTest.Subscribe(new LiveNodePacket(), new[] {TestSymbol});
             Tick[] ticks;
             while (true)
