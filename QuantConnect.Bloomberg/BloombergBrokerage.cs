@@ -30,7 +30,9 @@ namespace QuantConnect.Bloomberg
         private readonly string _broker;
         private readonly DateTimeZone _userTimeZone;
         private readonly string _account;
+        private readonly string _strategy;
         private readonly string _notes;
+        private readonly string _handlingInstruction;
         private readonly bool _execution;
         private readonly Session _sessionMarketData;
         private readonly Session _sessionReferenceData;
@@ -75,9 +77,11 @@ namespace QuantConnect.Bloomberg
             _serverPort = serverPort;
 
             _userTimeZone = DateTimeZoneProviders.Tzdb[Config.GetValue("bloomberg-emsx-user-time-zone", TimeZones.Utc.Id)];
-            _broker = Config.GetValue<string>("bloomberg-emsx-broker");
+            _broker = Config.GetValue<string>("bloomberg-emsx-broker") ?? throw new Exception("EMSX requries a broker");
             _account = Config.GetValue<string>("bloomberg-emsx-account");
+            _strategy = Config.GetValue<string>("bloomberg-emsx-strategy");
             _notes = Config.GetValue<string>("bloomberg-emsx-notes");
+            _handlingInstruction = Config.GetValue<string>("bloomberg-emsx-handling");
             _execution = Config.GetBool("bloomberg-execution");
 
             if (apiType != ApiType.Desktop)
@@ -245,8 +249,14 @@ namespace QuantConnect.Bloomberg
             {
                 request.Set(BloombergNames.EMSXBroker, _broker);
             }
+            
+            if (!string.IsNullOrWhiteSpace(_strategy))
+            {
+                var element = request["EMSX_STRATEGY_PARAMS"];
+                element.SetElement("EMSX_STRATEGY_NAME", _strategy);
+            }
 
-            request.Set(BloombergNames.EMSXHandInstruction, "DMA");
+            request.Set(BloombergNames.EMSXHandInstruction, _handlingInstruction);
             // Set fields that map back to internal order ids
             request.Set(BloombergNames.EMSXReferenceOrderIdRequest, order.Id);
             PopulateRequest(request, order);

@@ -12,5 +12,7 @@
   "bloomberg-emsx-broker": "ABNB",
   "bloomberg-emsx-account": "GESTESTAPAC",
   "bloomberg-emsx-notes": "ATS",
+  "bloomberg-emsx-strategy": "CASH", // BTMB is a strategy-type broker, so strategy must be populated.
+  "bloomberg-emsx-handling": "AUTO",
   "bloomberg-execution": true
 }
