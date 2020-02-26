@@ -51,11 +51,6 @@ namespace QuantConnect.Bloomberg
             return -1;
         }
 
-        private static int? GetRoute(Message message)
-        {
-            return message.HasElement(BloombergNames.EMSXRouteId) ? message.GetElementAsInt32(BloombergNames.EMSXRouteId) : (int?) null;
-        }
-
         private void OnOrderRouting(Message message)
         {
             var eventStatus = GetEventStatus(message);
@@ -65,9 +60,7 @@ namespace QuantConnect.Bloomberg
             }
 
             var sequence = GetSequence(message);
-            var route = GetRoute(message);
-            var subType = message.GetElementAsString(BloombergNames.MessageSubType);
-            Log.Trace($"OrderSubscriptionHandler: Message received: '{eventStatus}' [sequence:{sequence},route:{route},sub-type:{subType}]");
+            Log.Trace($"OrderSubscriptionHandler.OnOrderRouting(): Message received: '{eventStatus}' [sequence:{sequence}]");
             switch (eventStatus)
             {
                 case EventStatus.InitialPaint:

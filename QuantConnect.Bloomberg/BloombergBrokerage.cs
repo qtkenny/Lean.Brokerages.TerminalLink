@@ -658,17 +658,6 @@ namespace QuantConnect.Bloomberg
             _blotterInitializedEvent.WaitOne();
         }
 
-        private void SubscribeRouteEvents()
-        {
-            // Fields are shared with orders
-            var fields = _routeFieldDefinitions.Select(x => x.Name);
-
-            var serviceName = GetServiceName(ServiceType.Ems);
-            var topic = $"{serviceName}/route?fields={string.Join(",", fields)}";
-
-            Subscribe(topic, _orderSubscriptionHandler);
-        }
-
         public void SetBlotterInitialized()
         {
             _blotterInitializedEvent.Set();
