@@ -194,7 +194,7 @@ namespace QuantConnect.Bloomberg
 
         private string BuildFutureTickerFromLeanSymbol(Symbol symbol)
         {
-            var entry = MappingInfo.FirstOrDefault(x => x.Value.Underlying == symbol.Value);
+            var entry = MappingInfo.FirstOrDefault(x => x.Value.Underlying == symbol.ID.Symbol);
             if (entry.Value == null)
             {
                 throw new Exception($"Lean ticker not found: {symbol.Value}");

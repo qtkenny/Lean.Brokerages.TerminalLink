@@ -47,17 +47,17 @@ namespace QuantConnect.BloombergTests
             Assert.AreEqual("EURUSD Curncy", brokerageSymbol);
 
             // canonical symbol for future chain -- commodity
-            symbol = Symbol.Create("ZL", SecurityType.Future, Market.USA);
+            symbol = Symbol.Create("ZL", SecurityType.Future, Market.USA, "/ZL");
             brokerageSymbol = mapper.GetBrokerageSymbol(symbol);
             Assert.AreEqual("BO1 COMB Comdty", brokerageSymbol);
 
             // canonical symbol for future chain -- currency
-            symbol = Symbol.Create("6A", SecurityType.Future, Market.USA);
+            symbol = Symbol.Create("6A", SecurityType.Future, Market.USA, "/6A");
             brokerageSymbol = mapper.GetBrokerageSymbol(symbol);
             Assert.AreEqual("AD1 COMB Curncy", brokerageSymbol);
 
             // canonical symbol for future chain -- index
-            symbol = Symbol.Create("ES", SecurityType.Future, Market.USA);
+            symbol = Symbol.Create("ES", SecurityType.Future, Market.USA, "/ES");
             brokerageSymbol = mapper.GetBrokerageSymbol(symbol);
             Assert.AreEqual("ES1 COMB Index", brokerageSymbol);
 
