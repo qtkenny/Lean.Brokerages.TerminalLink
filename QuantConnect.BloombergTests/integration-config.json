@@ -1,11 +1,11 @@
 ﻿{
   // bloomberg configuration
-  "bloomberg-server-host": "172.16.101.42",
-  "bloomberg-server-port": 5190,
-  "bloomberg-emsx-broker": "ABNB",
-  "bloomberg-emsx-account": "GESTESTAPAC",
-  "bloomberg-emsx-notes": "ATS",
+  "bloomberg-server-host": "127.0.0.1",
+  "bloomberg-server-port": 8194,
+  "bloomberg-emsx-broker": "BMTB",
   "bloomberg-emsx-strategy": "CASH", // BTMB is a strategy-type broker, so strategy must be populated.
+  "bloomberg-emsx-account": "",
+  "bloomberg-emsx-notes": "",
   "bloomberg-emsx-handling": "AUTO",
   "bloomberg-execution": true
 }
