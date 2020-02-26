@@ -10,6 +10,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using Bloomberglp.Blpapi;
+using NodaTime;
 using QuantConnect.Brokerages;
 using QuantConnect.Configuration;
 using QuantConnect.Interfaces;
@@ -27,6 +28,7 @@ namespace QuantConnect.Bloomberg
         private readonly string _serverHost;
         private readonly int _serverPort;
         private readonly string _broker;
+        private readonly DateTimeZone _userTimeZone;
         private readonly string _account;
         private readonly string _notes;
         private readonly bool _execution;
@@ -71,6 +73,8 @@ namespace QuantConnect.Bloomberg
             Environment = environment;
             _serverHost = serverHost;
             _serverPort = serverPort;
+
+            _userTimeZone = DateTimeZoneProviders.Tzdb[Config.GetValue("bloomberg-emsx-user-time-zone", TimeZones.Utc.Id)];
             _broker = Config.GetValue<string>("bloomberg-emsx-broker");
             _account = Config.GetValue<string>("bloomberg-emsx-account");
             _notes = Config.GetValue<string>("bloomberg-emsx-notes");
@@ -195,7 +199,10 @@ namespace QuantConnect.Bloomberg
         /// <returns>The open orders returned from Bloomberg</returns>
         public override List<Order> GetOpenOrders()
         {
-            return Orders.Select(ConvertOrder).ToList();
+            return Orders
+                    .Where(x => !ConvertOrderStatus(x.Status).IsClosed() && x.Amount != 0)
+                    .Select(ConvertOrder)
+                    .ToList();
         }
 
         /// <summary>
@@ -232,14 +239,14 @@ namespace QuantConnect.Bloomberg
         public override bool PlaceOrder(Order order)
         {
             var request = _serviceEms.CreateRequest(BloombergNames.CreateOrderAndRouteEx.ToString());
-            request.Set("EMSX_TICKER", _symbolMapper.GetBrokerageSymbol(order.Symbol));
-            request.Set("EMSX_SIDE", ConvertOrderDirection(order.Direction));
+            request.Set(BloombergNames.EMSXTicker, _symbolMapper.GetBrokerageSymbol(order.Symbol));
+            request.Set(BloombergNames.EMSXSide, ConvertOrderDirection(order.Direction));
             if (!string.IsNullOrWhiteSpace(_broker))
             {
-                request.Set("EMSX_BROKER", _broker);
+                request.Set(BloombergNames.EMSXBroker, _broker);
             }
 
-            request.Set("EMSX_HAND_INSTRUCTION", "DMA");
+            request.Set(BloombergNames.EMSXHandInstruction, "DMA");
             // Set fields that map back to internal order ids
             request.Set(BloombergNames.EMSXReferenceOrderIdRequest, order.Id);
             PopulateRequest(request, order);
@@ -249,32 +256,32 @@ namespace QuantConnect.Bloomberg
 
         private void PopulateRequest(Request request, Order order)
         { 
-            request.Set("EMSX_AMOUNT", Convert.ToInt32(order.AbsoluteQuantity));
-            request.Set("EMSX_ORDER_TYPE", ConvertOrderType(order.Type));
-            request.Set("EMSX_TIF", ConvertTimeInForce(order.TimeInForce));
+            request.Set(BloombergNames.EMSXAmount, Convert.ToInt32(order.AbsoluteQuantity));
+            request.Set(BloombergNames.EMSXOrderType, ConvertOrderType(order.Type));
+            request.Set(BloombergNames.EMSXTif, ConvertTimeInForce(order.TimeInForce));
             if (!string.IsNullOrWhiteSpace(_account))
             {
-                request.Set("EMSX_ACCOUNT", _account);
+                request.Set(BloombergNames.EMSXAccount, _account);
             }
 
             if (!string.IsNullOrWhiteSpace(_notes))
             {
-                request.Set("EMSX_NOTES", _notes);
+                request.Set(BloombergNames.EMSXNotes, _notes);
             }
 
             switch (order.Type)
             {
                 case OrderType.Limit:
-                    request.Set("EMSX_LIMIT_PRICE", Convert.ToDouble(((LimitOrder)order).LimitPrice));
+                    request.Set(BloombergNames.EMSXLimitPrice, Convert.ToDouble(((LimitOrder)order).LimitPrice));
                     break;
 
                 case OrderType.StopMarket:
-                    request.Set("EMSX_STOP_PRICE", Convert.ToDouble(((StopMarketOrder)order).StopPrice));
+                    request.Set(BloombergNames.EMSXStopPrice, Convert.ToDouble(((StopMarketOrder)order).StopPrice));
                     break;
 
                 case OrderType.StopLimit:
-                    request.Set("EMSX_STOP_PRICE", Convert.ToDouble(((StopLimitOrder)order).StopPrice));
-                    request.Set("EMSX_LIMIT_PRICE", Convert.ToDouble(((StopLimitOrder)order).LimitPrice));
+                    request.Set(BloombergNames.EMSXStopPrice, Convert.ToDouble(((StopLimitOrder)order).StopPrice));
+                    request.Set(BloombergNames.EMSXLimitPrice, Convert.ToDouble(((StopLimitOrder)order).LimitPrice));
                     break;
             }
         }
@@ -646,43 +653,50 @@ namespace QuantConnect.Bloomberg
 
         private Order ConvertOrder(BloombergOrder order)
         {
-            var symbol = _symbolMapper.GetLeanSymbol(order.GetFieldValue("EMSX_TICKER"), SecurityType.Equity, Market.USA);
-            var quantity = Convert.ToDecimal(order.GetFieldValue("EMSX_AMOUNT"), CultureInfo.InvariantCulture);
-            var orderType = ConvertOrderType(order.GetFieldValue("EMSX_ORDER_TYPE"));
-            var orderDirection = order.GetFieldValue("EMSX_SIDE") == "BUY" ? OrderDirection.Buy : OrderDirection.Sell;
-            var timeInForce = ConvertTimeInForce(order.GetFieldValue("EMSX_TIF"));
+            var securityType = ConvertSecurityType(order.GetFieldValue(BloombergNames.EMSXAssetClass));
+
+            var symbol = _symbolMapper.GetLeanSymbol(order.GetFieldValue(BloombergNames.EMSXTicker), securityType);
+            var quantity = order.GetFieldValueDecimal(BloombergNames.EMSXAmount);
+            var orderType = ConvertOrderType(order.GetFieldValue(BloombergNames.EMSXOrderType));
+            var orderDirection = order.GetFieldValue(BloombergNames.EMSXSide) == "BUY" ? OrderDirection.Buy : OrderDirection.Sell;
+            var timeInForce = ConvertTimeInForce(order.GetFieldValue(BloombergNames.EMSXTif));
 
             if (orderDirection == OrderDirection.Sell)
             {
                 quantity = -quantity;
             }
 
+            var date = DateTime.ParseExact(order.GetFieldValue(BloombergNames.EMSXDate), "yyyyMMdd", CultureInfo.InvariantCulture);
+            // the EMSXTimeStampMicrosec field contains a value in seconds with decimals
+            var time = order.GetFieldValueDecimal(BloombergNames.EMSXTimeStampMicrosec);
+            var orderTime = date.AddSeconds(Convert.ToDouble(time)).ConvertToUtc(_userTimeZone);
+
             Order newOrder;
             switch (orderType)
             {
                 case OrderType.Market:
-                    newOrder = new MarketOrder(symbol, quantity, DateTime.UtcNow);
+                    newOrder = new MarketOrder(symbol, quantity, orderTime);
                     break;
 
                 case OrderType.Limit:
                     {
-                        var limitPrice = Convert.ToDecimal(order.GetFieldValue("EMSX_LIMIT_PRICE"), CultureInfo.InvariantCulture);
-                        newOrder = new LimitOrder(symbol, quantity, limitPrice, DateTime.UtcNow);
+                        var limitPrice = order.GetFieldValueDecimal(BloombergNames.EMSXLimitPrice);
+                        newOrder = new LimitOrder(symbol, quantity, limitPrice, orderTime);
                     }
                     break;
 
                 case OrderType.StopMarket:
                     {
-                        var stopPrice = Convert.ToDecimal(order.GetFieldValue("EMSX_STOP_PRICE"), CultureInfo.InvariantCulture);
-                        newOrder = new LimitOrder(symbol, quantity, stopPrice, DateTime.UtcNow);
+                        var stopPrice = order.GetFieldValueDecimal(BloombergNames.EMSXStopPrice);
+                        newOrder = new LimitOrder(symbol, quantity, stopPrice, orderTime);
                     }
                     break;
 
                 case OrderType.StopLimit:
                     {
-                        var limitPrice = Convert.ToDecimal(order.GetFieldValue("EMSX_LIMIT_PRICE"), CultureInfo.InvariantCulture);
-                        var stopPrice = Convert.ToDecimal(order.GetFieldValue("EMSX_STOP_PRICE"), CultureInfo.InvariantCulture);
-                        newOrder = new StopLimitOrder(symbol, quantity, stopPrice, limitPrice, DateTime.UtcNow);
+                        var limitPrice = order.GetFieldValueDecimal(BloombergNames.EMSXLimitPrice);
+                        var stopPrice = order.GetFieldValueDecimal(BloombergNames.EMSXStopPrice);
+                        newOrder = new StopLimitOrder(symbol, quantity, stopPrice, limitPrice, orderTime);
                     }
                     break;
 
@@ -692,7 +706,27 @@ namespace QuantConnect.Bloomberg
 
             newOrder.Properties.TimeInForce = timeInForce;
 
+            newOrder.BrokerId.Add(order.Sequence.ToString());
+
             return newOrder;
+        }
+
+        private SecurityType ConvertSecurityType(string assetClass)
+        {
+            switch (assetClass)
+            {
+                case "Future":
+                    return SecurityType.Future;
+
+                case "Equity":
+                    return SecurityType.Equity;
+
+                case "Option":
+                    return SecurityType.Option;
+
+                default:
+                    throw new Exception($"Unknown asset class: {assetClass}");
+            }
         }
 
         private OrderType ConvertOrderType(string orderType)
@@ -750,6 +784,8 @@ namespace QuantConnect.Bloomberg
                 case "DAY":
                     return TimeInForce.Day;
 
+                case "IOC":
+                    // LEAN does not support IOC yet, we map it to GTC for now
                 case "GTC":
                     return TimeInForce.GoodTilCanceled;
 

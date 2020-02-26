@@ -3,6 +3,8 @@
 * Lean Algorithmic Trading Engine v2.2 Copyright 2015 QuantConnect Corporation.
 */
 
+using System;
+using System.Globalization;
 using Bloomberglp.Blpapi;
 
 namespace QuantConnect.Bloomberg
@@ -13,6 +15,9 @@ namespace QuantConnect.Bloomberg
 
         public int Sequence { get; }
 
+        public string Status => GetFieldValue(BloombergNames.EMSXStatus);
+        public decimal Amount => GetFieldValueDecimal(BloombergNames.EMSXAmount);
+
         public BloombergOrder(SchemaFieldDefinitions orderFieldDefinitions, int sequence)
         {
             _fields = new BloombergFields(orderFieldDefinitions);
@@ -22,6 +27,21 @@ namespace QuantConnect.Bloomberg
         public string GetFieldValue(string name)
         {
             return GetField(name)?.CurrentValue;
+        }
+
+        public string GetFieldValue(Name name)
+        {
+            return GetFieldValue(name.ToString());
+        }
+
+        public decimal GetFieldValueDecimal(string name)
+        {
+            return Convert.ToDecimal(GetFieldValue(name), CultureInfo.InvariantCulture);
+        }
+
+        public decimal GetFieldValueDecimal(Name name)
+        {
+            return GetFieldValueDecimal(name.ToString());
         }
 
         public BloombergField GetField(string name)
