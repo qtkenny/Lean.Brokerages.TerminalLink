@@ -56,7 +56,7 @@ namespace QuantConnect.Bloomberg
         private readonly MarketHoursDatabase _marketHoursDatabase;
 
         private readonly IOrderProvider _orderProvider;
-        private readonly ManualResetEvent _blotterInitializedEvent = new ManualResetEvent(false);
+        private readonly ManualResetEventSlim _blotterInitializedEvent = new ManualResetEventSlim(false);
         private OrderSubscriptionHandler _orderSubscriptionHandler;
         private bool _isConnected;
 
@@ -342,9 +342,10 @@ namespace QuantConnect.Bloomberg
             }
 
             Log.Trace($"Cancelling order {order.Id}, sequence:{sequence}");
-            var request = _serviceEms.CreateRequest(BloombergNames.CancelOrderEx.ToString());
-            request.GetElement(BloombergNames.EMSXSequence).AppendValue(sequence);
-            SendOrderRequest(request, order.Id);
+            var cancelOrderRequest = _serviceEms.CreateRequest(BloombergNames.CancelOrderEx.ToString());
+            cancelOrderRequest.GetElement(BloombergNames.EMSXSequence).AppendValue(sequence);
+            cancelOrderRequest.GetElement(BloombergNames.EMSXSequence).AppendValue(sequence);
+            SendOrderRequest(cancelOrderRequest, order.Id);
 
             return true;
         }
@@ -417,6 +418,7 @@ namespace QuantConnect.Bloomberg
 
         private void OnBloombergEvent(Event @event, Session session)
         {
+            Log.Trace($"Received: {@event.Type} [messages:{@event.GetMessages().Count()}]: {@event}");
             switch (@event.Type)
             {
                 case Event.EventType.ADMIN:
@@ -656,12 +658,17 @@ namespace QuantConnect.Bloomberg
 
             Subscribe(topic, _orderSubscriptionHandler);
 
-            _blotterInitializedEvent.WaitOne();
+            _blotterInitializedEvent.Wait();
         }
 
         public void SetBlotterInitialized()
         {
             _blotterInitializedEvent.Set();
+        }
+
+        public bool IsInitialized()
+        {
+            return _blotterInitializedEvent.IsSet;
         }
 
         private Order ConvertOrder(BloombergOrder order)

@@ -6,6 +6,8 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Text;
 using Bloomberglp.Blpapi;
 using QuantConnect.Brokerages;
 using QuantConnect.Logging;
@@ -17,6 +19,7 @@ namespace QuantConnect.Bloomberg
 {
     public class OrderSubscriptionHandler : IMessageHandler
     {
+        private const int NoSequence = -1;
         private readonly BloombergBrokerage _brokerage;
         private readonly IOrderProvider _orderProvider;
         private readonly BloombergOrders _orders;
@@ -39,16 +42,26 @@ namespace QuantConnect.Bloomberg
         private void LogRequestCompletion(Message message)
         {
             var sequence = GetSequence(message);
-            var text = message.HasElement(BloombergNames.Message) ? message.GetElementAsString(BloombergNames.Message) : message.ToString();
-            Log.Trace($"OrderSubscriptionHandler.LogRequestCompletion(): {message.MessageType} - {sequence}: {message}");
-            _brokerage.FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Information, sequence, $"Request completed: '{message.MessageType}': {text}"));
+            var builder = new StringBuilder("Request completed: '").Append(message.MessageType).Append('\'');
+            if (sequence != -NoSequence)
+            {
+                builder.Append(" (sequence:").Append(sequence).Append(")");
+            }
+
+            var description = message.HasElement(BloombergNames.Message) ? message.GetElementAsString(BloombergNames.Message) : message.ToString();
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                builder.Append(": ").Append(description);
+            }
+
+            var output = builder.ToString();
+            Log.Trace("OrderSubscriptionHandler.LogRequestCompletion(): " + output);
+            _brokerage.FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Information, 1, output));
         }
 
         private static int GetSequence(Message message)
         {
-            if (message.HasElement(BloombergNames.EMSXSequence)) return message.GetElementAsInt32(BloombergNames.EMSXSequence);
-
-            return -1;
+            return message.HasElement(BloombergNames.EMSXSequence) ? message.GetElementAsInt32(BloombergNames.EMSXSequence) : NoSequence;
         }
 
         private void OnOrderRouting(Message message)
@@ -82,8 +95,10 @@ namespace QuantConnect.Bloomberg
                 case EventStatus.Delete:
                     OnOrderDelete(message, sequence);
                     break;
-                default:
-                    throw new Exception($"Unknown order fields update: {eventStatus} [message:{message}]");
+                case EventStatus.Heartbeat:
+                    // No need to log the heartbeat.
+                    break;
+                default: throw new Exception($"Unknown order fields update: {eventStatus} [message:{message}]");
             }
         }
 
@@ -92,7 +107,7 @@ namespace QuantConnect.Bloomberg
             var orderId = GetOurOrderId(message);
             _sequenceToOrderId[sequence] = orderId;
             _orderToSequenceId[orderId] = sequence;
-            Log.Trace($"OrderSubscriptionHandler.OnNewOrder():{orderId}, EMSX Sequence:{sequence}");
+            Log.Trace($"OrderSubscriptionHandler.OnNewOrder(): Received (orderId={orderId}, sequence={sequence})");
 
             var bbOrder = _orders.GetBySequenceNumber(sequence) ?? _orders.CreateOrder(sequence);
             bbOrder.PopulateFields(message, false);
@@ -100,13 +115,20 @@ namespace QuantConnect.Bloomberg
             var order = _orderProvider.GetOrderById(orderId);
             if (order == null)
             {
-                Log.Error($"OrderSubscriptionHandler.OnNewOrder: OrderId not found: {orderId}, EMSX Sequence: {sequence}");
+                Log.Error($"OrderSubscriptionHandler.OnNewOrder(): OrderId not found: {orderId} (sequence:{sequence}): {message}");
             }
             else
             {
                 // TODO: This is not persisted at the moment.
                 order.BrokerId.Add(sequence.ToString());
-                _brokerage.FireOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bloomberg Order Event") {Status = OrderStatus.Submitted});
+                var status = OrderStatus.Submitted;
+                if (message.HasElement(BloombergNames.EMSXStatus))
+                {
+                    var value = message.GetElementAsString(BloombergNames.EMSXStatus);
+                    status = _brokerage.ConvertOrderStatus(value);
+                }
+
+                _brokerage.FireOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, $"{nameof(OnNewOrder)}:{sequence}") {Status = status});
             }
         }
 
@@ -129,65 +151,79 @@ namespace QuantConnect.Bloomberg
         private void OnOrderUpdate(Message message, int sequence)
         {
             var orderId = GetOurOrderId(message);
-            // Order should already exist. If it doesn't create it anyway.
-            var bbOrder = _orders.GetBySequenceNumber(sequence);
-            if (bbOrder == null)
+            Log.Trace($"OrderSubscriptionHandler.OnOrderUpdate(): Received (orderId={orderId}, sequence={sequence})");
+            if (!TryCreateOrderEvent(message, sequence, orderId, true, out var orderEvent))
             {
-                // Order not found
-                Log.Trace("OrderSubscriptionHandler: WARNING > Update received for unknown order");
-                bbOrder = _orders.CreateOrder(sequence);
+                return;
             }
 
-            bbOrder.PopulateFields(message, true);
-            var order = _orderProvider.GetOrderById(orderId);
-            if (order == null)
+            // TODO: Lean is expecting the fill quantity to be the amount filled in this event. BBG provide the total filled.
+            if (orderEvent.Status == OrderStatus.Filled || orderEvent.Status == OrderStatus.PartiallyFilled)
             {
-                Log.Error($"OrderSubscriptionHandler: OrderId not found: {orderId}");
+                orderEvent.FillPrice = Convert.ToDecimal(message.GetElementAsFloat32(BloombergNames.EMSXAvgPrice));
+                orderEvent.FillQuantity = Convert.ToDecimal(message.GetElementAsInt64(BloombergNames.EMSXFilled));
             }
-            else
-            {
-                var orderStatus = _brokerage.ConvertOrderStatus(message.GetElementAsString(BloombergNames.EMSXStatus));
-                var orderEvent = new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bloomberg Order Event") {Status = orderStatus};
-                // TODO: Lean is expecting the fill quantity to be the amount filled in this event. BBG provide the total filled.
-                if (orderStatus == OrderStatus.Filled || orderStatus == OrderStatus.PartiallyFilled)
-                {
-                    orderEvent.FillPrice = Convert.ToDecimal(message.GetElementAsFloat32(BloombergNames.EMSXAvgPrice));
-                    orderEvent.FillQuantity = Convert.ToDecimal(message.GetElementAsInt64(BloombergNames.EMSXFilled));
-                }
 
-                _brokerage.FireOrderEvent(orderEvent);
-            }
+            _brokerage.FireOrderEvent(orderEvent);
         }
 
         private void OnOrderDelete(Message message, int sequence)
         {
-            // Deletion messages from EMSX don't include the reference id
+            // Deletion messages from EMSX do not include our order id.
             if (!_sequenceToOrderId.TryGetValue(sequence, out var orderId))
             {
-                Log.Error("Unknown order: emsx id:" + sequence);
+                if (_brokerage.IsInitialized())
+                {
+                    Log.Error($"OrderSubscriptionHandler.OnOrderDelete(): Deletion received for an unknown sequence '{sequence}': {message}");
+                }
+                else
+                {
+                    Log.Trace($"OrderSubscriptionHandler.OnOrderDelete(): Discarding order in a deleted state: '{sequence}'");
+                    return;
+                }
+
                 return;
             }
+
+            Log.Trace($"OrderSubscriptionHandler.OnOrderDelete(): Received (orderId={orderId}, sequence={sequence})");
+            if (!TryCreateOrderEvent(message, sequence, orderId, false, out var orderEvent))
+            {
+                return;
+            }
+
+            // TODO: This is likely to be incorrect.
+            orderEvent.Status = OrderStatus.Canceled;
+            _brokerage.FireOrderEvent(orderEvent);
+        }
+
+        private bool TryCreateOrderEvent(Message message, int sequence, int orderId, bool dynamicFieldsOnly, out OrderEvent orderEvent, [CallerMemberName] string callerMemberName = null)
+        {
+            orderEvent = null;
 
             // Order should already exist. If it doesn't create it anyway.
             var bbOrder = _orders.GetBySequenceNumber(sequence);
             if (bbOrder == null)
             {
-                // Order not found
-                Log.Trace("OrderSubscriptionHandler: WARNING > Delete received for unknown order");
+                // TODO: Do we need to create an order for an unknown order?
+                Log.Error($"OrderSubscriptionHandler.{callerMemberName}(): No existing BB order for sequence '{sequence}' (order:{orderId}): {message}");
                 bbOrder = _orders.CreateOrder(sequence);
             }
 
-            bbOrder.PopulateFields(message, false);
-
+            bbOrder.PopulateFields(message, dynamicFieldsOnly);
             var order = _orderProvider.GetOrderById(orderId);
             if (order == null)
             {
-                Log.Error($"OrderSubscriptionHandler: OrderId not found: {orderId}");
+                Log.Error($"OrderSubscriptionHandler.{callerMemberName}(): No order found for '{orderId}' (sequence:{sequence}): {message}");
+                return false;
             }
-            else
+
+            orderEvent = new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, $"{callerMemberName}:{sequence}");
+            if (message.HasElement(BloombergNames.EMSXStatus))
             {
-                _brokerage.FireOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero, "Bloomberg Order Event") {Status = OrderStatus.Canceled});
+                orderEvent.Status = _brokerage.ConvertOrderStatus(message.GetElementAsString(BloombergNames.EMSXStatus));
             }
+
+            return true;
         }
 
         private static EventStatus GetEventStatus(Message message)
@@ -216,8 +252,10 @@ namespace QuantConnect.Bloomberg
             }
             else if (msgType.Equals(BloombergNames.ErrorInfo))
             {
-                Log.Error("Order subscription error: " + message);
-                _brokerage.FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, -1, "Error: " + message));
+                // Log the error first, then fire a broker event - in case we can't parse the BBG response.
+                var code = message.GetElementAsInt32(BloombergNames.ErrorCode);
+                var text = message.GetElementAsString(BloombergNames.ErrorMessage);
+                _brokerage.FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, code, text));
             }
             else
             {

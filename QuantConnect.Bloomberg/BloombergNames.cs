@@ -184,6 +184,14 @@ namespace QuantConnect.Bloomberg
 
         // RESPONSE VALUES
         public static readonly Name ErrorInfo = new Name("ErrorInfo");
+        /// <summary>
+        /// Value: ERROR_CODE
+        /// </summary>
+        public static readonly Name ErrorCode = new Name("ERROR_CODE");
+        /// <summary>
+        /// Value: ERROR_MESSAGE
+        /// </summary>
+        public static readonly Name ErrorMessage = new Name("ERROR_MESSAGE");
         public static readonly Name SecurityData = new Name("securityData");
         public static readonly Name FieldData = new Name("fieldData");
         public static readonly Name Date = new Name("date");
