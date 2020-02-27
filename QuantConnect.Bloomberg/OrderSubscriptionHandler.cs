@@ -160,7 +160,7 @@ namespace QuantConnect.Bloomberg
             // TODO: Lean is expecting the fill quantity to be the amount filled in this event. BBG provide the total filled.
             if (orderEvent.Status == OrderStatus.Filled || orderEvent.Status == OrderStatus.PartiallyFilled)
             {
-                orderEvent.FillPrice = Convert.ToDecimal(message.GetElementAsFloat32(BloombergNames.EMSXAvgPrice));
+                orderEvent.FillPrice = Convert.ToDecimal(message.GetElementAsFloat64(BloombergNames.EMSXAvgPrice));
                 orderEvent.FillQuantity = Convert.ToDecimal(message.GetElementAsInt64(BloombergNames.EMSXFilled));
             }
 
