@@ -202,8 +202,6 @@ namespace QuantConnect.Bloomberg
 
         private void OnBloombergMarketDataEvent(Event eventObj, Session session)
         {
-            //Log.Trace($"BloombergBrokerage.OnBloombergMarketDataEvent(): Type: {eventObj.Type} [{(int)eventObj.Type}]");
-
             switch (eventObj.Type)
             {
                 case Event.EventType.SUBSCRIPTION_STATUS:
@@ -233,8 +231,6 @@ namespace QuantConnect.Bloomberg
                 case Event.EventType.SUBSCRIPTION_DATA:
                     foreach (var message in eventObj.GetMessages())
                     {
-                        //Log.Trace($"BloombergBrokerage.OnBloombergMarketDataEvent(): {message}");
-
                         var eventType = message.GetElement(BloombergNames.MktdataEventType).GetValueAsName();
                         var eventSubtype = message.GetElement(BloombergNames.MktdataEventSubtype).GetValueAsName();
 
@@ -242,13 +238,7 @@ namespace QuantConnect.Bloomberg
                         {
                             if (_subscriptionDataByCorrelationId.TryGetValue(correlationId, out var data))
                             {
-                                //Log.Trace($"BloombergBrokerage.OnBloombergMarketDataEvent(): " +
-                                //          $"subscription data: {DescribeCorrelationId(correlationId, data)} " +
-                                //          $"MktdataEventType: {eventType} " +
-                                //          $"MktdataEventSubType: {eventSubtype}");
-
-                                if (Equals(eventType, BloombergNames.Quote) ||
-                                    Equals(eventType, BloombergNames.Summary) && Equals(eventSubtype, BloombergNames.InitPaint))
+                                if (Equals(eventType, BloombergNames.Quote))
                                 {
                                     if (Equals(eventSubtype, BloombergNames.Bid) || Equals(eventSubtype, BloombergNames.Ask))
                                     {
