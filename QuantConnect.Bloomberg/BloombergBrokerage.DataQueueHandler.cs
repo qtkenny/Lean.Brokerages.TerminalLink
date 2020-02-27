@@ -315,7 +315,8 @@ namespace QuantConnect.Bloomberg
                         BidPrice = data.BidPrice,
                         AskPrice = data.AskPrice,
                         BidSize = data.BidSize,
-                        AskSize = data.AskSize
+                        AskSize = data.AskSize,
+                        Value = (data.BidPrice + data.AskPrice) / 2
                     });
                 }
             }
