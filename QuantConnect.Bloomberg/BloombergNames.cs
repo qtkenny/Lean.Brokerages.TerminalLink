@@ -13,112 +13,149 @@ namespace QuantConnect.Bloomberg
         public static readonly Name OrderRouteFields = new Name("OrderRouteFields");
 
         #region EMSX
+
         /// <summary>
         /// Value: EMSX_SEQUENCE
         /// </summary>
         public static readonly Name EMSXSequence = new Name("EMSX_SEQUENCE");
+        
         /// <summary>
         /// Value: EMSX_ROUTE_ID
         /// </summary>
         public static readonly Name EMSXRouteId = new Name("EMSX_ROUTE_ID");
+        
         /// <summary>
         /// Value: EMSX_BROKER
         /// </summary>
         public static readonly Name EMSXBroker = new Name("EMSX_BROKER");
+        
         /// <summary>
         /// Value: EMSX_HAND_INSTRUCTION
         /// </summary>
         public static readonly Name EMSXHandInstruction = new Name("EMSX_HAND_INSTRUCTION");
+        
         /// <summary>
         /// Value: EMSX_ACCOUNT
         /// </summary>
         public static readonly Name EMSXAccount = new Name("EMSX_ACCOUNT");
+        
         /// <summary>
         /// Value: EMSX_NOTES
         /// </summary>
         public static readonly Name EMSXNotes = new Name("EMSX_NOTES");
+        
         /// <summary>
         /// Value: EMSX_TICKER
         /// </summary>
         public static readonly Name EMSXTicker = new Name("EMSX_TICKER");
+        
         /// <summary>
         /// Value: EMSX_ASSET_CLASS
         /// </summary>
         public static readonly Name EMSXAssetClass = new Name("EMSX_ASSET_CLASS");
+        
         /// <summary>
         /// Value: EMSX_ORDER_TYPE
         /// </summary>
         public static readonly Name EMSXOrderType = new Name("EMSX_ORDER_TYPE");
+        
         /// <summary>
         /// Value: EMSX_SIDE
         /// </summary>
         public static readonly Name EMSXSide = new Name("EMSX_SIDE");
+        
         /// <summary>
         /// Value: EMSX_TIF
         /// </summary>
         public static readonly Name EMSXTif = new Name("EMSX_TIF");
+        
         /// <summary>
         /// Value: EMSX_STATUS
         /// </summary>
         public static readonly Name EMSXStatus = new Name("EMSX_STATUS");
+        
         /// <summary>
         /// Value: EMSX_AMOUNT
         /// </summary>
         public static readonly Name EMSXAmount = new Name("EMSX_AMOUNT");
+        
         /// <summary>
         /// Value: EMSX_LIMIT_PRICE
         /// </summary>
         public static readonly Name EMSXLimitPrice = new Name("EMSX_LIMIT_PRICE");
+        
         /// <summary>
         /// Value: EMSX_STOP_PRICE
         /// </summary>
         public static readonly Name EMSXStopPrice = new Name("EMSX_STOP_PRICE");
+        
         /// <summary>
         /// Value: EMSX_DATE
         /// </summary>
         public static readonly Name EMSXDate = new Name("EMSX_DATE");
+        
         /// <summary>
         /// Value: EMSX_TIME_STAMP_MICROSEC
         /// </summary>
         public static readonly Name EMSXTimeStampMicrosec = new Name("EMSX_TIME_STAMP_MICROSEC");
+        
         /// <summary>
         /// Value: EMSX_AVG_PRICE
         /// </summary>
         public static readonly Name EMSXAvgPrice = new Name("EMSX_AVG_PRICE");
+        
         /// <summary>
         /// Value: EMSX_FILLED
         /// </summary>
         public static readonly Name EMSXFilled = new Name("EMSX_FILLED");
+        
         /// <summary>
         /// Value: EMSX_ORDER_REF_ID
         /// </summary>
         public static readonly Name EMSXReferenceOrderIdRequest = new Name("EMSX_ORDER_REF_ID");
+        
         /// <summary>
         /// Value: EMSX_ORD_REF_ID
         /// </summary>
         public static readonly Name EMSXReferenceOrderIdResponse = new Name("EMSX_ORD_REF_ID");
+        
         #endregion EMSX
 
         /// <summary>
         /// Value: MESSAGE
         /// </summary>
         public static readonly Name Message = new Name("MESSAGE");
+
         /// <summary>
         /// Value: STATUS
         /// </summary>
         public static readonly Name Status = new Name("STATUS");
+
         /// <summary>
         /// Value: EVENT_STATUS
         /// </summary>
         public static readonly Name EventStatus = new Name("EVENT_STATUS");
+
+        /// <summary>
+        /// Value: MKTDATA_EVENT_TYPE
+        /// </summary>
+        public static readonly Name MktdataEventType = new Name("MKTDATA_EVENT_TYPE");
+
+        /// <summary>
+        /// Value: MKTDATA_EVENT_SUBTYPE
+        /// </summary>
+        public static readonly Name MktdataEventSubtype = new Name("MKTDATA_EVENT_SUBTYPE");
+        
         /// <summary>
         /// Value: CreateOrderAndRouteEx.  'Ex' is the extended method.
         /// </summary>
         public static readonly Name CreateOrderAndRouteEx = new Name("CreateOrderAndRouteEx");
+        
         /// <summary>
         /// Value: ModifyOrderEx
         /// </summary>
         public static readonly Name ModifyOrderEx = new Name("ModifyOrderEx");
+        
         /// <summary>
         /// Value: CancelOrderEx
         /// </summary>
@@ -164,7 +201,6 @@ namespace QuantConnect.Bloomberg
         public static readonly Name BarTickData = new Name("barTickData");
         public static readonly Name TickData = new Name("tickData");
         public static readonly Name Time = new Name("time");
-        public static readonly Name Trade = new Name("TRADE");
         public static readonly Name BestBid = new Name("BID_BEST");
         public static readonly Name BestAsk = new Name("ASK_BEST");
         public static readonly Name Security = new Name("security");
@@ -175,5 +211,17 @@ namespace QuantConnect.Bloomberg
         public static readonly Name Size = new Name("size");
         public static readonly Name Value = new Name("value");
         public static readonly Name Type = new Name("type");
+
+        // MKTDATA_EVENT_TYPE
+        public static readonly Name Trade = new Name("TRADE");
+        public static readonly Name Quote = new Name("QUOTE");
+        public static readonly Name Summary = new Name("SUMMARY");
+
+        // MKTDATA_EVENT_SUBTYPE
+        public static readonly Name New = new Name("NEW");
+        public static readonly Name Bid = new Name("BID");
+        public static readonly Name Ask = new Name("ASK");
+        public static readonly Name InitPaint = new Name("INITPAINT");
+        public static readonly Name Intraday = new Name("INTRADAY");
     }
 }

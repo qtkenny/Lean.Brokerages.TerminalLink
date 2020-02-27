@@ -42,9 +42,6 @@ namespace QuantConnect.Bloomberg
         private Service _serviceReferenceData;
 
         private long _nextCorrelationId;
-        private readonly ConcurrentDictionary<string, BloombergSubscriptions> _subscriptionsByTopicName = new ConcurrentDictionary<string, BloombergSubscriptions>();
-        private readonly ConcurrentDictionary<CorrelationID, BloombergSubscriptionKey> _subscriptionKeysByCorrelationId =
-            new ConcurrentDictionary<CorrelationID, BloombergSubscriptionKey>();
         private readonly IBloombergSymbolMapper _symbolMapper;
 
         private readonly SchemaFieldDefinitions _orderFieldDefinitions = new SchemaFieldDefinitions();
@@ -55,6 +52,8 @@ namespace QuantConnect.Bloomberg
 
         // map request CorrelationId to LEAN OrderId
         private readonly ConcurrentDictionary<CorrelationID, int> _orderMap = new ConcurrentDictionary<CorrelationID, int>();
+
+        private readonly MarketHoursDatabase _marketHoursDatabase;
 
         private readonly IOrderProvider _orderProvider;
         private readonly ManualResetEvent _blotterInitializedEvent = new ManualResetEvent(false);
@@ -83,6 +82,8 @@ namespace QuantConnect.Bloomberg
             _notes = Config.GetValue<string>("bloomberg-emsx-notes");
             _handlingInstruction = Config.GetValue<string>("bloomberg-emsx-handling");
             _execution = Config.GetBool("bloomberg-execution");
+
+            _marketHoursDatabase = MarketHoursDatabase.FromDataFolder();
 
             if (apiType != ApiType.Desktop)
             {
@@ -751,6 +752,7 @@ namespace QuantConnect.Bloomberg
                     return OrderType.Market;
 
                 case "LMT":
+                case "CD":
                     return OrderType.Limit;
 
                 case "ST":

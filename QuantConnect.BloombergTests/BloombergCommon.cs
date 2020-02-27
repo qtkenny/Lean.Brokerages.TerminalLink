@@ -3,7 +3,6 @@
 * Lean Algorithmic Trading Engine v2.2 Copyright 2015 QuantConnect Corporation.
 */
 
-using Moq;
 using QuantConnect.Bloomberg;
 using QuantConnect.Configuration;
 using QuantConnect.Securities;

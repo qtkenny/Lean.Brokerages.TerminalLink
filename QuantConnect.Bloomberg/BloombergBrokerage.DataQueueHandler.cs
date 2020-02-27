@@ -4,6 +4,7 @@
 */
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -24,6 +25,21 @@ namespace QuantConnect.Bloomberg
     {
         private readonly object _locker = new object();
         private readonly List<Tick> _ticks = new List<Tick>();
+        private readonly ConcurrentDictionary<string, Subscription> _subscriptionsByTopicName = new ConcurrentDictionary<string, Subscription>();
+        private readonly ConcurrentDictionary<CorrelationID, BloombergSubscriptionData> _subscriptionDataByCorrelationId =
+            new ConcurrentDictionary<CorrelationID, BloombergSubscriptionData>();
+
+        private readonly List<string> _fieldList = new List<string>
+        {
+            // Quotes
+            BloombergFieldNames.Bid, BloombergFieldNames.Ask, BloombergFieldNames.BidSize, BloombergFieldNames.AskSize,
+
+            // Trades
+            BloombergFieldNames.LastPrice, BloombergFieldNames.LastTradeSize,
+
+            // OpenInterest
+            BloombergFieldNames.OpenInterest
+        };
 
         #region IDataQueueHandler implementation
 
@@ -96,23 +112,40 @@ namespace QuantConnect.Bloomberg
 
                 lock (_locker)
                 {
-                    var topicName = _symbolMapper.GetBrokerageSymbol(symbol);
+                    var subscribeSymbol = symbol;
 
-                    var symbolSubscriptions = new BloombergSubscriptions(symbol);
-                    if (!_subscriptionsByTopicName.TryAdd(topicName, symbolSubscriptions)) continue;
-
-                    var tickTypes = SubscriptionManager.DefaultDataTypes()[symbol.SecurityType];
-                    foreach (var tickType in tickTypes)
+                    if (symbol.SecurityType == SecurityType.Future && symbol.IsCanonical())
                     {
-                        var fields = GetBloombergFieldList(tickType);
-                        var correlationId = GetNewCorrelationId();
+                        // future canonical symbol - ignore
+                        continue;
+                    }
 
-                        var subscription = new Subscription(topicName, fields, correlationId);
-                        subscriptions.Add(subscription);
+                    if (symbol.SecurityType == SecurityType.Option && symbol.IsCanonical())
+                    {
+                        // option canonical symbol - subscribe to the underlying
+                        subscribeSymbol = symbol.Underlying;
+                    }
 
-                        symbolSubscriptions.Add(tickType, subscription, correlationId);
-                        if (!_subscriptionKeysByCorrelationId.TryAdd(correlationId, new BloombergSubscriptionKey(correlationId, symbol, tickType)))
-                            throw new Exception("Duplicate correlation id: " + correlationId);
+                    var topicName = _symbolMapper.GetBrokerageSymbol(subscribeSymbol);
+
+                    if (_subscriptionsByTopicName.ContainsKey(topicName))
+                    {
+                        // already subscribed
+                        continue;
+                    }
+
+                    var correlationId = GetNewCorrelationId();
+
+                    var subscription = new Subscription(topicName, _fieldList, correlationId);
+                    subscriptions.Add(subscription);
+
+                    _subscriptionsByTopicName.TryAdd(topicName, subscription);
+
+                    var exchangeHours = _marketHoursDatabase.GetExchangeHours(subscribeSymbol.ID.Market, subscribeSymbol, subscribeSymbol.SecurityType);
+
+                    if (!_subscriptionDataByCorrelationId.TryAdd(correlationId, new BloombergSubscriptionData(correlationId, subscribeSymbol, exchangeHours.TimeZone)))
+                    {
+                        throw new Exception("Duplicate correlation id: " + correlationId);
                     }
                 }
             }
@@ -135,12 +168,9 @@ namespace QuantConnect.Bloomberg
                 {
                     var topicName = _symbolMapper.GetBrokerageSymbol(symbol);
 
-                    BloombergSubscriptions symbolSubscriptions;
-                    if (_subscriptionsByTopicName.TryGetValue(topicName, out symbolSubscriptions))
+                    if (_subscriptionsByTopicName.TryGetValue(topicName, out var subscription))
                     {
-                        subscriptions.AddRange(symbolSubscriptions);
-
-                        symbolSubscriptions.Clear();
+                        subscriptions.Add(subscription);
                     }
                 }
             }
@@ -148,38 +178,21 @@ namespace QuantConnect.Bloomberg
             return subscriptions;
         }
 
-        private List<string> GetBloombergFieldList(TickType tickType)
-        {
-            // TODO: some of these field names are educated guesses and need to be confirmed with the real //blp/apiflds service
-
-            switch (tickType)
-            {
-                case TickType.Quote:
-                    return new List<string> { BloombergFieldNames.Bid, BloombergFieldNames.Ask, BloombergFieldNames.BidSize, BloombergFieldNames.AskSize };
-
-                case TickType.Trade:
-                    return new List<string> { BloombergFieldNames.LastPrice, BloombergFieldNames.LastTradeSize };
-
-                case TickType.OpenInterest:
-                    return new List<string> { BloombergFieldNames.OpenInterest };
-
-                default:
-                    throw new NotSupportedException($"Unsupported tick type: {tickType}");
-            }
-        }
-
-        private bool CanSubscribe(Symbol symbol)
+        private static bool CanSubscribe(Symbol symbol)
         {
             var market = symbol.ID.Market;
             var securityType = symbol.ID.SecurityType;
 
-            if (symbol.Value.IndexOfInvariant("universe", true) != -1) return false;
+            if (symbol.Value.IndexOfInvariant("universe", true) != -1)
+            {
+                return false;
+            }
 
             return
-                (securityType == SecurityType.Equity && market == Market.USA) ||
-                (securityType == SecurityType.Forex && market == Market.FXCM) ||
-                (securityType == SecurityType.Option && market == Market.USA) ||
-                (securityType == SecurityType.Future);
+                securityType == SecurityType.Equity && market == Market.USA ||
+                securityType == SecurityType.Forex && market == Market.FXCM ||
+                securityType == SecurityType.Option && market == Market.USA ||
+                securityType == SecurityType.Future;
         }
 
         private CorrelationID GetNewCorrelationId()
@@ -189,7 +202,7 @@ namespace QuantConnect.Bloomberg
 
         private void OnBloombergMarketDataEvent(Event eventObj, Session session)
         {
-            Log.Trace($"BloombergBrokerage.OnBloombergMarketDataEvent(): Type: {eventObj.Type} [{(int)eventObj.Type}]");
+            //Log.Trace($"BloombergBrokerage.OnBloombergMarketDataEvent(): Type: {eventObj.Type} [{(int)eventObj.Type}]");
 
             switch (eventObj.Type)
             {
@@ -220,25 +233,36 @@ namespace QuantConnect.Bloomberg
                 case Event.EventType.SUBSCRIPTION_DATA:
                     foreach (var message in eventObj.GetMessages())
                     {
+                        //Log.Trace($"BloombergBrokerage.OnBloombergMarketDataEvent(): {message}");
+
+                        var eventType = message.GetElement(BloombergNames.MktdataEventType).GetValueAsName();
+                        var eventSubtype = message.GetElement(BloombergNames.MktdataEventSubtype).GetValueAsName();
+
                         foreach (var correlationId in message.CorrelationIDs)
                         {
-                            if (_subscriptionKeysByCorrelationId.TryGetValue(correlationId, out var key))
+                            if (_subscriptionDataByCorrelationId.TryGetValue(correlationId, out var data))
                             {
-                                Log.Trace("BloombergBrokerage.OnBloombergMarketDataEvent(): subscription data: " + DescribeCorrelationId(correlationId, key));
-                                switch (key.TickType)
+                                //Log.Trace($"BloombergBrokerage.OnBloombergMarketDataEvent(): " +
+                                //          $"subscription data: {DescribeCorrelationId(correlationId, data)} " +
+                                //          $"MktdataEventType: {eventType} " +
+                                //          $"MktdataEventSubType: {eventSubtype}");
+
+                                if (Equals(eventType, BloombergNames.Quote) ||
+                                    Equals(eventType, BloombergNames.Summary) && Equals(eventSubtype, BloombergNames.InitPaint))
                                 {
-                                    case TickType.Trade:
-                                        EmitTradeTick(key.Symbol, message);
-                                        break;
-                                    case TickType.Quote:
-                                        EmitQuoteTick(key.Symbol, message);
-                                        break;
-                                    case TickType.OpenInterest:
-                                        EmitOpenInterestTick(key.Symbol, message);
-                                        break;
-                                    default:
-                                        Log.Error("TickType is not configured: " + key.TickType);
-                                        break;
+                                    if (Equals(eventSubtype, BloombergNames.Bid) || Equals(eventSubtype, BloombergNames.Ask))
+                                    {
+                                        EmitQuoteTick(message, data);
+                                    }
+                                }
+                                else if (Equals(eventType, BloombergNames.Trade) && Equals(eventSubtype, BloombergNames.New))
+                                {
+                                    EmitTradeTick(message, data);
+                                }
+
+                                if (message.HasElement(BloombergFieldNames.OpenInterest))
+                                {
+                                    EmitOpenInterestTick(message, data);
                                 }
                             }
                             else
@@ -255,6 +279,89 @@ namespace QuantConnect.Bloomberg
             }
         }
 
+        private void EmitQuoteTick(Message message, BloombergSubscriptionData data)
+        {
+            if (message.HasElement(BloombergFieldNames.Bid, true))
+            {
+                data.BidPrice = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.Bid);
+            }
+
+            if (message.HasElement(BloombergFieldNames.BidSize, true))
+            {
+                data.BidSize = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.BidSize);
+            }
+
+            if (message.HasElement(BloombergFieldNames.Ask, true))
+            {
+                data.AskPrice = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.Ask);
+            }
+
+            if (message.HasElement(BloombergFieldNames.AskSize, true))
+            {
+                data.AskSize = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.AskSize);
+            }
+
+            if (data.IsQuoteValid())
+            {
+                var time = GetTickTime(message, data);
+
+                lock (_locker)
+                {
+                    _ticks.Add(new Tick
+                    {
+                        Symbol = data.Symbol,
+                        Time = time,
+                        TickType = TickType.Quote,
+                        BidPrice = data.BidPrice,
+                        AskPrice = data.AskPrice,
+                        BidSize = data.BidSize,
+                        AskSize = data.AskSize
+                    });
+                }
+            }
+        }
+
+        private void EmitTradeTick(Message message, BloombergSubscriptionData data)
+        {
+            if (data.Symbol.SecurityType == SecurityType.Forex)
+            {
+                return;
+            }
+
+            var price = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.TradePrice);
+            var quantity = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.TradeSize);
+            var time = GetTickTime(message, data);
+
+            lock (_locker)
+            {
+                _ticks.Add(new Tick
+                {
+                    Symbol = data.Symbol,
+                    Time = time,
+                    TickType = TickType.Trade,
+                    Value = price,
+                    Quantity = quantity
+                });
+            }
+        }
+
+        private void EmitOpenInterestTick(Message message, BloombergSubscriptionData data)
+        {
+            var openInterest = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.OpenInterest);
+            var time = GetTickTime(message, data);
+
+            lock (_locker)
+            {
+                _ticks.Add(new Tick
+                {
+                    Symbol = data.Symbol,
+                    Time = time,
+                    TickType = TickType.OpenInterest,
+                    Value = openInterest
+                });
+            }
+        }
+
         private string DescribeCorrelationIds(IEnumerable<CorrelationID> correlationIds)
         {
             return correlationIds?.Aggregate(new StringBuilder(), (s, id) =>
@@ -264,18 +371,18 @@ namespace QuantConnect.Bloomberg
                         s.Append(',');
                     }
 
-                    _subscriptionKeysByCorrelationId.TryGetValue(id, out var key);
+                    _subscriptionDataByCorrelationId.TryGetValue(id, out var key);
                     return s.Append(DescribeCorrelationId(id, key));
                 })
                 .ToString();
         }
 
-        private string DescribeCorrelationId(CorrelationID id, BloombergSubscriptionKey key)
+        private string DescribeCorrelationId(CorrelationID id, BloombergSubscriptionData key)
         {
             if (key == null) return "UnknownCorrelationId:" + id.Value;
 
             var bbgTicker = _symbolMapper.GetBrokerageSymbol(key.Symbol);
-            return $"bbg:{bbgTicker}|lean:{key.Symbol.Value}|tick:{key.TickType}";
+            return $"bbg:{bbgTicker}|lean:{key.Symbol.Value}";
         }
 
         private T GetBloombergFieldValue<T>(Message message, string field) where T : new()
@@ -292,60 +399,22 @@ namespace QuantConnect.Bloomberg
             return value;
         }
 
-        private void EmitTradeTick(Symbol symbol, Message message)
+        private string GetBloombergFieldValue(Message message, string field)
         {
-            var price = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.LastPrice);
-            var quantity = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.LastTradeSize);
-
-            lock (_locker)
-            {
-                _ticks.Add(new Tick
-                {
-                    Symbol = symbol,
-                    Time = DateTime.UtcNow.ConvertFromUtc(TimeZones.NewYork),
-                    TickType = TickType.Trade,
-                    Value = price,
-                    Quantity = quantity
-                });
-            }
+            return message.HasElement(field, true) ? message[field].GetValue().ToString() : string.Empty;
         }
 
-        private void EmitQuoteTick(Symbol symbol, Message message)
+        private DateTime GetTickTime(Message message, BloombergSubscriptionData data)
         {
-            var bidPrice = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.Bid);
-            var askPrice = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.Ask);
-            var bidSize = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.BidSize);
-            var askSize = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.AskSize);
+            // TODO: get trade date in user time zone (TradeDate field is empty)
+            //var time = TimeSpan.Parse(GetBloombergFieldValue(message, BloombergFieldNames.TradeTime), CultureInfo.InvariantCulture);
+            //var date = GetBloombergFieldValue(message, BloombergFieldNames.TradeDate);
+            //return date.Add(time);
 
-            lock (_locker)
-            {
-                _ticks.Add(new Tick
-                {
-                    Symbol = symbol,
-                    Time = DateTime.UtcNow.ConvertFromUtc(TimeZones.NewYork),
-                    TickType = TickType.Quote,
-                    BidPrice = bidPrice,
-                    AskPrice = askPrice,
-                    BidSize = bidSize,
-                    AskSize = askSize
-                });
-            }
+            var utcTime = DateTime.UtcNow;
+
+            return utcTime.ConvertFromUtc(data.ExchangeTimeZone);
         }
 
-        private void EmitOpenInterestTick(Symbol symbol, Message message)
-        {
-            var openInterest = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.OpenInterest);
-
-            lock (_locker)
-            {
-                _ticks.Add(new Tick
-                {
-                    Symbol = symbol,
-                    Time = DateTime.UtcNow.ConvertFromUtc(TimeZones.NewYork),
-                    TickType = TickType.OpenInterest,
-                    Value = openInterest
-                });
-            }
-        }
     }
 }
