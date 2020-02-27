@@ -17,9 +17,10 @@ namespace QuantConnect.BloombergTests
             var apiType = Config.Get("bloomberg-api-type", ApiType.Desktop.ToString()).ConvertTo<ApiType>();
             var environment = Config.Get("bloomberg-environment", Environment.Beta.ToString()).ConvertTo<Environment>();
             var serverHost = Config.Get("bloomberg-server-host", "localhost");
-            var serverPort = Config.GetInt("bloomberg-server-host", 8194);
+            var serverPort = Config.GetInt("bloomberg-server-port", 8194);
 
-            return new BloombergBrokerage(orderProvider, apiType, environment, Mock.Of<IBloombergSymbolMapper>(), serverHost, serverPort);
+            var symbolMapper = new BloombergSymbolMapper(Config.Get("bloomberg-symbol-map-file"));
+            return new BloombergBrokerage(orderProvider, apiType, environment, symbolMapper, serverHost, serverPort);
         }
     }
 }

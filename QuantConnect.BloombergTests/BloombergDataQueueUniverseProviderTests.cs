@@ -4,8 +4,8 @@
 */
 
 using System.Linq;
-using Moq;
 using NUnit.Framework;
+using QuantConnect.Configuration;
 using QuantConnect.Logging;
 
 namespace QuantConnect.BloombergTests
@@ -17,6 +17,8 @@ namespace QuantConnect.BloombergTests
         public void SetUp()
         {
             Log.LogHandler = new ConsoleLogHandler();
+            Config.SetConfigurationFile("integration-config.json");
+            Config.Reset();
         }
 
         [Test]
@@ -27,6 +29,7 @@ namespace QuantConnect.BloombergTests
                 brokerage.Connect();
                 var symbols = brokerage.LookupSymbols("ES", SecurityType.Future).ToList();
 
+                Log.Trace($"Future contracts found: {symbols.Count}");
                 Assert.That(symbols.Count > 0);
             }
         }
@@ -39,6 +42,7 @@ namespace QuantConnect.BloombergTests
                 brokerage.Connect();
                 var symbols = brokerage.LookupSymbols("SPY", SecurityType.Option).ToList();
 
+                Log.Trace($"Option contracts found: {symbols.Count}");
                 Assert.That(symbols.Count > 0);
             }
         }
