@@ -5,7 +5,6 @@
 
 using System;
 using System.Linq;
-using Moq;
 using NUnit.Framework;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;
@@ -15,7 +14,7 @@ using QuantConnect.Tests.Brokerages;
 
 namespace QuantConnect.BloombergTests
 {
-    [TestFixture, Ignore("These tests require a local Bloomberg terminal.")]
+    [TestFixture, Ignore("These tests require a Bloomberg terminal.")]
     public class BloombergBrokerageTests : BrokerageTests
     {
         /// <summary>
@@ -43,8 +42,9 @@ namespace QuantConnect.BloombergTests
         public override TestCaseData[] OrderParameters => new[]
         {
             new TestCaseData(new MarketOrderTestParameters(Symbol)).SetName("MarketOrder"),
-            new TestCaseData(new NonUpdateableLimitOrderTestParameters(Symbol, HighPrice, LowPrice)).SetName("LimitOrder"),
-            new TestCaseData(new NonUpdateableStopMarketOrderTestParameters(Symbol, HighPrice, LowPrice)).SetName("StopMarketOrder")
+            new TestCaseData(new LimitOrderTestParameters(Symbol, HighPrice, LowPrice)).SetName("LimitOrder"),
+            new TestCaseData(new StopMarketOrderTestParameters(Symbol, HighPrice, LowPrice)).SetName("StopMarketOrder"),
+            new TestCaseData(new StopLimitOrderTestParameters(Symbol, HighPrice, LowPrice)).SetName("StopLimitOrder")
         };
 
         /// <summary>

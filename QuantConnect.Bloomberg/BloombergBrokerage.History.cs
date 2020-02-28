@@ -107,8 +107,8 @@ namespace QuantConnect.Bloomberg
             // for TickType.Quote - two requests for "BID" and "ASK" with result sets joined
             if (historyRequest.TickType == TickType.Quote)
             {
-                var historyBid = GetIntradayBarData(historyRequest, "BID");
-                var historyAsk = GetIntradayBarData(historyRequest, "ASK");
+                var historyBid = GetIntradayTradeBars(historyRequest, "BID");
+                var historyAsk = GetIntradayTradeBars(historyRequest, "ASK");
 
                 return historyBid.Join(historyAsk,
                     bid => bid.Time,
@@ -123,7 +123,7 @@ namespace QuantConnect.Bloomberg
                         bid.Period));
             }
 
-            return GetIntradayBarData(historyRequest, "TRADE");
+            return GetIntradayTradeBars(historyRequest, "TRADE");
         }
 
         private static IEnumerable<BaseData> AggregateTicksToTradeBars(IEnumerable<Tick> ticks, Symbol symbol, TimeSpan resolutionTimeSpan)
@@ -183,10 +183,11 @@ namespace QuantConnect.Bloomberg
             request.Append(BloombergNames.Securities, _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
 
             var fields = request.GetElement(BloombergNames.Fields);
-            fields.AppendValue(BloombergNames.Open.ToString());
-            fields.AppendValue(BloombergNames.High.ToString());
-            fields.AppendValue(BloombergNames.Low.ToString());
-            fields.AppendValue(BloombergNames.Close.ToString());
+            fields.AppendValue(BloombergNames.OpenHistorical.ToString());
+            fields.AppendValue(BloombergNames.HighHistorical.ToString());
+            fields.AppendValue(BloombergNames.LowHistorical.ToString());
+            fields.AppendValue(BloombergNames.BloombergClosePrice.ToString());
+            fields.AppendValue(BloombergNames.PxLast.ToString());
             fields.AppendValue(BloombergNames.Volume.ToString());
 
             request.Set("periodicitySelection", "DAILY");
@@ -216,29 +217,58 @@ namespace QuantConnect.Bloomberg
                 throw new Exception($"Date or time was not received [symbol:{request.Symbol},bbg-row:{row}]");
             }
 
-            if (TryReadDecimal(row, BloombergNames.Open, out var open))
+            if (period == Time.OneDay)
             {
-                bar.Open = open;
-            }
+                if (TryReadDecimal(row, BloombergNames.OpenHistorical, out var open))
+                {
+                    bar.Open = open;
+                }
 
-            if (TryReadDecimal(row, BloombergNames.High, out var high))
-            {
-                bar.High = high;
-            }
+                if (TryReadDecimal(row, BloombergNames.HighHistorical, out var high))
+                {
+                    bar.High = high;
+                }
 
-            if (TryReadDecimal(row, BloombergNames.Low, out var low))
-            {
-                bar.Low = low;
-            }
+                if (TryReadDecimal(row, BloombergNames.LowHistorical, out var low))
+                {
+                    bar.Low = low;
+                }
 
-            if (TryReadDecimal(row, BloombergNames.Close, out var close))
-            {
-                bar.Close = close;
-            }
+                if (TryReadDecimal(row, BloombergNames.BloombergClosePrice, out var close))
+                {
+                    bar.Close = close;
+                }
+                else if (TryReadDecimal(row, BloombergNames.PxLast, out close))
+                {
+                    bar.Close = close;
+                }
 
-            if (TryReadDecimal(row, BloombergNames.Volume, out var volume))
+                if (TryReadDecimal(row, BloombergNames.Volume, out var volume))
+                {
+                    bar.Volume = volume;
+                }
+            }
+            else
             {
-                bar.Volume = volume;
+                if (TryReadDecimal(row, BloombergNames.OpenIntraday, out var open))
+                {
+                    bar.Open = open;
+                }
+
+                if (TryReadDecimal(row, BloombergNames.HighIntraday, out var high))
+                {
+                    bar.High = high;
+                }
+
+                if (TryReadDecimal(row, BloombergNames.LowIntraday, out var low))
+                {
+                    bar.Low = low;
+                }
+
+                if (TryReadDecimal(row, BloombergNames.CloseIntraday, out var close))
+                {
+                    bar.Close = close;
+                }
             }
 
             return bar;
@@ -246,7 +276,7 @@ namespace QuantConnect.Bloomberg
 
         private static bool TryReadDecimal(Element element, Name name, out decimal result)
         {
-            if (element.HasElement(name))
+            if (element.HasElement(name, true))
             {
                 result = Convert.ToDecimal(element.GetElementAsFloat64(name));
                 return true;
@@ -271,7 +301,7 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        private IEnumerable<TradeBar> GetIntradayBarData(HistoryRequest historyRequest, string eventType)
+        private IEnumerable<TradeBar> GetIntradayTradeBars(HistoryRequest historyRequest, string eventType)
         {
             var request = _serviceReferenceData.CreateRequest("IntradayBarRequest");
 
@@ -351,9 +381,6 @@ namespace QuantConnect.Bloomberg
             request.Set(BloombergNames.StartDateTime, new Datetime(startDateTime));
             request.Set(BloombergNames.EndDateTime, new Datetime(endDateTime));
             request.Set("includeConditionCodes", true);
-
-            var correlationId = GetNewCorrelationId();
-            _sessionReferenceData.SendRequest(request, correlationId);
 
             var tickData = RequestAndParse(request, BloombergNames.TickData, BloombergNames.TickData, row => CreateTick(historyRequest, row));
             if (tickData.Count == 0 || historyRequest.TickType == TickType.Trade)

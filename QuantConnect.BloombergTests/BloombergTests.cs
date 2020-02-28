@@ -7,10 +7,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using Moq;
 using NodaTime;
 using NUnit.Framework;
-using QuantConnect.Bloomberg;
 using QuantConnect.Configuration;
 using QuantConnect.Data;
 using QuantConnect.Data.Auxiliary;
@@ -21,7 +19,7 @@ using QuantConnect.Securities;
 
 namespace QuantConnect.BloombergTests
 {
-    [TestFixture, Ignore("These tests have only been tested with the API emulator")]
+    [TestFixture, Ignore("These tests require a Bloomberg terminal.")]
     public class BloombergTests
     {
         [TestFixtureSetUp]
@@ -53,8 +51,8 @@ namespace QuantConnect.BloombergTests
                 {
                     Symbol.Create("AAPL", SecurityType.Equity, Market.USA),
                     Symbol.Create("EURUSD", SecurityType.Forex, Market.FXCM),
-                    Symbol.CreateFuture("ES", Market.USA, new DateTime(2019, 12, 20)),
-                    Symbol.CreateOption("SPY", Market.USA, OptionStyle.American, OptionRight.Call, 200, new DateTime(2019, 12, 31))
+                    Symbol.CreateFuture("ES", Market.USA, new DateTime(2020, 3, 20)),
+                    Symbol.CreateOption("SPY", Market.USA, OptionStyle.American, OptionRight.Call, 320, new DateTime(2020, 3, 20))
                 };
 
                 bb.Subscribe(null, symbols);
@@ -112,10 +110,26 @@ namespace QuantConnect.BloombergTests
                     else if (parameters.TickType == TickType.Quote)
                     {
                         dataPointCount += slice.QuoteBars.Values.Count;
+
+                        foreach (var bar in slice.QuoteBars.Values)
+                        {
+                            Assert.That(bar.Open > 0, $"{bar.Time} - invalid bar.Open: {bar.Open}");
+                            Assert.That(bar.High > 0, $"{bar.Time} - invalid bar.High: {bar.High}");
+                            Assert.That(bar.Low > 0, $"{bar.Time} - invalid bar.Low: {bar.Low}");
+                            Assert.That(bar.Close > 0, $"{bar.Time} - invalid bar.Close: {bar.Close}");
+                        }
                     }
                     else if (parameters.TickType == TickType.Trade)
                     {
                         dataPointCount += slice.Bars.Values.Count;
+
+                        foreach (var bar in slice.Bars.Values)
+                        {
+                            Assert.That(bar.Open > 0, $"{bar.Time} - invalid bar.Open: {bar.Open}");
+                            Assert.That(bar.High > 0, $"{bar.Time} - invalid bar.High: {bar.High}");
+                            Assert.That(bar.Low > 0, $"{bar.Time} - invalid bar.Low: {bar.Low}");
+                            Assert.That(bar.Close > 0, $"{bar.Time} - invalid bar.Close: {bar.Close}");
+                        }
                     }
                 }
 
@@ -145,13 +159,13 @@ namespace QuantConnect.BloombergTests
                             return TimeSpan.FromDays(10);
 
                         case Resolution.Hour:
-                            return TimeSpan.FromDays(5);
-
-                        case Resolution.Minute:
                             return TimeSpan.FromDays(2);
 
-                        default:
+                        case Resolution.Minute:
                             return TimeSpan.FromDays(1);
+
+                        default:
+                            return TimeSpan.FromHours(12);
                     }
                 }
             }
@@ -161,8 +175,8 @@ namespace QuantConnect.BloombergTests
         {
             var equitySymbol = Symbol.Create("SPY", SecurityType.Equity, Market.USA);
             var forexSymbol = Symbol.Create("EURUSD", SecurityType.Forex, Market.FXCM);
-            var futureSymbol = Symbol.CreateFuture("ES", Market.USA, new DateTime(2019, 12, 20));
-            var optionSymbol = Symbol.CreateOption("SPY", Market.USA, OptionStyle.American, OptionRight.Call, 200, new DateTime(2019, 12, 31));
+            var futureSymbol = Symbol.CreateFuture("GC", Market.USA, new DateTime(2020, 3, 27));
+            var optionSymbol = Symbol.CreateOption("SPY", Market.USA, OptionStyle.American, OptionRight.Call, 320, new DateTime(2020, 3, 20));
 
             return new List<HistoryTestParameters>
             {

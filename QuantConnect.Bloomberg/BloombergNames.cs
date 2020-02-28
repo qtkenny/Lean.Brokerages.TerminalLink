@@ -220,11 +220,45 @@ namespace QuantConnect.Bloomberg
         // REF DATA REQUEST
         public static readonly Name Fields = new Name("fields");
         public static readonly Name Securities = new Name("securities");
-        public static readonly Name Open = new Name("OPEN");
-        public static readonly Name High = new Name("HIGH");
-        public static readonly Name Low = new Name("LOW");
-        public static readonly Name Close = new Name("CLOSE");
+
+        /// <summary>
+        /// Value: OPEN
+        /// </summary>
+        public static readonly Name OpenHistorical = new Name("OPEN");
+        /// <summary>
+        /// Value: HIGH
+        /// </summary>
+        public static readonly Name HighHistorical = new Name("HIGH");
+        /// <summary>
+        /// Value: LOW
+        /// </summary>
+        public static readonly Name LowHistorical = new Name("LOW");
+        /// <summary>
+        /// Value: BLOOMBERG_CLOSE_PRICE
+        /// </summary>
+        public static readonly Name BloombergClosePrice = new Name("BLOOMBERG_CLOSE_PRICE");
+        /// <summary>
+        /// Value: PX_LAST
+        /// </summary>
+        public static readonly Name PxLast = new Name("PX_LAST");
         public static readonly Name Volume = new Name("VOLUME");
+
+        /// <summary>
+        /// Value: open
+        /// </summary>
+        public static readonly Name OpenIntraday = new Name("open");
+        /// <summary>
+        /// Value: high
+        /// </summary>
+        public static readonly Name HighIntraday = new Name("high");
+        /// <summary>
+        /// Value: low
+        /// </summary>
+        public static readonly Name LowIntraday = new Name("low");
+        /// <summary>
+        /// Value: close
+        /// </summary>
+        public static readonly Name CloseIntraday = new Name("close");
         public static readonly Name BarData = new Name("barData");
         public static readonly Name BarTickData = new Name("barTickData");
         public static readonly Name TickData = new Name("tickData");
