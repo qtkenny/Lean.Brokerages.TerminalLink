@@ -205,9 +205,14 @@ namespace QuantConnect.Bloomberg
         public override List<Order> GetOpenOrders()
         {
             return Orders
-                    .Where(x => !ConvertOrderStatus(x.Status).IsClosed() && x.Amount != 0)
+                    .Where(IsValidOrder)
                     .Select(ConvertOrder)
                     .ToList();
+        }
+
+        internal bool IsValidOrder(BloombergOrder bbgOrder)
+        {
+            return ConvertOrderStatus(bbgOrder.Status).IsOpen() && bbgOrder.Amount != 0 && bbgOrder.IsLeanOrder;
         }
 
         /// <summary>

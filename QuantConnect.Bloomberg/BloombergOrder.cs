@@ -5,6 +5,7 @@
 
 using System;
 using System.Globalization;
+using System.Linq;
 using Bloomberglp.Blpapi;
 
 namespace QuantConnect.Bloomberg
@@ -14,6 +15,8 @@ namespace QuantConnect.Bloomberg
         private readonly BloombergFields _fields;
 
         public int Sequence { get; }
+
+        public bool IsLeanOrder => !string.IsNullOrWhiteSpace(GetFieldValue(BloombergNames.EMSXReferenceOrderIdResponse));
 
         public string Status => GetFieldValue(BloombergNames.EMSXStatus);
         public decimal Amount => GetFieldValueDecimal(BloombergNames.EMSXAmount);
@@ -52,6 +55,11 @@ namespace QuantConnect.Bloomberg
         public void PopulateFields(Message message, bool dynamicFieldsOnly)
         {
             _fields.PopulateFields(message, dynamicFieldsOnly);
+        }
+
+        public string Describe()
+        {
+            return $"{_fields.Contents.Count} values:{string.Join(", ", _fields.Contents.Select(p => $"{p.Key}={p.Value?.CurrentValue}"))}";
         }
     }
 }

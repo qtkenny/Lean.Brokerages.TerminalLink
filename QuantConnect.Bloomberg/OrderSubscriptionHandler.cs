@@ -78,7 +78,7 @@ namespace QuantConnect.Bloomberg
             {
                 case EventStatus.InitialPaint:
                     // Initial order statuses.
-                    var order = _orders.GetBySequenceNumber(sequence) ?? _orders.CreateOrder(sequence);
+                    var order = _orders.CreateOrder(sequence);
                     order.PopulateFields(message, false);
                     break;
                 case EventStatus.EndPaint:
@@ -104,12 +104,18 @@ namespace QuantConnect.Bloomberg
 
         private void OnNewOrder(Message message, int sequence)
         {
-            var orderId = GetOurOrderId(message);
+            // If an order is created manually in the terminal, we'll still receive an event.
+            if (!TryGetOurOrderId(message, out var orderId))
+            {
+                Log.Trace($"Ignoring new order event for a manual trade (sequence:{sequence})");
+                return;
+            }
+
             _sequenceToOrderId[sequence] = orderId;
             _orderToSequenceId[orderId] = sequence;
             Log.Trace($"OrderSubscriptionHandler.OnNewOrder(): Received (orderId={orderId}, sequence={sequence})");
 
-            var bbOrder = _orders.GetBySequenceNumber(sequence) ?? _orders.CreateOrder(sequence);
+            var bbOrder = _orders.CreateOrder(sequence);
             bbOrder.PopulateFields(message, false);
 
             var order = _orderProvider.GetOrderById(orderId);
@@ -132,25 +138,37 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        private static int GetOurOrderId(Message message)
+        private static bool TryGetOurOrderId(Message message, out int orderId)
         {
+            orderId = -1;
             if (!message.HasElement(BloombergNames.EMSXReferenceOrderIdResponse))
             {
-                throw new Exception($"Message does not contain expected field: {BloombergNames.EMSXReferenceOrderIdResponse}, message:{message}");
+                return false;
             }
 
             var element = message.GetElementAsString(BloombergNames.EMSXReferenceOrderIdResponse);
-            if (!int.TryParse(element, out var id))
+            if (int.TryParse(element, out orderId))
             {
-                throw new Exception("Reference order could not be parsed to an integer, message: " + message);
+                return true;
             }
 
-            return id;
+            if (!string.IsNullOrEmpty(element))
+            {
+                Log.Error("Unable to parse order id as an integer: " + element);
+            }
+
+            return false;
         }
 
         private void OnOrderUpdate(Message message, int sequence)
         {
-            var orderId = GetOurOrderId(message);
+            // Ignore orders that were manually created & have been updated.
+            if (!_sequenceToOrderId.TryGetValue(sequence, out var orderId))
+            {
+                Log.Trace($"OrderSubscriptionHandler.OnOrderUpdate(): Ignoring order update event for manual order (sequence:{sequence})");
+                return;
+            }
+
             Log.Trace($"OrderSubscriptionHandler.OnOrderUpdate(): Received (orderId={orderId}, sequence={sequence})");
             if (!TryCreateOrderEvent(message, sequence, orderId, true, out var orderEvent))
             {
@@ -200,13 +218,11 @@ namespace QuantConnect.Bloomberg
         {
             orderEvent = null;
 
-            // Order should already exist. If it doesn't create it anyway.
             var bbOrder = _orders.GetBySequenceNumber(sequence);
             if (bbOrder == null)
             {
-                // TODO: Do we need to create an order for an unknown order?
                 Log.Error($"OrderSubscriptionHandler.{callerMemberName}(): No existing BB order for sequence '{sequence}' (order:{orderId}): {message}");
-                bbOrder = _orders.CreateOrder(sequence);
+                return false;
             }
 
             bbOrder.PopulateFields(message, dynamicFieldsOnly);

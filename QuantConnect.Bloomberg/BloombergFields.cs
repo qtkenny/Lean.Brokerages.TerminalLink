@@ -76,5 +76,7 @@ namespace QuantConnect.Bloomberg
         {
             return GetEnumerator();
         }
+
+        internal IReadOnlyDictionary<string, BloombergField> Contents => _fields;
     }
 }
