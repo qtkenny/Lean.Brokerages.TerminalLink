@@ -199,8 +199,18 @@ namespace QuantConnect.Bloomberg
             {
                 throw new Exception($"Lean ticker not found: {symbol.Value}");
             }
-                
-            var ticker = $"{entry.Key}{entry.Value.RootLookupSuffix} {entry.Value.TickerSuffix}";
+
+            string ticker;
+            if (symbol.IsCanonical())
+            {
+                ticker = $"{entry.Key}{entry.Value.RootLookupSuffix} {entry.Value.TickerSuffix}";
+            }
+            else
+            {
+                var brokerageTicker = symbol.Value.Substring(symbol.ID.Symbol.Length).Substring(2);
+                brokerageTicker = $"{brokerageTicker[0]}{brokerageTicker[2]}";
+                ticker = $"{entry.Key}{brokerageTicker} {entry.Value.TickerSuffix}";
+            }
 
             _mapBloombergToLean.Add(ticker, symbol);
             _mapLeanToBloomberg.Add(symbol, ticker);

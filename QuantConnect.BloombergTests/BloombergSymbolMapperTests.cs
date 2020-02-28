@@ -61,6 +61,11 @@ namespace QuantConnect.BloombergTests
             brokerageSymbol = mapper.GetBrokerageSymbol(symbol);
             Assert.AreEqual("ES1 COMB Index", brokerageSymbol);
 
+            // future contract
+            symbol = Symbol.CreateFuture("ES", Market.USA, new DateTime(2020, 3, 20));
+            brokerageSymbol = mapper.GetBrokerageSymbol(symbol);
+            Assert.AreEqual("ESH0 COMB Index", brokerageSymbol);
+
             // option contract
             symbol = Symbol.CreateOption("SPY", Market.USA, OptionStyle.American, OptionRight.Call, 200, new DateTime(2019, 12, 31));
             brokerageSymbol = mapper.GetBrokerageSymbol(symbol);
