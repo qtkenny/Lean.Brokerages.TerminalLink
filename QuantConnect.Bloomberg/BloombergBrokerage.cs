@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using Bloomberglp.Blpapi;
 using NodaTime;
@@ -37,21 +38,17 @@ namespace QuantConnect.Bloomberg
         private readonly Session _sessionMarketData;
         private readonly Session _sessionReferenceData;
         private readonly Session _sessionEms;
+        private static long _nextCorrelationId;
 
         private Service _serviceEms;
         private Service _serviceReferenceData;
 
-        private long _nextCorrelationId;
         private readonly IBloombergSymbolMapper _symbolMapper;
 
         private readonly SchemaFieldDefinitions _orderFieldDefinitions = new SchemaFieldDefinitions();
         private readonly SchemaFieldDefinitions _routeFieldDefinitions = new SchemaFieldDefinitions();
 
-        private readonly ConcurrentDictionary<CorrelationID, IMessageHandler> _requestMessageHandlers = new ConcurrentDictionary<CorrelationID, IMessageHandler>();
         private readonly ConcurrentDictionary<CorrelationID, IMessageHandler> _subscriptionMessageHandlers = new ConcurrentDictionary<CorrelationID, IMessageHandler>();
-
-        // map request CorrelationId to LEAN OrderId
-        private readonly ConcurrentDictionary<CorrelationID, int> _orderMap = new ConcurrentDictionary<CorrelationID, int>();
 
         private readonly MarketHoursDatabase _marketHoursDatabase;
 
@@ -266,8 +263,17 @@ namespace QuantConnect.Bloomberg
             // Set fields that map back to internal order ids
             request.Set(BloombergNames.EMSXReferenceOrderIdRequest, order.Id);
             PopulateRequest(request, order);
-            SendOrderRequest(request, order.Id);
-            return true;
+            // Only 1 response should be received.
+            var response = _sessionEms.SendRequestSynchronous(request).SingleOrDefault();
+            var result = DetermineResult(response);
+            if (result)
+            {
+                var sequence = response.GetSequence();
+                order.BrokerId.Add(sequence.ToString());
+                OnOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero) {Status = OrderStatus.Submitted});
+            }
+
+            return result;
         }
 
         private void PopulateRequest(Request request, Order order)
@@ -327,7 +333,10 @@ namespace QuantConnect.Bloomberg
             var request = _serviceEms.CreateRequest(BloombergNames.ModifyOrderEx.ToString());
             request.Set(BloombergNames.EMSXSequence, sequence);
             PopulateRequest(request, order);
-            SendOrderRequest(request, order.Id);
+            foreach (var response in _sessionEms.SendRequestSynchronous(request))
+            {
+                DetermineResult(response);
+            }
 
             return true;
         }
@@ -350,8 +359,38 @@ namespace QuantConnect.Bloomberg
             var cancelOrderRequest = _serviceEms.CreateRequest(BloombergNames.CancelOrderEx.ToString());
             cancelOrderRequest.GetElement(BloombergNames.EMSXSequence).AppendValue(sequence);
             cancelOrderRequest.GetElement(BloombergNames.EMSXSequence).AppendValue(sequence);
-            SendOrderRequest(cancelOrderRequest, order.Id);
 
+            foreach (var response in _sessionEms.SendRequestSynchronous(cancelOrderRequest))
+            {
+                DetermineResult(response);
+            }
+
+            return true;
+        }
+
+        private bool DetermineResult(Message message)
+        {
+            Log.Trace($"Received response: '{message.MessageType}': {message}");
+
+            if (Equals(message.MessageType, BloombergNames.ErrorInfo))
+            {
+                var code = message.GetElementAsInt32(BloombergNames.ErrorCode);
+                var errorMessage = message.GetElementAsString(BloombergNames.ErrorMessage);
+                FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, code, errorMessage));
+                return false;
+            }
+
+            var description = new StringBuilder("Completed: '").Append(message.MessageType).Append('\'');
+            if (message.HasElement(BloombergNames.Message))
+            {
+                description.Append(message.GetElementAsString(BloombergNames.Message));
+            }
+            else
+            {
+                description.Append(message);
+            }
+
+            FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Information, 1, description.ToString()));
             return true;
         }
 
@@ -444,10 +483,6 @@ namespace QuantConnect.Bloomberg
 
                 case Event.EventType.SUBSCRIPTION_STATUS:
                     ProcessSubscriptionStatusEvent(@event, session);
-                    break;
-
-                case Event.EventType.RESPONSE:
-                    ProcessResponse(@event, session);
                     break;
 
                 default:
@@ -568,40 +603,6 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        private void ProcessResponse(Event @event, Session session)
-        {
-            Log.Trace("BloombergBrokerage.ProcessResponse(): Processing RESPONSE event.");
-
-            foreach (var message in @event)
-            {
-                foreach(var correlationId in message.CorrelationIDs)
-                {
-                    IMessageHandler handler;
-                    if (!_requestMessageHandlers.TryGetValue(correlationId, out handler))
-                    {
-                        Log.Error($"BloombergBrokerage.ProcessResponse(): Unexpected RESPONSE event received (CID={correlationId}): {message}");
-                    }
-                    else
-                    {
-                        int orderId;
-                        if (!_orderMap.TryGetValue(correlationId, out orderId))
-                        {
-                            Log.Error($"BloombergBrokerage.ProcessResponse(): OrderId not found (CID={correlationId}):{message}");
-                        }
-                        else
-                        {
-                            handler.ProcessMessage(message);
-
-                            _requestMessageHandlers.TryRemove(correlationId, out handler);
-                            _orderMap.TryRemove(correlationId, out orderId);
-
-                            Log.Trace($"BloombergBrokerage.ProcessResponse(): MessageHandler removed [CID={correlationId},order:{orderId}]");
-                        }
-                    }
-                }
-            }
-        }
-
         private static void ProcessOtherEvents(Event @event, Session session)
         {
             foreach (var message in @event)
@@ -627,30 +628,6 @@ namespace QuantConnect.Bloomberg
             catch (Exception exception)
             {
                 Log.Error(exception);
-            }
-        }
-
-        private void SendOrderRequest(Request request, int orderId)
-        {
-            var correlationId = GetNewCorrelationId();
-            _requestMessageHandlers.AddOrUpdate(correlationId, _orderSubscriptionHandler);
-            _orderMap.AddOrUpdate(correlationId, orderId);
-
-            try
-            {
-                if (_execution)
-                {
-                    Log.Trace($"Sending order request: '{request.Operation.Name}' [order:{orderId}, CID={correlationId}]: {request}");
-                    _sessionEms.SendRequest(request, correlationId);
-                }
-                else
-                {
-                    Log.Trace($"Order was not sent - execution is disabled [{request}] [{correlationId}]");
-                }
-            }
-            catch (Exception e)
-            {
-                Log.Error(e);
             }
         }
 

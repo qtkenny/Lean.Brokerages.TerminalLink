@@ -196,7 +196,7 @@ namespace QuantConnect.Bloomberg
                 securityType == SecurityType.Future;
         }
 
-        private CorrelationID GetNewCorrelationId()
+        internal static CorrelationID GetNewCorrelationId()
         {
             return new CorrelationID(Interlocked.Increment(ref _nextCorrelationId));
         }

@@ -72,6 +72,7 @@
     <Compile Include="BloombergBrokerage.DataQueueHandler.cs" />
     <Compile Include="BloombergBrokerage.History.cs" />
     <Compile Include="BloombergBrokerageFactory.cs" />
+    <Compile Include="BloombergExtensions.cs" />
     <Compile Include="BloombergField.cs" />
     <Compile Include="BloombergFieldNames.cs" />
     <Compile Include="BloombergFields.cs" />

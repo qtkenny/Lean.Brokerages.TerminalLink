@@ -7,9 +7,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Text;
 using Bloomberglp.Blpapi;
-using QuantConnect.Brokerages;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
 using QuantConnect.Orders.Fees;
@@ -19,7 +17,6 @@ namespace QuantConnect.Bloomberg
 {
     public class OrderSubscriptionHandler : IMessageHandler
     {
-        private const int NoSequence = -1;
         private readonly BloombergBrokerage _brokerage;
         private readonly IOrderProvider _orderProvider;
         private readonly BloombergOrders _orders;
@@ -39,31 +36,6 @@ namespace QuantConnect.Bloomberg
             return _orderToSequenceId.TryGetValue(orderId, out sequence);
         }
 
-        private void LogRequestCompletion(Message message)
-        {
-            var sequence = GetSequence(message);
-            var builder = new StringBuilder("Request completed: '").Append(message.MessageType).Append('\'');
-            if (sequence != -NoSequence)
-            {
-                builder.Append(" (sequence:").Append(sequence).Append(")");
-            }
-
-            var description = message.HasElement(BloombergNames.Message) ? message.GetElementAsString(BloombergNames.Message) : message.ToString();
-            if (!string.IsNullOrWhiteSpace(description))
-            {
-                builder.Append(": ").Append(description);
-            }
-
-            var output = builder.ToString();
-            Log.Trace("OrderSubscriptionHandler.LogRequestCompletion(): " + output);
-            _brokerage.FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Information, 1, output));
-        }
-
-        private static int GetSequence(Message message)
-        {
-            return message.HasElement(BloombergNames.EMSXSequence) ? message.GetElementAsInt32(BloombergNames.EMSXSequence) : NoSequence;
-        }
-
         private void OnOrderRouting(Message message)
         {
             var eventStatus = GetEventStatus(message);
@@ -72,8 +44,9 @@ namespace QuantConnect.Bloomberg
                 return;
             }
 
-            var sequence = GetSequence(message);
-            Log.Trace($"OrderSubscriptionHandler.OnOrderRouting(): Message received: '{eventStatus}' [sequence:{sequence}]");
+            // We assume the sequence will be provided as per the API, and whether an EventStatus will provide it.
+            var sequence = message.GetSequence();
+            Log.Trace($"OrderSubscriptionHandler.OnOrderRouting(): Message received: '{eventStatus}'(sequence:{sequence})");
             switch (eventStatus)
             {
                 case EventStatus.InitialPaint:
@@ -98,7 +71,7 @@ namespace QuantConnect.Bloomberg
                 case EventStatus.Heartbeat:
                     // No need to log the heartbeat.
                     break;
-                default: throw new Exception($"Unknown order fields update: {eventStatus} [message:{message}]");
+                default: throw new Exception($"Unknown order fields update: {eventStatus}: {message}");
             }
         }
 
@@ -258,20 +231,9 @@ namespace QuantConnect.Bloomberg
             {
                 Log.Trace("Order subscription streams activated");
             }
-            else if (msgType.Equals(BloombergNames.CreateOrderAndRouteEx) || msgType.Equals(BloombergNames.ModifyOrderEx) || msgType.Equals(BloombergNames.CancelOrderEx))
-            {
-                LogRequestCompletion(message);
-            }
             else if (msgType.Equals(BloombergNames.OrderRouteFields))
             {
                 OnOrderRouting(message);
-            }
-            else if (msgType.Equals(BloombergNames.ErrorInfo))
-            {
-                // Log the error first, then fire a broker event - in case we can't parse the BBG response.
-                var code = message.GetElementAsInt32(BloombergNames.ErrorCode);
-                var text = message.GetElementAsString(BloombergNames.ErrorMessage);
-                _brokerage.FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, code, text));
             }
             else
             {
