@@ -145,7 +145,27 @@ namespace QuantConnect.Bloomberg
         /// Value: MKTDATA_EVENT_SUBTYPE
         /// </summary>
         public static readonly Name MktdataEventSubtype = new Name("MKTDATA_EVENT_SUBTYPE");
-        
+
+        /// <summary>
+        /// Value: BID_UPDATE_STAMP_RT
+        /// </summary>
+        public static readonly Name BidUpdateStamp = new Name("BID_UPDATE_STAMP_RT");
+
+        /// <summary>
+        /// Value: ASK_UPDATE_STAMP_RT
+        /// </summary>
+        public static readonly Name AskUpdateStamp = new Name("ASK_UPDATE_STAMP_RT");
+
+        /// <summary>
+        /// Value: TRADE_UPDATE_STAMP_RT
+        /// </summary>
+        public static readonly Name TradeUpdateStamp = new Name("TRADE_UPDATE_STAMP_RT");
+
+        /// <summary>
+        /// Value: BLOOMBERG_SEND_TIME_RT
+        /// </summary>
+        public static readonly Name BloombergSendTime = new Name("BLOOMBERG_SEND_TIME_RT");
+
         /// <summary>
         /// Value: CreateOrderAndRouteEx.  'Ex' is the extended method.
         /// </summary>
