@@ -48,7 +48,7 @@ namespace QuantConnect.BloombergTests
         static BloombergBrokerageIntegrationTests()
         {
             Log.LogHandler = FixtureLogHandler;
-            Config.SetConfigurationFile("integration-config.json");
+            Config.SetConfigurationFile("../../integration-config.json");
             Config.Reset();
 
             // Work out the order
@@ -99,44 +99,44 @@ namespace QuantConnect.BloombergTests
         }
 
         [Test]
-        [TestCase("NGA COMB Comdty", 1, 2)]
-        [TestCase("NGH0 COMB Comdty", 2, 3, 4)]
-        [TestCase("SSW SJ Equity", 2, 3, 4)]
-        [TestCase("BHP US Equity", 5, 6, 7, 8)]
-        [TestCase("BHP AU Equity", 5, 6, 7, 8)]
-        [TestCase("BOA COMB Comdty", 1, 2)]
-        [TestCase("BOH0 COMB Comdty", 2, 1)]
-        [TestCase("BOA COMB Comdty", 2, 3, 1)]
-        public async Task Can_Manipulate_Order(string bbgSymbol, int initialQuantity, params int[] updatedQuantities)
+        [TestCase("NGA COMB Comdty", OrderType.Limit, 1, 2)]
+        [TestCase("ECH0 Curncy", OrderType.Market, 1, 2)]
+        [TestCase("NGH0 COMB Comdty", OrderType.Limit, 2, 3, 4)]
+        [TestCase("SSW SJ Equity", OrderType.Limit, 2, 3, 4)]
+        [TestCase("BHP US Equity", OrderType.Limit, 5, 6, 7, 8)]
+        [TestCase("1337 HK Equity", OrderType.Limit, 5, 6, 7, 8)]
+        [TestCase("1337 HK Equity", OrderType.Limit, 5)]
+        [TestCase("1337 HK Equity", OrderType.Limit, 8, 7, 6, 5)]
+        [TestCase("BOA COMB Comdty", OrderType.Limit, 1, 2)]
+        [TestCase("BOH0 COMB Comdty", OrderType.Limit, 2, 1)]
+        [TestCase("BOA COMB Comdty", OrderType.Limit, 2, 3, 1)]
+        public async Task Can_Manipulate_Order(string bbgSymbol, OrderType orderType, int initialQuantity, params int[] updatedQuantities)
         {
             // Setup & map a Bloomberg symbol
             MockBloombergSymbolMapper.Setup(x => x.GetBrokerageSymbol(TestSymbol)).Returns(bbgSymbol);
             MockBloombergSymbolMapper.Setup(x => x.GetLeanSymbol(bbgSymbol, null)).Returns(TestSymbol);
 
             // Setup
-            var order = Order.CreateOrder(new SubmitOrderRequest(OrderType.Limit, SecurityType.Future, TestSymbol, initialQuantity, 1, 1, DateTime.Now, null,
+            var order = Order.CreateOrder(new SubmitOrderRequest(orderType, SecurityType.Future, TestSymbol, initialQuantity, 1, 1, DateTime.Now, null,
                 new OrderProperties {TimeInForce = TimeInForce.Day}));
             OrderIdSetter(order, new Random().Next(0, int.MaxValue));
             MockOrderProvider.Setup(x => x.GetOrderById(order.Id)).Returns(order);
 
             // Place the order
             var result = await Run(_underTest.PlaceOrder, order);
-            Assert.That(result.BrokerageMessage.Message, Contains.Substring(BloombergNames.CreateOrderAndRouteEx.ToString()));
+            Assert.That(result.Message, Contains.Substring(BloombergNames.CreateOrderAndRouteEx.ToString()));
 
             // Update the order
             foreach (var updateQuantity in updatedQuantities)
             {
                 order.ApplyUpdateOrderRequest(new UpdateOrderRequest(DateTime.Now, order.Id, new UpdateOrderFields {Quantity = updateQuantity}));
                 result = await Run(_underTest.UpdateOrder, order);
-                Assert.That(result.BrokerageMessage.Message, Contains.Substring(BloombergNames.ModifyOrderEx.ToString()));
+                Assert.That(result.Message, Contains.Substring(BloombergNames.ModifyRouteEx.ToString()));
             }
 
             // Cancel / delete
-            result = await Run(_underTest.CancelOrder, order, false);
-            Assert.That(result.BrokerageMessage.Message, Contains.Substring(BloombergNames.CancelOrderEx.ToString()));
-
-            // Wait for everything to finish up
-            Thread.Sleep(10000);
+            result = await Run(_underTest.CancelOrder, order);
+            Assert.That(result.Message, Contains.Substring(BloombergNames.CancelOrderEx.ToString()));
         }
 
         [Test]
@@ -221,14 +221,28 @@ namespace QuantConnect.BloombergTests
             return MockBloombergSymbolMapper.Object.MappingInfo.Select(x => Symbol.Create(x.Value.Underlying, x.Value.SecurityType, x.Value.Market));
         }
 
-        private static async Task<BrokerageMessageEvent> NextBrokerMessage()
-        { 
-            var brokerMessage = await OnEvent<BloombergBrokerage, BrokerageMessageEvent>(_underTest, (b, e) => b.Message += e, (b, e) => b.Message -= e);
-            if (brokerMessage.Type == BrokerageMessageType.Error)
+        private static Task<BrokerageMessageEvent> OnBrokerMessages(ManualResetEventSlim latch)
+        {
+            BrokerageMessageEvent result = null;
+
+            void OnMessage(object _, BrokerageMessageEvent evt)
             {
-                Assert.Fail("Request responded with an error #{0}: {1}", brokerMessage.Code, brokerMessage.Message);
+                result = evt;
             }
-            return brokerMessage;
+
+            _underTest.Message += OnMessage;
+            latch.Wait();
+            _underTest.Message -= OnMessage;
+            if (result == null)
+            {
+                Assert.Fail("No response");
+            }
+            else if (result.Type == BrokerageMessageType.Error)
+            {
+                Assert.Fail("Request responded with an error #{0}: {1}", result.Code, result.Message);
+            }
+
+            return Task.FromResult(result);
         }
 
         private static Task<OrderEvent> NextOrderEvent(Order order)
@@ -237,35 +251,23 @@ namespace QuantConnect.BloombergTests
                 e => e.OrderId == order.Id);
         }
 
-        private static async Task<Result> Run(Func<Order, bool> testFunc, Order order, bool expectOpenOrder = true)
+        private static async Task<BrokerageMessageEvent> Run(Func<Order, bool> testFunc, Order order)
         {
-            var brokerMessageTask = NextBrokerMessage();
+            BrokerageMessageEvent message;
             var orderTask = NextOrderEvent(order);
-            testFunc(order);
-            await Task.WhenAll(brokerMessageTask, orderTask);
-
-            var sequence = int.Parse(orderTask.Result.Message.Substring(orderTask.Result.Message.IndexOf(':') + 1));
-            var updatedOrder = _underTest.GetOpenOrders().SingleOrDefault(o => o.BrokerId.Contains(sequence.ToString()));
-            if (updatedOrder == null)
+            using (var latch = new ManualResetEventSlim())
             {
-                throw new Exception("Expected an open order, but none existed.");
+                var brokerMessagesTask = Task.Run(() => OnBrokerMessages(latch));
+                var result = testFunc(order);
+                Thread.Sleep(1000);
+                latch.Set();
+                message = await brokerMessagesTask;
+                Assert.True(result);
             }
-
-            return new Result(brokerMessageTask.Result, orderTask.Result, updatedOrder);
-        }
-
-        private class Result
-        {
-            public Result(BrokerageMessageEvent brokerageMessage, OrderEvent orderEvent, Order updatedOrder)
-            {
-                OrderEvent = orderEvent ?? throw new ArgumentNullException(nameof(orderEvent));
-                BrokerageMessage = brokerageMessage ?? throw new ArgumentNullException(nameof(brokerageMessage));
-                UpdatedOrder = updatedOrder;
-            }
-
-            public OrderEvent OrderEvent { get; }
-            public BrokerageMessageEvent BrokerageMessage { get; }
-            public Order UpdatedOrder { get; }
+            
+            // Wait for the OnNewOrder,OnOrderUpdate event. etc.
+            await orderTask;
+            return message;
         }
 
         /// <summary>

@@ -3,7 +3,6 @@
 * Lean Algorithmic Trading Engine v2.2 Copyright 2015 QuantConnect Corporation.
 */
 
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,14 +20,14 @@ namespace QuantConnect.Bloomberg
             _orderFieldDefinitions = orderFieldDefinitions;
         }
 
-        public BloombergOrder CreateOrder(int sequence)
+        public BloombergOrder GetOrCreateOrder(int sequence)
         {
             var order = new BloombergOrder(_orderFieldDefinitions, sequence);
             lock (_lock)
             {
                 if (_orders.TryGetValue(sequence, out var existingOrder))
                 {
-                    throw new Exception($"An order already existed for sequence id '{sequence}': {existingOrder.Describe()}");
+                    return existingOrder;
                 }
 
                 _orders.Add(sequence, order);

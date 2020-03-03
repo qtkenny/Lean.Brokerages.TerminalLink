@@ -17,7 +17,7 @@ namespace QuantConnect.BloombergTests
         public void SetUp()
         {
             Log.LogHandler = new ConsoleLogHandler();
-            Config.SetConfigurationFile("integration-config.json");
+            Config.SetConfigurationFile("../../integration-config.json");
             Config.Reset();
         }
 

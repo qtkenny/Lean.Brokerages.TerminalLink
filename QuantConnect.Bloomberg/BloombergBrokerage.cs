@@ -4,7 +4,6 @@
 */
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -17,6 +16,7 @@ using QuantConnect.Configuration;
 using QuantConnect.Interfaces;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
+using QuantConnect.Orders.Fees;
 using QuantConnect.Securities;
 
 namespace QuantConnect.Bloomberg
@@ -35,6 +35,7 @@ namespace QuantConnect.Bloomberg
         private readonly string _notes;
         private readonly string _handlingInstruction;
         private readonly bool _execution;
+        private readonly bool _allowModification;
         private readonly Session _sessionMarketData;
         private readonly Session _sessionReferenceData;
         private readonly Session _sessionEms;
@@ -47,8 +48,6 @@ namespace QuantConnect.Bloomberg
 
         private readonly SchemaFieldDefinitions _orderFieldDefinitions = new SchemaFieldDefinitions();
         private readonly SchemaFieldDefinitions _routeFieldDefinitions = new SchemaFieldDefinitions();
-
-        private readonly ConcurrentDictionary<CorrelationID, IMessageHandler> _subscriptionMessageHandlers = new ConcurrentDictionary<CorrelationID, IMessageHandler>();
 
         private readonly MarketHoursDatabase _marketHoursDatabase;
 
@@ -79,6 +78,7 @@ namespace QuantConnect.Bloomberg
             _notes = Config.GetValue<string>("bloomberg-emsx-notes");
             _handlingInstruction = Config.GetValue<string>("bloomberg-emsx-handling");
             _execution = Config.GetBool("bloomberg-execution");
+            _allowModification = Config.GetBool("bloomberg-allow-modification");
 
             _marketHoursDatabase = MarketHoursDatabase.FromDataFolder();
 
@@ -176,7 +176,8 @@ namespace QuantConnect.Bloomberg
             _orderSubscriptionHandler = new OrderSubscriptionHandler(this, _orderProvider, Orders);
             if (_execution)
             {
-                SubscribeOrderEvents();
+                SubscribeToEmsx();
+                _blotterInitializedEvent.Wait();
             }
             else
             {
@@ -262,6 +263,7 @@ namespace QuantConnect.Bloomberg
             request.Set(BloombergNames.EMSXHandInstruction, _handlingInstruction);
             // Set fields that map back to internal order ids
             request.Set(BloombergNames.EMSXReferenceOrderIdRequest, order.Id);
+            request.Set(BloombergNames.EMSXReferenceRouteId, order.Id);
             PopulateRequest(request, order);
             // Only 1 response should be received.
             var response = _sessionEms.SendRequestSynchronous(request).SingleOrDefault();
@@ -322,23 +324,34 @@ namespace QuantConnect.Bloomberg
         /// <returns>True if the request was made for the order to be updated, false otherwise</returns>
         public override bool UpdateOrder(Order order)
         {
-            // TODO: Should this use the broker id?  At the moment broker id isn't able to be persisted back into the order transaction handler.
-            if (!_orderSubscriptionHandler.TryGetSequenceId(order.Id, out var sequence))
+            var sequence = int.Parse(order.BrokerId[0]);
+            Log.Trace($"Updating order {order.Id}, sequence:{sequence}");
+
+            if (!_allowModification)
             {
-                Log.Error("Unable to update - cannot find a sequence for order id: " + order.Id);
+                Log.Error($"Modification of order is not allowed [id:{order.Id}]");
                 return false;
             }
-            
-            Log.Trace($"Updating order {order.Id}, sequence:{sequence}");
-            var request = _serviceEms.CreateRequest(BloombergNames.ModifyOrderEx.ToString());
-            request.Set(BloombergNames.EMSXSequence, sequence);
-            PopulateRequest(request, order);
-            foreach (var response in _sessionEms.SendRequestSynchronous(request))
-            {
-                DetermineResult(response);
-            }
 
-            return true;
+            /*
+             WARN: This code is experimental at this point and has not been tested with correct responses.
+
+             EMSX uses a form of state machine to manage the state of an order, it's child route, and the route's status according to the broker.
+             This is documented here: https://emsx-api-doc.readthedocs.io/en/latest/programmable/emsxSubscription.html#description-of-the-child-route-status-changes
+             
+             Essentially, The state of the order, according to the broker, needs to be managed.
+             In testing, the automated broker BMTB was responding with rejections when modifying the order.
+
+              It may be that with a real broker, for an order to be modified:
+                - If increasing, the order needs to be increased - followed by the route - so that headroom is available.
+                - If decreasing, the route needs to be decreased - followed by the order - so that the headroom can be lowered.
+            */
+            var routeRequest = _serviceEms.CreateRequest(BloombergNames.ModifyRouteEx.ToString());
+            routeRequest.Set(BloombergNames.EMSXSequence, sequence);
+            routeRequest.Set(BloombergNames.EMSXRouteId, 1);
+            PopulateRequest(routeRequest, order);
+
+            return DetermineResult(_sessionEms.SendRequestSynchronous(routeRequest).SingleOrDefault());
         }
 
         /// <summary>
@@ -358,7 +371,6 @@ namespace QuantConnect.Bloomberg
             Log.Trace($"Cancelling order {order.Id}, sequence:{sequence}");
             var cancelOrderRequest = _serviceEms.CreateRequest(BloombergNames.CancelOrderEx.ToString());
             cancelOrderRequest.GetElement(BloombergNames.EMSXSequence).AppendValue(sequence);
-            cancelOrderRequest.GetElement(BloombergNames.EMSXSequence).AppendValue(sequence);
 
             foreach (var response in _sessionEms.SendRequestSynchronous(cancelOrderRequest))
             {
@@ -375,7 +387,7 @@ namespace QuantConnect.Bloomberg
             if (Equals(message.MessageType, BloombergNames.ErrorInfo))
             {
                 var code = message.GetElementAsInt32(BloombergNames.ErrorCode);
-                var errorMessage = message.GetElementAsString(BloombergNames.ErrorMessage);
+                var errorMessage = $"Failed: '{message.MessageType}' - {message.GetElementAsString(BloombergNames.ErrorMessage)}";
                 FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, code, errorMessage));
                 return false;
             }
@@ -462,7 +474,6 @@ namespace QuantConnect.Bloomberg
 
         private void OnBloombergEvent(Event @event, Session session)
         {
-            Log.Trace($"Received: {@event.Type} [messages:{@event.GetMessages().Count()}]: {@event}");
             switch (@event.Type)
             {
                 case Event.EventType.ADMIN:
@@ -478,11 +489,8 @@ namespace QuantConnect.Bloomberg
                     break;
 
                 case Event.EventType.SUBSCRIPTION_DATA:
-                    ProcessSubscriptionDataEvent(@event, session);
-                    break;
-
                 case Event.EventType.SUBSCRIPTION_STATUS:
-                    ProcessSubscriptionStatusEvent(@event, session);
+                    ProcessEmsxEvent(@event);
                     break;
 
                 default:
@@ -560,46 +568,11 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        private void ProcessSubscriptionDataEvent(Event @event, Session session)
+        private void ProcessEmsxEvent(Event @event)
         {
-            // TODO: BBG sends heartbeats for the broker connection, resulting in a lot of logging.  Maybe this should be a verbose message?
-            //Log.Trace("BloombergBrokerage.ProcessSubscriptionDataEvent(): Processing SUBSCRIPTION_DATA event.");
-
             foreach (var message in @event)
             {
-                foreach (var correlationId in message.CorrelationIDs)
-                {
-                    IMessageHandler handler;
-                    if (!_subscriptionMessageHandlers.TryGetValue(correlationId, out handler))
-                    {
-                        Log.Error($"BloombergBrokerage.ProcessSubscriptionDataEvent(): Unexpected SUBSCRIPTION_DATA event received (CID={correlationId}): {message}");
-                    }
-                    else
-                    {
-                        handler.ProcessMessage(message);
-                    }
-                }
-            }
-        }
-
-        private void ProcessSubscriptionStatusEvent(Event @event, Session session)
-        {
-            Log.Trace("BloombergBrokerage.ProcessSubscriptionStatusEvent(): Processing SUBSCRIPTION_STATUS event.");
-
-            foreach (var message in @event)
-            {
-                foreach (var correlationId in message.CorrelationIDs)
-                {
-                    IMessageHandler handler;
-                    if (!_subscriptionMessageHandlers.TryGetValue(correlationId, out handler))
-                    {
-                        Log.Error($"BloombergBrokerage.ProcessSubscriptionStatusEvent(): Unexpected SUBSCRIPTION_STATUS event received (CID={correlationId}): {message}");
-                    }
-                    else
-                    {
-                        handler.ProcessMessage(message);
-                    }
-                }
+                _orderSubscriptionHandler.ProcessMessage(message);
             }
         }
 
@@ -611,18 +584,15 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        private void Subscribe(string topic, IMessageHandler handler)
+        private void SubscribeToEmsx()
         {
-            var correlationId = GetNewCorrelationId();
-            _subscriptionMessageHandlers.AddOrUpdate(correlationId, handler);
-
-            Log.Trace($"Added Subscription message handler: {correlationId}");
+            Log.Trace("Subscribing to EMSX");
 
             try
             {
                 _sessionEms.Subscribe(new List<Subscription>
                 {
-                    new Subscription(topic, correlationId)
+                    new Subscription(CreateOrderSubscription(), GetNewCorrelationId()), new Subscription(CreateRouteSubscription(), GetNewCorrelationId())
                 });
             }
             catch (Exception exception)
@@ -631,16 +601,19 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        private void SubscribeOrderEvents()
+        private string CreateOrderSubscription()
         {
             var fields = _orderFieldDefinitions.Select(x => x.Name);
 
             var serviceName = GetServiceName(ServiceType.Ems);
-            var topic = $"{serviceName}/order?fields={string.Join(",", fields)}";
+            return $"{serviceName}/order?fields={string.Join(",", fields)}";
+        }
 
-            Subscribe(topic, _orderSubscriptionHandler);
-
-            _blotterInitializedEvent.Wait();
+        private string CreateRouteSubscription()
+        {
+            var fields = _routeFieldDefinitions.Select(x => x.Name);
+            var serviceName = GetServiceName(ServiceType.Ems);
+            return $"{serviceName}/route?fields={string.Join(",", fields)}";
         }
 
         public void SetBlotterInitialized()

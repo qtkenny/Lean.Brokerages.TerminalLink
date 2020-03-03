@@ -118,6 +118,11 @@ namespace QuantConnect.Bloomberg
         /// Value: EMSX_ORD_REF_ID
         /// </summary>
         public static readonly Name EMSXReferenceOrderIdResponse = new Name("EMSX_ORD_REF_ID");
+
+        /// <summary>
+        /// Value: EMSX_ROUTE_REF_ID
+        /// </summary>
+        public static readonly Name EMSXReferenceRouteId = new Name("EMSX_ROUTE_REF_ID");
         
         #endregion EMSX
 
@@ -125,6 +130,10 @@ namespace QuantConnect.Bloomberg
         /// Value: MESSAGE
         /// </summary>
         public static readonly Name Message = new Name("MESSAGE");
+        /// <summary>
+        /// Value: MSG_SUB_TYPE
+        /// </summary>
+        public static readonly Name MessageSubType = new Name("MSG_SUB_TYPE");
 
         /// <summary>
         /// Value: STATUS
@@ -175,6 +184,11 @@ namespace QuantConnect.Bloomberg
         /// Value: ModifyOrderEx
         /// </summary>
         public static readonly Name ModifyOrderEx = new Name("ModifyOrderEx");
+
+        /// <summary>
+        /// Value: ModifyRouteEx
+        /// </summary>
+        public static readonly Name ModifyRouteEx = new Name("ModifyRouteEx");
         
         /// <summary>
         /// Value: CancelOrderEx

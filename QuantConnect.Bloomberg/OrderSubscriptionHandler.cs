@@ -36,7 +36,7 @@ namespace QuantConnect.Bloomberg
             return _orderToSequenceId.TryGetValue(orderId, out sequence);
         }
 
-        private void OnOrderRouting(Message message)
+        private void OnOrderRouting(Message message, string subType)
         {
             var eventStatus = GetEventStatus(message);
             if (eventStatus == EventStatus.Heartbeat)
@@ -44,29 +44,50 @@ namespace QuantConnect.Bloomberg
                 return;
             }
 
-            // We assume the sequence will be provided as per the API, and whether an EventStatus will provide it.
             var sequence = message.GetSequence();
-            Log.Trace($"OrderSubscriptionHandler.OnOrderRouting(): Message received: '{eventStatus}'(sequence:{sequence})");
+            Log.Trace($"OrderSubscriptionHandler.OnOrderRouting(): Message received: '{eventStatus}'(subType:{subType},sequence:{sequence})");
+            
+            // TODO: Potentially, we should reconcile order quantities with the routes?
             switch (eventStatus)
             {
                 case EventStatus.InitialPaint:
                     // Initial order statuses.
-                    var order = _orders.CreateOrder(sequence);
-                    order.PopulateFields(message, false);
+                    if (subType == "R")
+                    {
+                        var order = _orders.GetOrCreateOrder(sequence);
+                        order.PopulateFields(message, false);
+                    }
+
                     break;
                 case EventStatus.EndPaint:
                     // End of the stream of initial orders.
-                    Log.Trace("OrderSubscriptionHandler: End of Initial Paint");
-                    _brokerage.SetBlotterInitialized();
+                    if (subType == "R")
+                    {
+                        Log.Trace("OrderSubscriptionHandler: End of Initial Paint");
+                        _brokerage.SetBlotterInitialized();
+                    }
+
                     break;
                 case EventStatus.New:
-                    OnNewOrder(message, sequence);
+                    if (subType == "R")
+                    {
+                        OnNewOrder(message, sequence);
+                    }
+
                     break;
                 case EventStatus.Update:
-                    OnOrderUpdate(message, sequence);
+                    if (subType == "R")
+                    {
+                        OnOrderUpdate(message, sequence);
+                    }
+
                     break;
                 case EventStatus.Delete:
-                    OnOrderDelete(message, sequence);
+                    if (subType == "O")
+                    {
+                        OnOrderDelete(message, sequence);
+                    }
+
                     break;
                 case EventStatus.Heartbeat:
                     // No need to log the heartbeat.
@@ -88,7 +109,7 @@ namespace QuantConnect.Bloomberg
             _orderToSequenceId[orderId] = sequence;
             Log.Trace($"OrderSubscriptionHandler.OnNewOrder(): Received (orderId={orderId}, sequence={sequence})");
 
-            var bbOrder = _orders.CreateOrder(sequence);
+            var bbOrder = _orders.GetOrCreateOrder(sequence);
             bbOrder.PopulateFields(message, false);
 
             var order = _orderProvider.GetOrderById(orderId);
@@ -98,8 +119,6 @@ namespace QuantConnect.Bloomberg
             }
             else
             {
-                // TODO: This is not persisted at the moment.
-                order.BrokerId.Add(sequence.ToString());
                 var status = OrderStatus.Submitted;
                 if (message.HasElement(BloombergNames.EMSXStatus))
                 {
@@ -114,12 +133,19 @@ namespace QuantConnect.Bloomberg
         private static bool TryGetOurOrderId(Message message, out int orderId)
         {
             orderId = -1;
-            if (!message.HasElement(BloombergNames.EMSXReferenceOrderIdResponse))
+            string element;
+            if (message.HasElement(BloombergNames.EMSXReferenceOrderIdResponse))
+            {
+                element = message.GetElementAsString(BloombergNames.EMSXReferenceOrderIdResponse);
+            } else if (message.HasElement(BloombergNames.EMSXReferenceRouteId))
+            {
+                element = message.GetElementAsString(BloombergNames.EMSXReferenceRouteId);
+            }
+            else
             {
                 return false;
             }
 
-            var element = message.GetElementAsString(BloombergNames.EMSXReferenceOrderIdResponse);
             if (int.TryParse(element, out orderId))
             {
                 return true;
@@ -223,17 +249,19 @@ namespace QuantConnect.Bloomberg
         public void ProcessMessage(Message message)
         {
             var msgType = message.MessageType;
+            var subType = message.HasElement(BloombergNames.MessageSubType) ? message.GetElementAsString(BloombergNames.MessageSubType) : null;
+            Log.Trace($"Received [{msgType},{subType}]: {message}");
             if (msgType.Equals(BloombergNames.SubscriptionStarted))
             {
-                Log.Trace("Order subscription started");
+                Log.Trace("Subscription started: " + subType);
             }
             else if (msgType.Equals(BloombergNames.SubscriptionStreamsActivated))
             {
-                Log.Trace("Order subscription streams activated");
+                Log.Trace("Subscription stream activated: " + subType);
             }
             else if (msgType.Equals(BloombergNames.OrderRouteFields))
             {
-                OnOrderRouting(message);
+                OnOrderRouting(message, subType);
             }
             else
             {

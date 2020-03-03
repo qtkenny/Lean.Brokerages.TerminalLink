@@ -16,7 +16,9 @@ namespace QuantConnect.Bloomberg
 
         public int Sequence { get; }
 
-        public bool IsLeanOrder => !string.IsNullOrWhiteSpace(GetFieldValue(BloombergNames.EMSXReferenceOrderIdResponse));
+        public bool IsLeanOrder =>
+            !string.IsNullOrWhiteSpace(GetFieldValue(BloombergNames.EMSXReferenceOrderIdResponse))
+            && !string.IsNullOrWhiteSpace(GetFieldValue(BloombergNames.EMSXReferenceRouteId));
 
         public string Status => GetFieldValue(BloombergNames.EMSXStatus);
         public decimal Amount => GetFieldValueDecimal(BloombergNames.EMSXAmount);
