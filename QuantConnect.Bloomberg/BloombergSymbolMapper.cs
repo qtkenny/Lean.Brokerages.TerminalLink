@@ -415,15 +415,12 @@ namespace QuantConnect.Bloomberg
                 case SecurityType.Forex:
                     return "Curncy";
 
-                case SecurityType.Future:
-                    // TODO: depends on the underlying which we don't have for now
-                    // possible values: Comdty, Index, Curncy, Equity
-                    return "Comdty";
-
                 case SecurityType.Option:
                     // only equity options for now
                     return "Equity";
 
+                case SecurityType.Future:
+                    // for Futures, mapping is done in the caller using the map file and this method is not called
                 default:
                     throw new NotSupportedException($"Unsupported security type: {securityType}");
             }
