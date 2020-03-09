@@ -701,8 +701,6 @@ namespace QuantConnect.Bloomberg
 
         private OrderType ConvertOrderType(string orderType)
         {
-            // TODO: check order types, only MKT is used in documentation examples
-
             switch (orderType)
             {
                 case "MKT":
@@ -718,6 +716,14 @@ namespace QuantConnect.Bloomberg
                 case "SL":
                     return OrderType.StopLimit;
 
+                case "MOC":
+                    return OrderType.MarketOnClose;
+
+                case "FUN":
+                case "LOC":
+                case "OC":
+                case "PEG":
+                case "MKTL":
                 default:
                     throw new NotSupportedException($"Unsupported order type: {orderType}");
             }
@@ -725,8 +731,6 @@ namespace QuantConnect.Bloomberg
 
         private string ConvertOrderType(OrderType orderType)
         {
-            // TODO: check order types, only MKT is used in documentation examples
-            // EMSX API - pg. 78
             switch (orderType)
             {
                 case OrderType.Market:
@@ -740,6 +744,9 @@ namespace QuantConnect.Bloomberg
 
                 case OrderType.StopLimit:
                     return "SL";
+
+                case OrderType.MarketOnClose:
+                    return "MOC";
 
                 default:
                     throw new NotSupportedException($"Unsupported order type: {orderType}");
