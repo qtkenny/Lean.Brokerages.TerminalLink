@@ -22,18 +22,12 @@ namespace QuantConnect.Bloomberg
         private readonly BloombergOrders _orders;
         // TODO: These concurrent dictionaries are not currently being cleaned up after orders are completed.
         private readonly ConcurrentDictionary<int, int> _sequenceToOrderId = new ConcurrentDictionary<int, int>();
-        private readonly ConcurrentDictionary<int, int> _orderToSequenceId = new ConcurrentDictionary<int, int>();
 
         public OrderSubscriptionHandler(BloombergBrokerage brokerage, IOrderProvider orderProvider, BloombergOrders orders)
         {
             _brokerage = brokerage;
             _orderProvider = orderProvider;
             _orders = orders;
-        }
-
-        public bool TryGetSequenceId(int orderId, out int sequence)
-        {
-            return _orderToSequenceId.TryGetValue(orderId, out sequence);
         }
 
         private void OnOrderRouting(Message message, string subType)
@@ -46,7 +40,7 @@ namespace QuantConnect.Bloomberg
 
             var sequence = message.GetSequence();
             Log.Trace($"OrderSubscriptionHandler.OnOrderRouting(): Message received: '{eventStatus}'(subType:{subType},sequence:{sequence})");
-            
+
             // TODO: Potentially, we should reconcile order quantities with the routes?
             switch (eventStatus)
             {
@@ -106,7 +100,6 @@ namespace QuantConnect.Bloomberg
             }
 
             _sequenceToOrderId[sequence] = orderId;
-            _orderToSequenceId[orderId] = sequence;
             Log.Trace($"OrderSubscriptionHandler.OnNewOrder(): Received (orderId={orderId}, sequence={sequence})");
 
             var bbOrder = _orders.GetOrCreateOrder(sequence);

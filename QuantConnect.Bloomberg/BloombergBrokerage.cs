@@ -361,14 +361,9 @@ namespace QuantConnect.Bloomberg
         /// <returns>True if the request was made for the order to be canceled, false otherwise</returns>
         public override bool CancelOrder(Order order)
         {
-            // TODO: Should this use the broker id?  At the moment broker id isn't able to be persisted back into the order transaction handler.
-            if (!_orderSubscriptionHandler.TryGetSequenceId(order.Id, out var sequence))
-            {
-                Log.Error("Unable to cancel - cannot find a sequence for order id: " + order.Id);
-                return false;
-            }
-
+            var sequence = int.Parse(order.BrokerId[0]);
             Log.Trace($"Cancelling order {order.Id}, sequence:{sequence}");
+
             var cancelOrderRequest = _serviceEms.CreateRequest(BloombergNames.CancelOrderEx.ToString());
             cancelOrderRequest.GetElement(BloombergNames.EMSXSequence).AppendValue(sequence);
 
