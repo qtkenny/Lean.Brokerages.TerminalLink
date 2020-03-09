@@ -321,7 +321,6 @@ namespace QuantConnect.Bloomberg
             return RequestAndParse(request, BloombergNames.BarData, BloombergNames.BarTickData, row => CreateTradeBar(historyRequest, row, period));
         }
 
-        // TODO: with real API - use reset event to wait for async responses received in OnBloombergEvent
         private IReadOnlyCollection<T> RequestAndParse<T>(Request request, Name arrayName, Name arrayItemName, Func<Element, T> createFunc)
         {
             var correlationId = GetNewCorrelationId();
