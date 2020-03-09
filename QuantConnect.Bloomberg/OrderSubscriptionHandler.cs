@@ -20,7 +20,6 @@ namespace QuantConnect.Bloomberg
         private readonly BloombergBrokerage _brokerage;
         private readonly IOrderProvider _orderProvider;
         private readonly BloombergOrders _orders;
-        // TODO: These concurrent dictionaries are not currently being cleaned up after orders are completed.
         private readonly ConcurrentDictionary<int, int> _sequenceToOrderId = new ConcurrentDictionary<int, int>();
 
         public OrderSubscriptionHandler(BloombergBrokerage brokerage, IOrderProvider orderProvider, BloombergOrders orders)
@@ -183,6 +182,11 @@ namespace QuantConnect.Bloomberg
                 orderEvent.FillQuantity = fillQuantity * Math.Sign(ticket.Quantity);
             }
 
+            if (orderEvent.Status.IsClosed())
+            {
+                _sequenceToOrderId.TryRemove(sequence, out orderId);
+            }
+
             _brokerage.FireOrderEvent(orderEvent);
         }
 
@@ -212,6 +216,12 @@ namespace QuantConnect.Bloomberg
 
             // TODO: This is likely to be incorrect.
             orderEvent.Status = OrderStatus.Canceled;
+
+            if (orderEvent.Status.IsClosed())
+            {
+                _sequenceToOrderId.TryRemove(sequence, out orderId);
+            }
+
             _brokerage.FireOrderEvent(orderEvent);
         }
 
