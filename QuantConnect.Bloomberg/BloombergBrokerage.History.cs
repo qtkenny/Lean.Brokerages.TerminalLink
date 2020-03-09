@@ -333,7 +333,7 @@ namespace QuantConnect.Bloomberg
                 var eventObj = _sessionReferenceData.NextEvent();
 
                 var msg = eventObj.GetMessages().FirstOrDefault(f => f.CorrelationIDs.Contains(correlationId));
-                if (msg == default)
+                if (msg == null)
                 {
                     continue;
                 }

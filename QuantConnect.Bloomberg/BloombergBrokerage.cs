@@ -59,7 +59,7 @@ namespace QuantConnect.Bloomberg
         /// <summary>
         /// Initializes a new instance of the <see cref="BloombergBrokerage"/> class
         /// </summary>
-        public BloombergBrokerage(IOrderProvider orderProvider, ApiType apiType, Environment environment, 
+        public BloombergBrokerage(IOrderProvider orderProvider, ApiType apiType, Environment environment,
             IBloombergSymbolMapper symbolMapper, string serverHost, int serverPort)
             : base("Bloomberg brokerage")
         {
@@ -253,7 +253,7 @@ namespace QuantConnect.Bloomberg
             {
                 request.Set(BloombergNames.EMSXBroker, _broker);
             }
-            
+
             if (!string.IsNullOrWhiteSpace(_strategy))
             {
                 var element = request["EMSX_STRATEGY_PARAMS"];
@@ -279,7 +279,7 @@ namespace QuantConnect.Bloomberg
         }
 
         private void PopulateRequest(Request request, Order order)
-        { 
+        {
             request.Set(BloombergNames.EMSXAmount, Convert.ToInt32(order.AbsoluteQuantity));
             request.Set(BloombergNames.EMSXOrderType, ConvertOrderType(order.Type));
             request.Set(BloombergNames.EMSXTif, ConvertTimeInForce(order.TimeInForce));
@@ -338,7 +338,7 @@ namespace QuantConnect.Bloomberg
 
              EMSX uses a form of state machine to manage the state of an order, it's child route, and the route's status according to the broker.
              This is documented here: https://emsx-api-doc.readthedocs.io/en/latest/programmable/emsxSubscription.html#description-of-the-child-route-status-changes
-             
+
              Essentially, The state of the order, according to the broker, needs to be managed.
              In testing, the automated broker BMTB was responding with rejections when modifying the order.
 
