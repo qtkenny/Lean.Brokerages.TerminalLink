@@ -167,11 +167,20 @@ namespace QuantConnect.Bloomberg
                 return;
             }
 
-            // TODO: Lean is expecting the fill quantity to be the amount filled in this event. BBG provide the total filled.
             if (orderEvent.Status == OrderStatus.Filled || orderEvent.Status == OrderStatus.PartiallyFilled)
             {
+                var ticket = _orderProvider.GetOrderTicket(orderId);
+                if (ticket == null)
+                {
+                    Log.Error($"OrderSubscriptionHandler.OnOrderUpdate(): OrderTicket not found for OrderId: {orderId}");
+                    return;
+                }
+
                 orderEvent.FillPrice = Convert.ToDecimal(message.GetElementAsFloat64(BloombergNames.EMSXAvgPrice));
-                orderEvent.FillQuantity = Convert.ToDecimal(message.GetElementAsInt64(BloombergNames.EMSXFilled));
+
+                // The Bloomberg API does not return the individual quantity for each partial fill, but the cumulative filled quantity
+                var fillQuantity = Convert.ToDecimal(message.GetElementAsInt64(BloombergNames.EMSXFilled)) - Math.Abs(ticket.QuantityFilled);
+                orderEvent.FillQuantity = fillQuantity * Math.Sign(ticket.Quantity);
             }
 
             _brokerage.FireOrderEvent(orderEvent);
