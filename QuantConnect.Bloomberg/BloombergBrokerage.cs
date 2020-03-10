@@ -17,6 +17,7 @@ using QuantConnect.Interfaces;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
 using QuantConnect.Orders.Fees;
+using QuantConnect.Orders.TimeInForces;
 using QuantConnect.Securities;
 
 namespace QuantConnect.Bloomberg
@@ -283,6 +284,13 @@ namespace QuantConnect.Bloomberg
             request.Set(BloombergNames.EMSXAmount, Convert.ToInt32(order.AbsoluteQuantity));
             request.Set(BloombergNames.EMSXOrderType, ConvertOrderType(order.Type));
             request.Set(BloombergNames.EMSXTif, ConvertTimeInForce(order.TimeInForce));
+
+            var gtdTimeInForce = order.TimeInForce as GoodTilDateTimeInForce;
+            if (gtdTimeInForce != null)
+            {
+                request.Set(BloombergNames.EMSXGTDDate, Convert.ToInt32(gtdTimeInForce.Expiry.ToString("yyyyMMdd")));
+            }
+
             if (!string.IsNullOrWhiteSpace(_account))
             {
                 request.Set(BloombergNames.EMSXAccount, _account);
@@ -629,7 +637,13 @@ namespace QuantConnect.Bloomberg
             var quantity = order.GetFieldValueDecimal(BloombergNames.EMSXAmount);
             var orderType = ConvertOrderType(order.GetFieldValue(BloombergNames.EMSXOrderType));
             var orderDirection = order.GetFieldValue(BloombergNames.EMSXSide) == "BUY" ? OrderDirection.Buy : OrderDirection.Sell;
-            var timeInForce = ConvertTimeInForce(order.GetFieldValue(BloombergNames.EMSXTif));
+
+            var expiryDateString = order.GetFieldValue(BloombergNames.EMSXGTDDate);
+            var expiryDate = string.IsNullOrEmpty(expiryDateString)
+                ? DateTime.MinValue
+                : DateTime.ParseExact(expiryDateString, "yyyyMMdd", CultureInfo.InvariantCulture);
+
+            var timeInForce = ConvertTimeInForce(order.GetFieldValue(BloombergNames.EMSXTif), expiryDate);
 
             if (orderDirection == OrderDirection.Sell)
             {
@@ -753,10 +767,8 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        private TimeInForce ConvertTimeInForce(string timeInForce)
+        private TimeInForce ConvertTimeInForce(string timeInForce, DateTime expiryDate)
         {
-            // TODO: check time in force values, only DAY is used in documentation examples
-
             switch (timeInForce)
             {
                 case "DAY":
@@ -767,6 +779,15 @@ namespace QuantConnect.Bloomberg
                 case "GTC":
                     return TimeInForce.GoodTilCanceled;
 
+                case "GTD":
+                    return TimeInForce.GoodTilDate(expiryDate);
+
+                case "FOK":
+                case "GTX":
+                case "OPG":
+                case "CLO":
+                case "AUC":
+                case "DAY+":
                 default:
                     throw new NotSupportedException($"Unsupported time in force: {timeInForce}");
             }
@@ -774,8 +795,6 @@ namespace QuantConnect.Bloomberg
 
         private string ConvertTimeInForce(TimeInForce timeInForce)
         {
-            // TODO: check time in force values, only DAY is used in documentation examples
-
             if (timeInForce == TimeInForce.Day)
             {
                 return "DAY";
@@ -784,6 +803,11 @@ namespace QuantConnect.Bloomberg
             if (timeInForce == TimeInForce.GoodTilCanceled)
             {
                 return "GTC";
+            }
+
+            if (timeInForce is GoodTilDateTimeInForce)
+            {
+                return "GTD";
             }
 
             throw new NotSupportedException($"Unsupported time in force: {timeInForce}");

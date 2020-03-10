@@ -18,102 +18,107 @@ namespace QuantConnect.Bloomberg
         /// Value: EMSX_SEQUENCE
         /// </summary>
         public static readonly Name EMSXSequence = new Name("EMSX_SEQUENCE");
-        
+
         /// <summary>
         /// Value: EMSX_ROUTE_ID
         /// </summary>
         public static readonly Name EMSXRouteId = new Name("EMSX_ROUTE_ID");
-        
+
         /// <summary>
         /// Value: EMSX_BROKER
         /// </summary>
         public static readonly Name EMSXBroker = new Name("EMSX_BROKER");
-        
+
         /// <summary>
         /// Value: EMSX_HAND_INSTRUCTION
         /// </summary>
         public static readonly Name EMSXHandInstruction = new Name("EMSX_HAND_INSTRUCTION");
-        
+
         /// <summary>
         /// Value: EMSX_ACCOUNT
         /// </summary>
         public static readonly Name EMSXAccount = new Name("EMSX_ACCOUNT");
-        
+
         /// <summary>
         /// Value: EMSX_NOTES
         /// </summary>
         public static readonly Name EMSXNotes = new Name("EMSX_NOTES");
-        
+
         /// <summary>
         /// Value: EMSX_TICKER
         /// </summary>
         public static readonly Name EMSXTicker = new Name("EMSX_TICKER");
-        
+
         /// <summary>
         /// Value: EMSX_ASSET_CLASS
         /// </summary>
         public static readonly Name EMSXAssetClass = new Name("EMSX_ASSET_CLASS");
-        
+
         /// <summary>
         /// Value: EMSX_ORDER_TYPE
         /// </summary>
         public static readonly Name EMSXOrderType = new Name("EMSX_ORDER_TYPE");
-        
+
         /// <summary>
         /// Value: EMSX_SIDE
         /// </summary>
         public static readonly Name EMSXSide = new Name("EMSX_SIDE");
-        
+
         /// <summary>
         /// Value: EMSX_TIF
         /// </summary>
         public static readonly Name EMSXTif = new Name("EMSX_TIF");
-        
+
+        /// <summary>
+        /// Value: EMSX_GTD_DATE
+        /// </summary>
+        public static readonly Name EMSXGTDDate = new Name("EMSX_GTD_DATE");
+
         /// <summary>
         /// Value: EMSX_STATUS
         /// </summary>
         public static readonly Name EMSXStatus = new Name("EMSX_STATUS");
-        
+
         /// <summary>
         /// Value: EMSX_AMOUNT
         /// </summary>
         public static readonly Name EMSXAmount = new Name("EMSX_AMOUNT");
-        
+
         /// <summary>
         /// Value: EMSX_LIMIT_PRICE
         /// </summary>
         public static readonly Name EMSXLimitPrice = new Name("EMSX_LIMIT_PRICE");
-        
+
         /// <summary>
         /// Value: EMSX_STOP_PRICE
         /// </summary>
         public static readonly Name EMSXStopPrice = new Name("EMSX_STOP_PRICE");
-        
+
         /// <summary>
         /// Value: EMSX_DATE
         /// </summary>
         public static readonly Name EMSXDate = new Name("EMSX_DATE");
-        
+
         /// <summary>
         /// Value: EMSX_TIME_STAMP_MICROSEC
         /// </summary>
         public static readonly Name EMSXTimeStampMicrosec = new Name("EMSX_TIME_STAMP_MICROSEC");
-        
+
         /// <summary>
         /// Value: EMSX_AVG_PRICE
         /// </summary>
         public static readonly Name EMSXAvgPrice = new Name("EMSX_AVG_PRICE");
-        
+
         /// <summary>
         /// Value: EMSX_FILLED
         /// </summary>
         public static readonly Name EMSXFilled = new Name("EMSX_FILLED");
-        
+
         /// <summary>
         /// Value: EMSX_ORDER_REF_ID
         /// </summary>
         public static readonly Name EMSXReferenceOrderIdRequest = new Name("EMSX_ORDER_REF_ID");
-        
+
         /// <summary>
         /// Value: EMSX_ORD_REF_ID
         /// </summary>
@@ -123,7 +128,7 @@ namespace QuantConnect.Bloomberg
         /// Value: EMSX_ROUTE_REF_ID
         /// </summary>
         public static readonly Name EMSXReferenceRouteId = new Name("EMSX_ROUTE_REF_ID");
-        
+
         #endregion EMSX
 
         /// <summary>
@@ -179,7 +184,7 @@ namespace QuantConnect.Bloomberg
         /// Value: CreateOrderAndRouteEx.  'Ex' is the extended method.
         /// </summary>
         public static readonly Name CreateOrderAndRouteEx = new Name("CreateOrderAndRouteEx");
-        
+
         /// <summary>
         /// Value: ModifyOrderEx
         /// </summary>
@@ -189,7 +194,7 @@ namespace QuantConnect.Bloomberg
         /// Value: ModifyRouteEx
         /// </summary>
         public static readonly Name ModifyRouteEx = new Name("ModifyRouteEx");
-        
+
         /// <summary>
         /// Value: CancelOrderEx
         /// </summary>
