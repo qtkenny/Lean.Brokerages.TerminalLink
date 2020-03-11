@@ -260,7 +260,14 @@ namespace QuantConnect.Bloomberg
         /// Value: PX_LAST
         /// </summary>
         public static readonly Name PxLast = new Name("PX_LAST");
+        /// <summary>
+        /// Value: VOLUME
+        /// </summary>
         public static readonly Name Volume = new Name("VOLUME");
+        /// <summary>
+        /// Value: RT_OPEN_INT_DT
+        /// </summary>
+        public static readonly Name OpenInterestDate = new Name("RT_OPEN_INT_DT");
 
         /// <summary>
         /// Value: open

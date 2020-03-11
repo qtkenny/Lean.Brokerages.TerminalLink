@@ -426,6 +426,13 @@ namespace QuantConnect.Bloomberg
                     break;
                 }
 
+                case TickType.OpenInterest:
+                {
+                    var timestamp = GetBloombergFieldValue(message, BloombergNames.OpenInterestDate);
+                    utcTime = DateTime.Parse(timestamp, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
+                    break;
+                }
+
                 default:
                 {
                     var timestamp = GetBloombergFieldValue(message, BloombergNames.BidUpdateStamp);
