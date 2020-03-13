@@ -203,11 +203,11 @@ namespace QuantConnect.Bloomberg
 
         private void OnBloombergMarketDataEvent(Event eventObj, Session session)
         {
-            switch (eventObj.Type)
+            foreach (var message in eventObj.GetMessages())
             {
-                case Event.EventType.SUBSCRIPTION_STATUS:
-                    foreach (var message in eventObj.GetMessages())
-                    {
+                switch (eventObj.Type)
+                {
+                    case Event.EventType.SUBSCRIPTION_STATUS:
                         var prefix = $"BloombergBrokerage.OnBloombergMarketDataEvent(): [{message.TopicName}] ";
                         switch (message.MessageType.ToString())
                         {
@@ -225,13 +225,10 @@ namespace QuantConnect.Bloomberg
                                 break;
                             default: throw new Exception($"Message type is not yet handled: {message.MessageType} [message:{message}]");
                         }
-                    }
 
-                    break;
+                        break;
 
-                case Event.EventType.SUBSCRIPTION_DATA:
-                    foreach (var message in eventObj.GetMessages())
-                    {
+                    case Event.EventType.SUBSCRIPTION_DATA:
                         var eventType = message.GetElement(BloombergNames.MktdataEventType).GetValueAsName();
                         var eventSubtype = message.GetElement(BloombergNames.MktdataEventSubtype).GetValueAsName();
 
@@ -261,12 +258,27 @@ namespace QuantConnect.Bloomberg
                                 Log.Error($"BloombergBrokerage.OnBloombergMarketDataEvent(): Correlation Id not found: {correlationId} [message topic:{message.TopicName}]");
                             }
                         }
-                    }
 
-                    break;
-                default: 
-                    Log.Error("Unhandled event type: {0}, event:{1}", eventObj.Type, eventObj);
-                    break;
+                        break;
+                    case Event.EventType.TOPIC_STATUS:
+                    case Event.EventType.SESSION_STATUS:
+                    case Event.EventType.AUTHORIZATION_STATUS:
+                    case Event.EventType.RESOLUTION_STATUS:
+                    case Event.EventType.TOKEN_STATUS:
+                    case Event.EventType.REQUEST_STATUS:
+                    case Event.EventType.SERVICE_STATUS:
+                        Log.Trace("BloombergBrokerage.OnBloombergMarketDataEvent(): {0} = {1}", eventObj.Type, message.MessageType.ToString());
+                        break;
+                    case Event.EventType.PARTIAL_RESPONSE: break;
+                    case Event.EventType.RESPONSE: break;
+                    case Event.EventType.REQUEST:
+                        // Market doesn't currently perform any request / responses.
+                        Log.Error("BloombergBrokerage.OnBloombergMarketDataEvent(): Unhandled event {0}: {1} - {2}", eventObj.Type, message.MessageType.ToString(), message);
+                        break;
+                    default:
+                        Log.Trace("Warning - unhandled event type: {0}, event:{1}", eventObj.Type, eventObj);
+                        break;
+                }
             }
         }
 
