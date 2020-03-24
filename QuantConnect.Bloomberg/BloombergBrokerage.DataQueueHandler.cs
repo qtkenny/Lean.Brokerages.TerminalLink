@@ -236,7 +236,14 @@ namespace QuantConnect.Bloomberg
                         {
                             if (_subscriptionDataByCorrelationId.TryGetValue(correlationId, out var data))
                             {
-                                if (Equals(eventType, BloombergNames.Quote))
+                                if (Equals(eventType, BloombergNames.Summary))
+                                {
+                                    if (Equals(eventSubtype, BloombergNames.InitPaint))
+                                    {
+                                        EmitQuoteTick(message, data, eventSubtype);
+                                    }
+                                }
+                                else if (Equals(eventType, BloombergNames.Quote))
                                 {
                                     if (Equals(eventSubtype, BloombergNames.Bid) || Equals(eventSubtype, BloombergNames.Ask))
                                     {
@@ -420,8 +427,26 @@ namespace QuantConnect.Bloomberg
             {
                 case TickType.Quote:
                 {
-                    var timestamp = GetBloombergFieldValue(message, 
-                        Equals(eventSubtype, BloombergNames.Bid) ? BloombergNames.BidUpdateStamp : BloombergNames.AskUpdateStamp);
+                    Name bloombergName = null;
+                    if (Equals(eventSubtype, BloombergNames.Bid))
+                    {
+                        bloombergName = BloombergNames.BidUpdateStamp;
+                    }
+                    else if (Equals(eventSubtype, BloombergNames.Ask))
+                    {
+                        bloombergName = BloombergNames.AskUpdateStamp;
+                    }
+                    else if (Equals(eventSubtype, BloombergNames.InitPaint))
+                    {
+                        bloombergName = BloombergNames.BidAskTime;
+                    }
+
+                    if (bloombergName == null)
+                    {
+                        throw new ArgumentException($"Invalid eventSubType: {eventSubtype}");
+                    }
+
+                    var timestamp = GetBloombergFieldValue(message, bloombergName);
                     utcTime = DateTime.Parse(timestamp, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
                     break;
                 }
