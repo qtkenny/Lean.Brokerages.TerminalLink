@@ -61,9 +61,7 @@ namespace QuantConnect.Bloomberg
 
         private IEnumerable<Symbol> GetChain(string ticker, SecurityType securityType)
         {
-            var chainFieldName = securityType == SecurityType.Future
-                ? BloombergFieldNames.FuturesChain
-                : BloombergFieldNames.OptionsChain;
+            var chainFieldName = securityType == SecurityType.Future ? BloombergFieldNames.FuturesChain : BloombergFieldNames.OptionsChain;
 
             var request = _serviceReferenceData.CreateRequest("ReferenceDataRequest");
 
@@ -85,51 +83,43 @@ namespace QuantConnect.Bloomberg
             element.SetElement("fieldId", "CHAIN_EXP_DT_OVRD");
             element.SetElement("value", "ALL");
 
-            var correlationId = GetNewCorrelationId();
-            _sessionReferenceData.SendRequest(request, correlationId);
+            var responses = _sessionReferenceData.SendRequestSynchronous(request);
 
-            while (true)
+            foreach (var msg in responses)
             {
-                var eventObj = _sessionReferenceData.NextEvent();
-                foreach (var msg in eventObj.Where(m => Equals(m.CorrelationID, correlationId)))
+                // Security data is an array.
+                var securityData = msg.AsElement[BloombergNames.SecurityData];
+                for (var i = 0; i < securityData.NumValues; i++)
                 {
-                    // Security data is an array.
-                    var securityData = msg.AsElement[BloombergNames.SecurityData];
-                    for (var i = 0; i < securityData.NumValues; i++)
+                    var securityItem = (Element) securityData.GetValue(i);
+                    if (securityItem.HasElement("securityError"))
                     {
-                        var securityItem = (Element) securityData.GetValue(i);
-                        if (securityItem.HasElement("securityError"))
-                        {
-                            var error = securityItem["securityError"];
-                            var message = error["message"];
-                            Log.Error($"Unable to obtain chain for '{ticker}': {message}");
-                            yield break;
-                        }
-
-                        var fieldData = securityItem[BloombergNames.FieldData];
-                        if (fieldData.HasElement(chainFieldName, true))
-                        {
-                            var chainTickers = fieldData.GetElement(chainFieldName);
-                            for (var index = 0; index < chainTickers.NumValues; index++)
-                            {
-                                var chainTicker = chainTickers.GetValueAsElement(index);
-                                var contractTicker = chainTicker.GetElementAsString("Security Description");
-
-                                Log.Trace($"BloombergBrokerage.GetChain(): BBG contract ticker: {contractTicker}");
-
-                                var contractSymbol = _symbolMapper.GetLeanSymbol(contractTicker, securityType);
-
-                                Log.Trace($"BloombergBrokerage.GetChain(): LEAN symbol: {contractSymbol.Value} [{contractSymbol}]");
-
-                                yield return contractSymbol;
-                            }
-                        }
+                        var error = securityItem["securityError"];
+                        var message = error["message"];
+                        Log.Error($"Unable to obtain chain for '{ticker}': {message}");
+                        yield break;
                     }
-                }
 
-                if (eventObj.Type == Event.EventType.RESPONSE)
-                {
-                    yield break;
+                    var fieldData = securityItem[BloombergNames.FieldData];
+                    if (!fieldData.HasElement(chainFieldName, true))
+                    {
+                        continue;
+                    }
+
+                    var chainTickers = fieldData.GetElement(chainFieldName);
+                    for (var index = 0; index < chainTickers.NumValues; index++)
+                    {
+                        var chainTicker = chainTickers.GetValueAsElement(index);
+                        var contractTicker = chainTicker.GetElementAsString("Security Description");
+
+                        Log.Trace($"BloombergBrokerage.GetChain(): BBG contract ticker: {contractTicker}");
+
+                        var contractSymbol = _symbolMapper.GetLeanSymbol(contractTicker, securityType);
+
+                        Log.Trace($"BloombergBrokerage.GetChain(): LEAN symbol: {contractSymbol.Value} [{contractSymbol}]");
+
+                        yield return contractSymbol;
+                    }
                 }
             }
         }
