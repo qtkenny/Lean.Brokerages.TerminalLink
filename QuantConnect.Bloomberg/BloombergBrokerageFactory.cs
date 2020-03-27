@@ -79,8 +79,10 @@ namespace QuantConnect.Bloomberg
                 throw new Exception(string.Join(System.Environment.NewLine, errors));
             }
 
-            var brokerage = new BloombergBrokerage(algorithm.Transactions, apiType, environment, new BloombergSymbolMapper(symbolMapFile), serverHost, serverPort);
+            var symbolMapper = new BloombergSymbolMapper(symbolMapFile);
+            var brokerage = new BloombergBrokerage(algorithm.Transactions, apiType, environment, symbolMapper, serverHost, serverPort);
             Composer.Instance.AddPart<IDataQueueHandler>(brokerage);
+            Composer.Instance.AddPart<ISymbolMapper>(symbolMapper);
 
             return brokerage;
         }
