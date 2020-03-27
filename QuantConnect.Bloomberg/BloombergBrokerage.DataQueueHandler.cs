@@ -87,14 +87,19 @@ namespace QuantConnect.Bloomberg
         {
             var subscriptions = RemoveExistingBloombergSubscriptions(symbols);
 
-            if (subscriptions.Count > 0)
+            if (subscriptions.Count == 0)
             {
-                foreach (var subscription in subscriptions)
-                {
-                    Log.Trace($"BloombergBrokerage.Unsubscribe(): {subscription.SubscriptionString}");
-                }
+                return;
+            }
 
+            Log.Trace($"BloombergBrokerage.Unsubscribe(): Count={subscriptions.Count}: {string.Join(",", subscriptions.Select(x => x.SubscriptionString))}");
+            try
+            {
                 _sessionMarketData.Unsubscribe(subscriptions);
+            }
+            catch (Exception e)
+            {
+                Log.Error(e, "Warning - An exception was thrown when unsubscribing from market data");
             }
         }
 
