@@ -38,11 +38,9 @@ namespace QuantConnect.Bloomberg
             }
 
             Log.Trace($"BloombergBrokerage.LookupSymbols(): Requesting symbol list for {lookupName} ...");
-
-            var canonicalSymbol = Symbol.Create(lookupName, securityType, Market.USA);
-            var ticker = _symbolMapper.GetBrokerageSymbol(canonicalSymbol);
-
-            var symbols = GetChain(ticker, securityType).ToList();
+            var market = _symbolMapper.GetMarket(lookupName) ?? Market.USA;
+            var canonicalSymbol = Symbol.Create(lookupName, securityType, market);
+            var symbols = GetChain(canonicalSymbol, securityType).ToList();
 
             Log.Trace($"BloombergBrokerage.LookupSymbols(): Returning {symbols.Count} contract(s) for {lookupName}");
 
@@ -59,8 +57,29 @@ namespace QuantConnect.Bloomberg
             return true;
         }
 
-        private IEnumerable<Symbol> GetChain(string ticker, SecurityType securityType)
+        private IEnumerable<Symbol> GetChain(Symbol canonicalSymbol, SecurityType securityType)
         {
+            var chain = _symbolMapper.GetManualChain(canonicalSymbol);
+            if (chain == null || chain.Length == 0)
+            {
+                chain = GetChainFromBloomberg(canonicalSymbol, securityType).ToArray();
+            }
+
+            foreach (var contractTicker in chain)
+            {
+                Log.Trace($"BloombergBrokerage.GetChain(): BBG contract ticker: {contractTicker}");
+
+                var contractSymbol = _symbolMapper.GetLeanSymbol(contractTicker, securityType);
+
+                Log.Trace($"BloombergBrokerage.GetChain(): LEAN symbol: {contractSymbol.Value} [{contractSymbol}]");
+
+                yield return contractSymbol;
+            }
+        }
+
+        private IEnumerable<string> GetChainFromBloomberg(Symbol canonicalSymbol, SecurityType securityType)
+        {
+            var ticker = _symbolMapper.GetBrokerageSymbol(canonicalSymbol);
             var chainFieldName = securityType == SecurityType.Future ? BloombergFieldNames.FuturesChain : BloombergFieldNames.OptionsChain;
 
             var request = _serviceReferenceData.CreateRequest("ReferenceDataRequest");
@@ -111,14 +130,7 @@ namespace QuantConnect.Bloomberg
                     {
                         var chainTicker = chainTickers.GetValueAsElement(index);
                         var contractTicker = chainTicker.GetElementAsString("Security Description");
-
-                        Log.Trace($"BloombergBrokerage.GetChain(): BBG contract ticker: {contractTicker}");
-
-                        var contractSymbol = _symbolMapper.GetLeanSymbol(contractTicker, securityType);
-
-                        Log.Trace($"BloombergBrokerage.GetChain(): LEAN symbol: {contractSymbol.Value} [{contractSymbol}]");
-
-                        yield return contractSymbol;
+                        yield return contractTicker;
                     }
                 }
             }

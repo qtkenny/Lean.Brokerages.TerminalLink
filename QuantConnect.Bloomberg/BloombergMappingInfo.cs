@@ -31,7 +31,13 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         public string Alias { get; set; }
 
-        #region Futures
+        #region Futures & Options
+
+        /// <summary>
+        ///     (Optional) Allows the exact Bloomberg futures / options chain to be specified.
+        ///     This will be used over querying Bloomberg itself for the contents of the chain.
+        /// </summary>
+        public string[] Chain { get; set; }
 
         /// <summary>
         /// The suffix used to obtain the BBG ticker (e.g. "COMB Comdty")

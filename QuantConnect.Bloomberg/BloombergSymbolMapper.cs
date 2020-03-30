@@ -135,6 +135,16 @@ namespace QuantConnect.Bloomberg
             return GetLeanSymbol(brokerageSymbol);
         }
 
+        public string[] GetManualChain(Symbol symbol)
+        {
+            return TryLookupMappingInfo(symbol, out var mappingInfo) && mappingInfo.Value.Chain?.Length > 0 ? mappingInfo.Value.Chain : null;
+        }
+
+        public string GetMarket(string canonicalSymbol)
+        {
+            return TryLookupMappingInfo(canonicalSymbol, out var mappingInfo) && !string.IsNullOrWhiteSpace(mappingInfo.Value.Market) ? mappingInfo.Value.Market : null;
+        }
+
         /// <summary>
         /// Converts a Bloomberg symbol to a Lean symbol instance
         /// </summary>
@@ -167,6 +177,17 @@ namespace QuantConnect.Bloomberg
 
         public Dictionary<string, BloombergMappingInfo> MappingInfo { get; }
 
+        private bool TryLookupMappingInfo(Symbol symbol, out KeyValuePair<string, BloombergMappingInfo> mappingInfo)
+        {
+            return TryLookupMappingInfo(symbol.ID.Symbol, out mappingInfo);
+        }
+
+        private bool TryLookupMappingInfo(string underlying, out KeyValuePair<string, BloombergMappingInfo> mappingInfo)
+        {
+            mappingInfo = MappingInfo.FirstOrDefault(x => x.Value.Underlying == underlying);
+            return mappingInfo.Value != null;
+        }
+
         private string GetBloombergTopicName(Symbol symbol)
         {
             if (symbol.SecurityType == SecurityType.Future)
@@ -194,8 +215,7 @@ namespace QuantConnect.Bloomberg
 
         private string BuildFutureTickerFromLeanSymbol(Symbol symbol)
         {
-            var entry = MappingInfo.FirstOrDefault(x => x.Value.Underlying == symbol.ID.Symbol);
-            if (entry.Value == null)
+            if (!TryLookupMappingInfo(symbol, out var entry))
             {
                 throw new Exception($"Lean ticker not found: {symbol.Value}");
             }
