@@ -11,7 +11,7 @@ namespace QuantConnect.BloombergTests
 {
     public static class BloombergCommon
     {
-        public static BloombergBrokerage CreateBrokerage(IOrderProvider orderProvider = null, ISecurityProvider securityProvider = null)
+        public static BloombergBrokerage CreateBrokerage(IOrderProvider orderProvider = null)
         {
             var apiType = Config.Get("bloomberg-api-type", ApiType.Desktop.ToString()).ConvertTo<ApiType>();
             var environment = Config.Get("bloomberg-environment", Environment.Beta.ToString()).ConvertTo<Environment>();
@@ -19,7 +19,7 @@ namespace QuantConnect.BloombergTests
             var serverPort = Config.GetInt("bloomberg-server-port", 8194);
 
             var symbolMapper = new BloombergSymbolMapper(Config.Get("bloomberg-symbol-map-file"));
-            return new BloombergBrokerage(orderProvider, apiType, environment, symbolMapper, serverHost, serverPort);
+            return new BloombergBrokerage(orderProvider, apiType, environment, serverHost, serverPort, symbolMapper);
         }
     }
 }

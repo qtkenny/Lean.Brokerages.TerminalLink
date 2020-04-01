@@ -19,13 +19,14 @@ using QuantConnect.Orders;
 using QuantConnect.Orders.Fees;
 using QuantConnect.Orders.TimeInForces;
 using QuantConnect.Securities;
+using QuantConnect.Util;
 
 namespace QuantConnect.Bloomberg
 {
     /// <summary>
     /// An implementation of <see cref="IBrokerage"/> for Bloomberg
     /// </summary>
-    public partial class BloombergBrokerage : Brokerage, IDataQueueHandler
+    public sealed partial class BloombergBrokerage : Brokerage, IDataQueueHandler
     {
         private readonly string _serverHost;
         private readonly int _serverPort;
@@ -41,11 +42,13 @@ namespace QuantConnect.Bloomberg
         private readonly Session _sessionReferenceData;
         private readonly Session _sessionEms;
         private static long _nextCorrelationId;
+        private readonly bool _isBroker;
 
         private Service _serviceEms;
         private Service _serviceReferenceData;
 
         private readonly IBloombergSymbolMapper _symbolMapper;
+        private readonly SessionOptions _sessionOptions;
 
         private readonly SchemaFieldDefinitions _orderFieldDefinitions = new SchemaFieldDefinitions();
         private readonly SchemaFieldDefinitions _routeFieldDefinitions = new SchemaFieldDefinitions();
@@ -57,29 +60,22 @@ namespace QuantConnect.Bloomberg
         private OrderSubscriptionHandler _orderSubscriptionHandler;
         private bool _isConnected;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="BloombergBrokerage"/> class
-        /// </summary>
-        public BloombergBrokerage(IOrderProvider orderProvider, ApiType apiType, Environment environment,
-            IBloombergSymbolMapper symbolMapper, string serverHost, int serverPort)
-            : base("Bloomberg brokerage")
+        public BloombergBrokerage() : this(Config.GetValue<ApiType>("bloomberg-api-type"), Config.GetValue<Environment>("bloomberg-environment"),
+            Config.Get("bloomberg-server-host"), Config.GetInt("bloomberg-server-port"), new BloombergSymbolMapper(Config.Get("bloomberg-symbol-map-file")))
         {
-            _orderProvider = orderProvider;
+            _isBroker = false;
+            Connect();
+        }
+
+        private BloombergBrokerage(ApiType apiType, Environment environment, string serverHost, int serverPort, IBloombergSymbolMapper symbolMapper) : base("Bloomberg brokerage")
+        {
             _symbolMapper = symbolMapper;
+            Composer.Instance.AddPart<ISymbolMapper>(symbolMapper);
 
             ApiType = apiType;
             Environment = environment;
             _serverHost = serverHost;
             _serverPort = serverPort;
-
-            _userTimeZone = DateTimeZoneProviders.Tzdb[Config.GetValue("bloomberg-emsx-user-time-zone", TimeZones.Utc.Id)];
-            _broker = Config.GetValue<string>("bloomberg-emsx-broker") ?? throw new Exception("EMSX requries a broker");
-            _account = Config.GetValue<string>("bloomberg-emsx-account");
-            _strategy = Config.GetValue<string>("bloomberg-emsx-strategy");
-            _notes = Config.GetValue<string>("bloomberg-emsx-notes");
-            _handlingInstruction = Config.GetValue<string>("bloomberg-emsx-handling");
-            _execution = Config.GetBool("bloomberg-execution");
-            _allowModification = Config.GetBool("bloomberg-allow-modification");
 
             _marketHoursDatabase = MarketHoursDatabase.FromDataFolder();
 
@@ -88,15 +84,30 @@ namespace QuantConnect.Bloomberg
                 throw new NotSupportedException("Only the Desktop API is supported for now.");
             }
 
-            var sessionOptions = new SessionOptions
-            {
-                ServerHost = serverHost,
-                ServerPort = serverPort
-            };
+            _sessionOptions = new SessionOptions {ServerHost = serverHost, ServerPort = serverPort};
 
-            _sessionEms = new Session(sessionOptions, OnBloombergEvent);
-            _sessionMarketData = new Session(sessionOptions, OnBloombergMarketDataEvent);
-            _sessionReferenceData = new Session(sessionOptions);
+            _sessionMarketData = new Session(_sessionOptions, OnBloombergMarketDataEvent);
+            _sessionReferenceData = new Session(_sessionOptions);
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BloombergBrokerage"/> class
+        /// </summary>
+        public BloombergBrokerage(IOrderProvider orderProvider, ApiType apiType, Environment environment, string serverHost, int serverPort, IBloombergSymbolMapper symbolMapper) :
+            this(apiType, environment, serverHost, serverPort, symbolMapper)
+        {
+            _isBroker = true;
+            _orderProvider = orderProvider;
+            
+            _userTimeZone = DateTimeZoneProviders.Tzdb[Config.GetValue("bloomberg-emsx-user-time-zone", TimeZones.Utc.Id)];
+            _broker = Config.GetValue<string>("bloomberg-emsx-broker") ?? throw new Exception("EMSX requries a broker");
+            _account = Config.GetValue<string>("bloomberg-emsx-account");
+            _strategy = Config.GetValue<string>("bloomberg-emsx-strategy");
+            _notes = Config.GetValue<string>("bloomberg-emsx-notes");
+            _handlingInstruction = Config.GetValue<string>("bloomberg-emsx-handling");
+            _execution = Config.GetBool("bloomberg-execution");
+            _allowModification = Config.GetBool("bloomberg-allow-modification");
+            _sessionEms = new Session(_sessionOptions, OnBloombergEvent);
         }
 
         internal BloombergOrders Orders { get; private set; }
@@ -128,20 +139,24 @@ namespace QuantConnect.Bloomberg
                 return;
             }
 
-            Log.Trace($"BloombergBrokerage.Connect(): Starting EMS session: {_serverHost}:{_serverPort}:{Environment}.");
-            if (!_sessionEms.Start())
+            if (_isBroker)
             {
-                throw new Exception("Unable to start EMS session.");
-            }
+                Log.Trace($"BloombergBrokerage.Connect(): Starting EMS session: {_serverHost}:{_serverPort}:{Environment}.");
+                if (!_sessionEms.Start())
+                {
+                    throw new Exception("Unable to start EMS session.");
+                }
 
-            Log.Trace("BloombergBrokerage.Connect(): Opening EMS service.");
-            var emsServiceName = GetServiceName(ServiceType.Ems);
-            if (!_sessionEms.OpenService(emsServiceName))
-            {
-                _sessionEms.Stop();
-                throw new Exception("Unable to open EMS service.");
+                Log.Trace("BloombergBrokerage.Connect(): Opening EMS service.");
+                var emsServiceName = GetServiceName(ServiceType.Ems);
+                if (!_sessionEms.OpenService(emsServiceName))
+                {
+                    _sessionEms.Stop();
+                    throw new Exception("Unable to open EMS service.");
+                }
+
+                _serviceEms = _sessionEms.GetService(emsServiceName);
             }
-            _serviceEms = _sessionEms.GetService(emsServiceName);
 
             // Initialize Market Data
             Log.Trace($"BloombergBrokerage(): Starting market data session: {_serverHost}:{_serverPort}:{Environment}.");
@@ -171,19 +186,22 @@ namespace QuantConnect.Bloomberg
             }
             _serviceReferenceData = _sessionReferenceData.GetService(referenceDataServiceName);
 
-            InitializeFieldData();
+            if (_isBroker)
+            {
+                InitializeEmsxFieldData();
+                Orders = new BloombergOrders(_orderFieldDefinitions);
+                _orderSubscriptionHandler = new OrderSubscriptionHandler(this, _orderProvider, Orders);
+                if (_execution)
+                {
+                    SubscribeToEmsx();
+                    _blotterInitializedEvent.Wait();
+                }
+                else
+                {
+                    Log.Debug("Not subscribing to order events - execution is disabled.");
+                }
+            }
 
-            Orders = new BloombergOrders(_orderFieldDefinitions);
-            _orderSubscriptionHandler = new OrderSubscriptionHandler(this, _orderProvider, Orders);
-            if (_execution)
-            {
-                SubscribeToEmsx();
-                _blotterInitializedEvent.Wait();
-            }
-            else
-            {
-                Log.Debug("Not subscribing to order events - execution is disabled.");
-            }
             _isConnected = true;
         }
 
@@ -449,7 +467,7 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        private void InitializeFieldData()
+        private void InitializeEmsxFieldData()
         {
             _orderFieldDefinitions.Clear();
             _routeFieldDefinitions.Clear();

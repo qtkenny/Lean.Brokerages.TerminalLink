@@ -61,8 +61,8 @@ namespace QuantConnect.BloombergTests
         {
             // Ensure the log handler is still attached.
             Log.LogHandler = FixtureLogHandler;
-            _underTest = new BloombergBrokerage(MockOrderProvider.Object, ApiType.Desktop, Environment.Beta, MockBloombergSymbolMapper.Object,
-                Config.GetValue<string>("bloomberg-server-host"), Config.GetValue<int>("bloomberg-server-port"));
+            _underTest = new BloombergBrokerage(MockOrderProvider.Object, ApiType.Desktop, Environment.Beta, Config.GetValue<string>("bloomberg-server-host"),
+                Config.GetValue<int>("bloomberg-server-port"), MockBloombergSymbolMapper.Object);
             _underTest.Connect();
         }
 

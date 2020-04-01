@@ -21,9 +21,9 @@ namespace QuantConnect.BloombergTests
         /// Creates the brokerage under test and connects it
         /// </summary>
         /// <returns>A connected brokerage instance</returns>
-        protected override IBrokerage CreateBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider)
+        protected override IBrokerage CreateBrokerage(IOrderProvider orderProvider, ISecurityProvider _)
         {
-            return BloombergCommon.CreateBrokerage(orderProvider, securityProvider);
+            return BloombergCommon.CreateBrokerage(orderProvider);
         }
 
         /// <summary>

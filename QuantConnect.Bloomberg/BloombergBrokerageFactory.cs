@@ -80,9 +80,8 @@ namespace QuantConnect.Bloomberg
             }
 
             var symbolMapper = new BloombergSymbolMapper(symbolMapFile);
-            var brokerage = new BloombergBrokerage(algorithm.Transactions, apiType, environment, symbolMapper, serverHost, serverPort);
+            var brokerage = new BloombergBrokerage(algorithm.Transactions, apiType, environment, serverHost, serverPort, symbolMapper);
             Composer.Instance.AddPart<IDataQueueHandler>(brokerage);
-            Composer.Instance.AddPart<ISymbolMapper>(symbolMapper);
 
             return brokerage;
         }
