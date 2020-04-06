@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using Bloomberglp.Blpapi;
+using QuantConnect.Brokerages;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;
 using QuantConnect.Interfaces;
@@ -99,7 +100,8 @@ namespace QuantConnect.Bloomberg
             }
             catch (Exception e)
             {
-                Log.Error(e, "Warning - An exception was thrown when unsubscribing from market data");
+                Log.Error(e,
+                    $"Failed to unsubscribe from market data cleanly [{subscriptions.Count} subscriptions: {string.Join(",", subscriptions.Select(x => x.SubscriptionString))}]");
             }
         }
 
@@ -223,12 +225,17 @@ namespace QuantConnect.Bloomberg
                                 Log.Trace(prefix + "subscription activated");
                                 break;
                             case "SubscriptionTerminated":
-                                Log.Trace(prefix + "subscription terminated");
+                                Log.Error(prefix + "subscription terminated");
+                                HandleError(BrokerageMessageType.Disconnect, message);
                                 break;
                             case "SubscriptionFailure":
                                 Log.Error($"{prefix}subscription failed: {DescribeCorrelationIds(message.CorrelationIDs)}{message}");
+                                HandleError(BrokerageMessageType.Error, message);
                                 break;
-                            default: throw new Exception($"Message type is not yet handled: {message.MessageType} [message:{message}]");
+                            default: 
+                                Log.Error($"Message type is not yet handled: {message.MessageType} [message:{message}]");
+                                HandleError(BrokerageMessageType.Error, message);
+                                break;
                         }
 
                         break;
@@ -268,27 +275,13 @@ namespace QuantConnect.Bloomberg
                             else
                             {
                                 Log.Error($"BloombergBrokerage.OnBloombergMarketDataEvent(): Correlation Id not found: {correlationId} [message topic:{message.TopicName}]");
+                                HandleError(BrokerageMessageType.Error, message);
                             }
                         }
 
                         break;
-                    case Event.EventType.TOPIC_STATUS:
-                    case Event.EventType.SESSION_STATUS:
-                    case Event.EventType.AUTHORIZATION_STATUS:
-                    case Event.EventType.RESOLUTION_STATUS:
-                    case Event.EventType.TOKEN_STATUS:
-                    case Event.EventType.REQUEST_STATUS:
-                    case Event.EventType.SERVICE_STATUS:
-                        Log.Trace("BloombergBrokerage.OnBloombergMarketDataEvent(): {0} = {1}", eventObj.Type, message.MessageType.ToString());
-                        break;
-                    case Event.EventType.PARTIAL_RESPONSE: break;
-                    case Event.EventType.RESPONSE: break;
-                    case Event.EventType.REQUEST:
-                        // Market doesn't currently perform any request / responses.
-                        Log.Error("BloombergBrokerage.OnBloombergMarketDataEvent(): Unhandled event {0}: {1} - {2}", eventObj.Type, message.MessageType.ToString(), message);
-                        break;
                     default:
-                        Log.Trace("Warning - unhandled event type: {0}, event:{1}", eventObj.Type, eventObj);
+                        Log.Trace("BloombergBrokerage.OnBloombergMarketDataEvent(): Unhandled event type: {0}, message:{1}", eventObj.Type, message);
                         break;
                 }
             }
@@ -406,11 +399,11 @@ namespace QuantConnect.Bloomberg
             return $"bbg:{bbgTicker}|lean:{key.Symbol.Value}";
         }
 
-        private T GetBloombergFieldValue<T>(Message message, string field) where T : new()
+        private static T GetBloombergFieldValue<T>(Message message, string field) where T : new()
         {
             if (!message.HasElement(field, true))
             {
-                return default(T);
+                return default;
             }
 
             var element = message[field];
@@ -420,12 +413,12 @@ namespace QuantConnect.Bloomberg
             return value;
         }
 
-        private string GetBloombergFieldValue(Message message, Name field)
+        private static string GetBloombergFieldValue(Message message, Name field)
         {
             return message.HasElement(field, true) ? message[field.ToString()].GetValue().ToString() : string.Empty;
         }
 
-        private DateTime GetTickTime(Message message, BloombergSubscriptionData data, TickType tickType, Name eventSubtype = null)
+        private static DateTime GetTickTime(Message message, BloombergSubscriptionData data, TickType tickType, Name eventSubtype = null)
         {
             DateTime utcTime;
             switch (tickType)

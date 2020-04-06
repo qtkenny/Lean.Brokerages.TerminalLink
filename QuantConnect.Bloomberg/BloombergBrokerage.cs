@@ -211,7 +211,34 @@ namespace QuantConnect.Bloomberg
         public override void Disconnect()
         {
             Log.Trace("BloombergBrokerage.Disconnect(): Stopping EMS session.");
-            _sessionEms?.Stop();
+            try
+            {
+                _sessionEms?.Stop();
+            }
+            catch (Exception e)
+            {
+                Log.Error(e, "Unable to stop the EMS session cleanly.");
+            }
+
+            try
+            {
+                _sessionMarketData?.Stop();
+            }
+            catch (Exception e)
+            {
+                Log.Error(e, "Unable to stop the market data session cleanly.");
+            }
+
+            try
+            {
+                _sessionReferenceData?.Stop();
+            }
+            catch (Exception e)
+            {
+                Log.Error(e, "Unable to stop the reference data session cleanly.");
+            }
+
+            _isConnected = false;
         }
 
         /// <summary>
@@ -539,7 +566,7 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        private static void ProcessSessionEvent(Event @event, Session session)
+        private void ProcessSessionEvent(Event @event, Session session)
         {
             foreach (var message in @event)
             {
@@ -549,11 +576,13 @@ namespace QuantConnect.Bloomberg
                 }
                 else if (message.MessageType.Equals(BloombergNames.SessionStartupFailure))
                 {
-                    Log.Trace("BloombergBrokerage.ProcessSessionEvent(): Session startup failure.");
+                    Log.Error("BloombergBrokerage.ProcessSessionEvent(): Session startup failure.");
+                    HandleError(BrokerageMessageType.Error, message);
                 }
                 else if (message.MessageType.Equals(BloombergNames.SessionTerminated))
                 {
-                    Log.Trace("BloombergBrokerage.ProcessSessionEvent(): Session terminated.");
+                    Log.Error("BloombergBrokerage.ProcessSessionEvent(): Session terminated.");
+                    HandleError(BrokerageMessageType.Disconnect, message);
                 }
                 else if (message.MessageType.Equals(BloombergNames.SessionConnectionUp))
                 {
@@ -568,6 +597,16 @@ namespace QuantConnect.Bloomberg
                     Log.Trace($"BloombergBrokerage.ProcessSessionEvent(): Unknown message type: '{message.MessageType}': {message}");
                 }
             }
+        }
+
+        private void HandleError(BrokerageMessageType type, Message message)
+        {
+            if (message == null)
+            {
+                throw new ArgumentNullException(nameof(message));
+            }
+
+            OnMessage(new BrokerageMessageEvent(type, string.Empty, $"Received '{message.MessageType}' - {message}"));
         }
 
         private static void ProcessServiceEvent(Event @event, Session session)
