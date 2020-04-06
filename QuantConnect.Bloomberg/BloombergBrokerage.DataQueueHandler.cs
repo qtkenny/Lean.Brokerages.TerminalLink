@@ -403,7 +403,7 @@ namespace QuantConnect.Bloomberg
         {
             if (!message.HasElement(field, true))
             {
-                return default;
+                return default(T);
             }
 
             var element = message[field];
