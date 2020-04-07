@@ -88,11 +88,10 @@ namespace QuantConnect.Bloomberg
             {
                 ServerHost = serverHost,
                 ServerPort = serverPort,
-
                 AutoRestartOnDisconnection = true,
-
                 // BLPAPI uses int.MaxValue internally to reconnect indefinitely
-                NumStartAttempts = int.MaxValue
+                NumStartAttempts = int.MaxValue,
+                KeepaliveEnabled = true
             };
 
             _sessionMarketData = new Session(_sessionOptions, OnBloombergMarketDataEvent);
