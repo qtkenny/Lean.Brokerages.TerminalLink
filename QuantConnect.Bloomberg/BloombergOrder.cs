@@ -4,64 +4,101 @@
 */
 
 using System;
-using System.Globalization;
-using System.Linq;
 using Bloomberglp.Blpapi;
 
 namespace QuantConnect.Bloomberg
 {
     public class BloombergOrder
     {
-        private readonly BloombergFields _fields;
+        private readonly BloombergFields _orderFields;
+        private readonly BloombergFields _routeFields;
 
         public int Sequence { get; }
 
         public bool IsLeanOrder =>
-            !string.IsNullOrWhiteSpace(GetFieldValue(BloombergNames.EMSXReferenceOrderIdResponse))
-            && !string.IsNullOrWhiteSpace(GetFieldValue(BloombergNames.EMSXReferenceRouteId));
+            !string.IsNullOrWhiteSpace(GetFieldValue(SubType.Order, BloombergNames.EMSXReferenceOrderIdResponse)) &&
+            !string.IsNullOrWhiteSpace(GetFieldValue(SubType.Route, BloombergNames.EMSXReferenceRouteId));
 
-        public string Status => GetFieldValue(BloombergNames.EMSXStatus);
-        public decimal Amount => GetFieldValueDecimal(BloombergNames.EMSXAmount);
+        // Use the route for the status, as the parent can report back being partially filled, but the route is cancelled.
+        public string Status => GetFieldValue(SubType.Route, BloombergNames.EMSXStatus);
 
-        public BloombergOrder(SchemaFieldDefinitions orderFieldDefinitions, int sequence)
+        public decimal Amount => GetFieldValueDecimal(SubType.Route, BloombergNames.EMSXAmount);
+
+        public decimal Filled => GetFieldValueDecimal(SubType.Route, BloombergNames.EMSXFilled);
+
+        public BloombergOrder(SchemaFieldDefinitions orderFieldDefinitions, SchemaFieldDefinitions routeFieldDefinitions, int sequence)
         {
-            _fields = new BloombergFields(orderFieldDefinitions);
+            _orderFields = new BloombergFields(orderFieldDefinitions);
+            _routeFields = new BloombergFields(routeFieldDefinitions);
             Sequence = sequence;
         }
 
-        public string GetFieldValue(string name)
+        public string GetFieldValue(SubType subType, string name)
         {
-            return GetField(name)?.CurrentValue;
+            return GetField(subType, name)?.CurrentValue;
         }
 
-        public string GetFieldValue(Name name)
+        public string GetFieldValue(SubType subType, Name name)
         {
-            return GetFieldValue(name.ToString());
+            return GetFieldValue(subType, name.ToString());
         }
 
-        public decimal GetFieldValueDecimal(string name)
+        public decimal GetFieldValueDecimal(SubType subType, string name)
         {
-            return Convert.ToDecimal(GetFieldValue(name), CultureInfo.InvariantCulture);
+            var value = GetFieldValue(subType, name);
+            if (value == null)
+            {
+                throw new ArgumentException($"Expected numeric field was null (field:{name})");
+            }
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return 0;
+            }
+
+            return decimal.TryParse(value, out var result) ? result : throw new ArgumentException($"Unable to parse numeric field '{name}', value:{value}");
         }
 
-        public decimal GetFieldValueDecimal(Name name)
+        public decimal GetFieldValueDecimal(SubType subType, Name name)
         {
-            return GetFieldValueDecimal(name.ToString());
+            if (name == null)
+            {
+                throw new ArgumentNullException(nameof(name));
+            }
+
+            return GetFieldValueDecimal(subType, name.ToString());
         }
 
-        public BloombergField GetField(string name)
+        public BloombergField GetField(SubType subType, string name)
         {
-            return _fields.GetField(name);
+            switch (subType)
+            {
+                case SubType.Order:
+                    return _orderFields.GetField(name);
+                case SubType.Route:
+                    return _routeFields.GetField(name);
+                default: throw new ArgumentOutOfRangeException(nameof(subType), subType, "Unknown subtype: " + subType);
+            }
         }
 
-        public void PopulateFields(Message message, bool dynamicFieldsOnly)
+        public void PopulateFields(Message message, string subType, bool dynamicFieldsOnly)
         {
-            _fields.PopulateFields(message, dynamicFieldsOnly);
+            switch (subType)
+            {
+                case "O":
+                    _orderFields.PopulateFields(message, dynamicFieldsOnly);
+                    break;
+                case "R":
+                    _routeFields.PopulateFields(message, dynamicFieldsOnly);
+                    break;
+                default: throw new Exception("Unknown sub-type received: " + subType);
+            }
         }
+    }
 
-        public string Describe()
-        {
-            return $"{_fields.Contents.Count} values:{string.Join(", ", _fields.Contents.Select(p => $"{p.Key}={p.Value?.CurrentValue}"))}";
-        }
+    public enum SubType
+    {
+        Order,
+        Route
     }
 }

@@ -45,42 +45,24 @@ namespace QuantConnect.Bloomberg
             {
                 case EventStatus.InitialPaint:
                     // Initial order statuses.
-                    if (subType == "R")
-                    {
-                        var order = _orders.GetOrCreateOrder(sequence);
-                        order.PopulateFields(message, false);
-                    }
+                    var order = _orders.GetOrCreateOrder(sequence);
+                    order.PopulateFields(message, subType, false);
 
                     break;
                 case EventStatus.EndPaint:
                     // End of the stream of initial orders.
-                    if (subType == "R")
-                    {
-                        Log.Trace("OrderSubscriptionHandler: End of Initial Paint");
-                        _brokerage.SetBlotterInitialized();
-                    }
+                    Log.Trace("OrderSubscriptionHandler: End of Initial Paint ({0})", subType);
+                    _brokerage.SignalBlotterInitialised();
 
                     break;
                 case EventStatus.New:
-                    if (subType == "R")
-                    {
-                        OnNewOrder(message, sequence);
-                    }
-
+                    OnNewOrder(message, subType, sequence);
                     break;
                 case EventStatus.Update:
-                    if (subType == "R")
-                    {
-                        OnOrderUpdate(message, sequence);
-                    }
-
+                    OnOrderUpdate(message, subType, sequence);
                     break;
                 case EventStatus.Delete:
-                    if (subType == "O")
-                    {
-                        OnOrderDelete(message, sequence);
-                    }
-
+                    OnOrderDelete(message, subType, sequence);
                     break;
                 case EventStatus.Heartbeat:
                     // No need to log the heartbeat.
@@ -89,8 +71,16 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        private void OnNewOrder(Message message, int sequence)
+        private void OnNewOrder(Message message, string subType, int sequence)
         {
+            // Current assumption is that routes match to the quantity (i.e. 1:1 order to route).
+            // With that assumption, we only need to process the route creation event.
+            if (subType != "R")
+            {
+                Log.Trace($"OrderSubscriptionHandler.OnNewOrder(): Ignoring message - new orders are handled via the route message stream (sequence: '{sequence}'): {message}");
+                return;
+            }
+
             // If an order is created manually in the terminal, we'll still receive an event.
             if (!TryGetOurOrderId(message, out var orderId))
             {
@@ -102,7 +92,7 @@ namespace QuantConnect.Bloomberg
             Log.Trace($"OrderSubscriptionHandler.OnNewOrder(): Received (orderId={orderId}, sequence={sequence})");
 
             var bbOrder = _orders.GetOrCreateOrder(sequence);
-            bbOrder.PopulateFields(message, false);
+            bbOrder.PopulateFields(message, subType, false);
 
             var order = _orderProvider.GetOrderById(orderId);
             if (order == null)
@@ -151,9 +141,15 @@ namespace QuantConnect.Bloomberg
             return false;
         }
 
-        private void OnOrderUpdate(Message message, int sequence)
+        private void OnOrderUpdate(Message message, string subType, int sequence)
         {
             // Ignore orders that were manually created & have been updated.
+            if (subType != "R")
+            {
+                Log.Trace($"OrderSubscriptionHandler.OnNewOrder(): Ignoring message - new orders are handled via the route message stream (sequence: '{sequence}'): {message}");
+                return;
+            }
+
             if (!_sequenceToOrderId.TryGetValue(sequence, out var orderId))
             {
                 Log.Trace($"OrderSubscriptionHandler.OnOrderUpdate(): Ignoring order update event for manual order (sequence:{sequence})");
@@ -161,7 +157,7 @@ namespace QuantConnect.Bloomberg
             }
 
             Log.Trace($"OrderSubscriptionHandler.OnOrderUpdate(): Received (orderId={orderId}, sequence={sequence})");
-            if (!TryCreateOrderEvent(message, sequence, orderId, true, out var orderEvent))
+            if (!TryCreateOrderEvent(message, subType, sequence, orderId, true, out var orderEvent))
             {
                 return;
             }
@@ -190,9 +186,14 @@ namespace QuantConnect.Bloomberg
             _brokerage.FireOrderEvent(orderEvent);
         }
 
-        private void OnOrderDelete(Message message, int sequence)
+        private void OnOrderDelete(Message message, string subType, int sequence)
         {
             // Deletion messages from EMSX do not include our order id.
+            if (subType != "O")
+            {
+                Log.Trace($"OrderSubscriptionHandler.OnOrderDelete(): Ignoring message - deletions are handled via the order message stream (sequence: '{sequence}'): {message}");
+                return;
+            }
             if (!_sequenceToOrderId.TryGetValue(sequence, out var orderId))
             {
                 if (_brokerage.IsInitialized())
@@ -209,7 +210,7 @@ namespace QuantConnect.Bloomberg
             }
 
             Log.Trace($"OrderSubscriptionHandler.OnOrderDelete(): Received (orderId={orderId}, sequence={sequence})");
-            if (!TryCreateOrderEvent(message, sequence, orderId, false, out var orderEvent))
+            if (!TryCreateOrderEvent(message, subType, sequence, orderId, false, out var orderEvent))
             {
                 return;
             }
@@ -225,7 +226,7 @@ namespace QuantConnect.Bloomberg
             _brokerage.FireOrderEvent(orderEvent);
         }
 
-        private bool TryCreateOrderEvent(Message message, int sequence, int orderId, bool dynamicFieldsOnly, out OrderEvent orderEvent, [CallerMemberName] string callerMemberName = null)
+        private bool TryCreateOrderEvent(Message message, string subType, int sequence, int orderId, bool dynamicFieldsOnly, out OrderEvent orderEvent, [CallerMemberName] string callerMemberName = null)
         {
             orderEvent = null;
 
@@ -236,7 +237,7 @@ namespace QuantConnect.Bloomberg
                 return false;
             }
 
-            bbOrder.PopulateFields(message, dynamicFieldsOnly);
+            bbOrder.PopulateFields(message, subType, dynamicFieldsOnly);
             var order = _orderProvider.GetOrderById(orderId);
             if (order == null)
             {

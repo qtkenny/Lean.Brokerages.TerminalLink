@@ -54,7 +54,7 @@ namespace QuantConnect.Bloomberg
         private readonly MarketHoursDatabase _marketHoursDatabase;
 
         private readonly IOrderProvider _orderProvider;
-        private readonly ManualResetEventSlim _blotterInitializedEvent = new ManualResetEventSlim(false);
+        private readonly CountdownEvent _blotterInitializedEvent = new CountdownEvent(2);
         private OrderSubscriptionHandler _orderSubscriptionHandler;
         private bool _isConnected;
 
@@ -154,6 +154,7 @@ namespace QuantConnect.Bloomberg
 
             if (_isBroker)
             {
+                _blotterInitializedEvent.Reset(2);
                 Log.Trace($"BloombergBrokerage.Connect(): Starting EMS session: {_serverHost}:{_serverPort}:{Environment}.");
                 if (!_sessionEms.Start())
                 {
@@ -202,7 +203,7 @@ namespace QuantConnect.Bloomberg
             if (_isBroker)
             {
                 InitializeEmsxFieldData();
-                Orders = new BloombergOrders(_orderFieldDefinitions);
+                Orders = new BloombergOrders(_orderFieldDefinitions, _routeFieldDefinitions);
                 _orderSubscriptionHandler = new OrderSubscriptionHandler(this, _orderProvider, Orders);
                 if (_execution)
                 {
@@ -483,6 +484,7 @@ namespace QuantConnect.Bloomberg
             _sessionMarketData?.Stop();
             _sessionReferenceData?.Stop();
             _sessionEms?.Stop();
+            _blotterInitializedEvent?.Dispose();
         }
 
         #endregion
@@ -697,9 +699,9 @@ namespace QuantConnect.Bloomberg
             return $"{serviceName}/route?fields={string.Join(",", fields)}";
         }
 
-        public void SetBlotterInitialized()
+        public void SignalBlotterInitialised()
         {
-            _blotterInitializedEvent.Set();
+            _blotterInitializedEvent.Signal();
         }
 
         public bool IsInitialized()
@@ -709,28 +711,27 @@ namespace QuantConnect.Bloomberg
 
         protected Order ConvertOrder(BloombergOrder order)
         {
-            var securityType = ConvertSecurityType(order.GetFieldValue(BloombergNames.EMSXAssetClass));
+            var securityType = ConvertSecurityType(order.GetFieldValue(SubType.Order, BloombergNames.EMSXAssetClass));
 
-            var symbol = _symbolMapper.GetLeanSymbol(order.GetFieldValue(BloombergNames.EMSXTicker), securityType);
-            var quantity = order.GetFieldValueDecimal(BloombergNames.EMSXAmount);
-            var orderType = ConvertOrderType(order.GetFieldValue(BloombergNames.EMSXOrderType));
-            var orderDirection = order.GetFieldValue(BloombergNames.EMSXSide) == "BUY" ? OrderDirection.Buy : OrderDirection.Sell;
+            var symbol = _symbolMapper.GetLeanSymbol(order.GetFieldValue(SubType.Order, BloombergNames.EMSXTicker), securityType);
+            var quantity = order.GetFieldValueDecimal(SubType.Order, BloombergNames.EMSXAmount);
+            var orderType = ConvertOrderType(order.GetFieldValue(SubType.Order, BloombergNames.EMSXOrderType));
+            var orderDirection = order.GetFieldValue(SubType.Order, BloombergNames.EMSXSide) == "BUY" ? OrderDirection.Buy : OrderDirection.Sell;
 
-            var expiryDateString = order.GetFieldValue(BloombergNames.EMSXGTDDate);
-            var expiryDate = string.IsNullOrEmpty(expiryDateString)
+            var expiryDateString = order.GetFieldValue(SubType.Order, BloombergNames.EMSXGTDDate);
+            var expiryDate = string.IsNullOrEmpty(expiryDateString) || expiryDateString == "0"
                 ? DateTime.MinValue
                 : DateTime.ParseExact(expiryDateString, "yyyyMMdd", CultureInfo.InvariantCulture);
-
-            var timeInForce = ConvertTimeInForce(order.GetFieldValue(BloombergNames.EMSXTif), expiryDate);
+            var timeInForce = ConvertTimeInForce(order.GetFieldValue(SubType.Order, BloombergNames.EMSXTif), expiryDate);
 
             if (orderDirection == OrderDirection.Sell)
             {
                 quantity = -quantity;
             }
 
-            var date = DateTime.ParseExact(order.GetFieldValue(BloombergNames.EMSXDate), "yyyyMMdd", CultureInfo.InvariantCulture);
+            var date = DateTime.ParseExact(order.GetFieldValue(SubType.Order, BloombergNames.EMSXDate), "yyyyMMdd", CultureInfo.InvariantCulture);
             // the EMSXTimeStampMicrosec field contains a value in seconds with decimals
-            var time = order.GetFieldValueDecimal(BloombergNames.EMSXTimeStampMicrosec);
+            var time = order.GetFieldValueDecimal(SubType.Order, BloombergNames.EMSXTimeStampMicrosec);
             var orderTime = date.AddSeconds(Convert.ToDouble(time)).ConvertToUtc(UserTimeZone);
 
             Order newOrder;
@@ -742,22 +743,22 @@ namespace QuantConnect.Bloomberg
 
                 case OrderType.Limit:
                     {
-                        var limitPrice = order.GetFieldValueDecimal(BloombergNames.EMSXLimitPrice);
+                        var limitPrice = order.GetFieldValueDecimal(SubType.Order, BloombergNames.EMSXLimitPrice);
                         newOrder = new LimitOrder(symbol, quantity, limitPrice, orderTime);
                     }
                     break;
 
                 case OrderType.StopMarket:
                     {
-                        var stopPrice = order.GetFieldValueDecimal(BloombergNames.EMSXStopPrice);
+                        var stopPrice = order.GetFieldValueDecimal(SubType.Route, BloombergNames.EMSXStopPrice);
                         newOrder = new LimitOrder(symbol, quantity, stopPrice, orderTime);
                     }
                     break;
 
                 case OrderType.StopLimit:
                     {
-                        var limitPrice = order.GetFieldValueDecimal(BloombergNames.EMSXLimitPrice);
-                        var stopPrice = order.GetFieldValueDecimal(BloombergNames.EMSXStopPrice);
+                        var limitPrice = order.GetFieldValueDecimal(SubType.Route, BloombergNames.EMSXLimitPrice);
+                        var stopPrice = order.GetFieldValueDecimal(SubType.Route, BloombergNames.EMSXStopPrice);
                         newOrder = new StopLimitOrder(symbol, quantity, stopPrice, limitPrice, orderTime);
                     }
                     break;
