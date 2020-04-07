@@ -26,12 +26,10 @@ namespace QuantConnect.Bloomberg
     /// <summary>
     /// An implementation of <see cref="IBrokerage"/> for Bloomberg
     /// </summary>
-    public sealed partial class BloombergBrokerage : Brokerage, IDataQueueHandler
+    public partial class BloombergBrokerage : Brokerage, IDataQueueHandler
     {
         private readonly string _serverHost;
         private readonly int _serverPort;
-        private readonly string _broker;
-        private readonly DateTimeZone _userTimeZone;
         private readonly string _account;
         private readonly string _strategy;
         private readonly string _notes;
@@ -106,9 +104,8 @@ namespace QuantConnect.Bloomberg
         {
             _isBroker = true;
             _orderProvider = orderProvider;
-
-            _userTimeZone = DateTimeZoneProviders.Tzdb[Config.GetValue("bloomberg-emsx-user-time-zone", TimeZones.Utc.Id)];
-            _broker = Config.GetValue<string>("bloomberg-emsx-broker") ?? throw new Exception("EMSX requires a broker");
+            UserTimeZone = DateTimeZoneProviders.Tzdb[Config.GetValue("bloomberg-emsx-user-time-zone", TimeZones.Utc.Id)];
+            Broker = Config.GetValue<string>("bloomberg-emsx-broker") ?? throw new Exception("EMSX requires a broker");
             _account = Config.GetValue<string>("bloomberg-emsx-account");
             _strategy = Config.GetValue<string>("bloomberg-emsx-strategy");
             _notes = Config.GetValue<string>("bloomberg-emsx-notes");
@@ -118,17 +115,25 @@ namespace QuantConnect.Bloomberg
             _sessionEms = new Session(_sessionOptions, OnBloombergEvent);
         }
 
-        internal BloombergOrders Orders { get; private set; }
+        protected BloombergOrders Orders { get; private set; }
 
         /// <summary>
         /// The API type (Desktop, Server or BPIPE)
         /// </summary>
         public ApiType ApiType { get; }
 
+        
+        protected DateTimeZone UserTimeZone { get; }
+
         /// <summary>
         /// The Bloomberg environment (Production or Beta)
         /// </summary>
         public Environment Environment { get; }
+
+        /// <summary>
+        /// The broker to use in EMSX
+        /// </summary>
+        protected string Broker { get; }
 
         #region IBrokerage implementation
 
@@ -303,9 +308,9 @@ namespace QuantConnect.Bloomberg
             var request = _serviceEms.CreateRequest(BloombergNames.CreateOrderAndRouteEx.ToString());
             request.Set(BloombergNames.EMSXTicker, _symbolMapper.GetBrokerageSymbol(order.Symbol));
             request.Set(BloombergNames.EMSXSide, ConvertOrderDirection(order.Direction));
-            if (!string.IsNullOrWhiteSpace(_broker))
+            if (!string.IsNullOrWhiteSpace(Broker))
             {
-                request.Set(BloombergNames.EMSXBroker, _broker);
+                request.Set(BloombergNames.EMSXBroker, Broker);
             }
 
             if (!string.IsNullOrWhiteSpace(_strategy))
@@ -336,7 +341,7 @@ namespace QuantConnect.Bloomberg
         {
             request.Set(BloombergNames.EMSXAmount, Convert.ToInt32(order.AbsoluteQuantity));
             request.Set(BloombergNames.EMSXOrderType, ConvertOrderType(order.Type));
-            request.Set(BloombergNames.EMSXTif, ConvertTimeInForce(order.TimeInForce));
+            request.Set(BloombergNames.EMSXTif, ConvertTimeInForce(order));
 
             var gtdTimeInForce = order.TimeInForce as GoodTilDateTimeInForce;
             if (gtdTimeInForce != null)
@@ -702,7 +707,7 @@ namespace QuantConnect.Bloomberg
             return _blotterInitializedEvent.IsSet;
         }
 
-        private Order ConvertOrder(BloombergOrder order)
+        protected Order ConvertOrder(BloombergOrder order)
         {
             var securityType = ConvertSecurityType(order.GetFieldValue(BloombergNames.EMSXAssetClass));
 
@@ -726,7 +731,7 @@ namespace QuantConnect.Bloomberg
             var date = DateTime.ParseExact(order.GetFieldValue(BloombergNames.EMSXDate), "yyyyMMdd", CultureInfo.InvariantCulture);
             // the EMSXTimeStampMicrosec field contains a value in seconds with decimals
             var time = order.GetFieldValueDecimal(BloombergNames.EMSXTimeStampMicrosec);
-            var orderTime = date.AddSeconds(Convert.ToDouble(time)).ConvertToUtc(_userTimeZone);
+            var orderTime = date.AddSeconds(Convert.ToDouble(time)).ConvertToUtc(UserTimeZone);
 
             Order newOrder;
             switch (orderType)
@@ -866,8 +871,9 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        private string ConvertTimeInForce(TimeInForce timeInForce)
+        protected virtual string ConvertTimeInForce(Order order)
         {
+            var timeInForce = order.TimeInForce;
             if (timeInForce == TimeInForce.Day)
             {
                 return "DAY";

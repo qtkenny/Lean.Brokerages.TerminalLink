@@ -27,6 +27,10 @@ namespace QuantConnect.Bloomberg
         {
         }
 
+        protected BloombergBrokerageFactory(Type type) : base(type)
+        {
+        }
+
         /// <summary>
         /// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
         /// </summary>
@@ -80,10 +84,14 @@ namespace QuantConnect.Bloomberg
             }
 
             var symbolMapper = new BloombergSymbolMapper(symbolMapFile);
-            var brokerage = new BloombergBrokerage(algorithm.Transactions, apiType, environment, serverHost, serverPort, symbolMapper);
-            Composer.Instance.AddPart<IDataQueueHandler>(brokerage);
+            var instance = CreateInstance(algorithm, apiType, environment, serverHost, serverPort, symbolMapper);
+            Composer.Instance.AddPart<IDataQueueHandler>(instance);
+            return instance;
+        }
 
-            return brokerage;
+        protected virtual BloombergBrokerage CreateInstance(IAlgorithm algorithm, ApiType apiType, Environment environment, string serverHost, int serverPort, BloombergSymbolMapper symbolMapper)
+        {
+            return new BloombergBrokerage(algorithm.Transactions, apiType, environment, serverHost, serverPort, symbolMapper);
         }
     }
 }
