@@ -911,10 +911,11 @@ namespace QuantConnect.Bloomberg
                     return OrderStatus.Submitted;
 
                 case "COMPLETED":
+                case "PARTFILLED":  // PARTFILLED means the order was cancelled before it was completely filled.
                 case "FILLED":
                     return OrderStatus.Filled;
 
-                case "PARTFILLED":
+                case "PARTFILL":
                     return OrderStatus.PartiallyFilled;
 
                 case "CXLREJ":

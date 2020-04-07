@@ -115,6 +115,16 @@ namespace QuantConnect.Bloomberg
         public static readonly Name EMSXFilled = new Name("EMSX_FILLED");
 
         /// <summary>
+        /// Value: EMSX_LAST_FILL_DATE
+        /// </summary>
+        public static readonly Name EMSXLastFillDate = new Name("EMSX_LAST_FILL_DATE");
+
+        /// <summary>
+        /// Value: EMSX_LAST_FILL_TIME
+        /// </summary>
+        public static readonly Name EMSXLastFillTime = new Name("EMSX_LAST_FILL_TIME");
+
+        /// <summary>
         /// Value: EMSX_ORDER_REF_ID
         /// </summary>
         public static readonly Name EMSXReferenceOrderIdRequest = new Name("EMSX_ORDER_REF_ID");
