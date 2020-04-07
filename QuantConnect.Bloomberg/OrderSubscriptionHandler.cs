@@ -262,6 +262,11 @@ namespace QuantConnect.Bloomberg
         {
             var msgType = message.MessageType;
             var subType = message.HasElement(BloombergNames.MessageSubType) ? message.GetElementAsString(BloombergNames.MessageSubType) : null;
+            if (string.IsNullOrWhiteSpace(subType))
+            {
+                return;
+            }
+
             Log.Trace($"Received [{msgType},{subType}]: {message}");
             if (msgType.Equals(BloombergNames.SubscriptionStarted))
             {
