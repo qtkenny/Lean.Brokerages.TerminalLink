@@ -235,6 +235,34 @@ namespace QuantConnect.Bloomberg
         public static readonly Name FieldData = new Name("fieldData");
         public static readonly Name Date = new Name("date");
         public static readonly Name ResponseError = new Name("responseError");
+        /// <summary>
+        /// Value: RequestFailure
+        /// </summary>
+        public static readonly Name RequestFailure = new Name("RequestFailure");
+        /// <summary>
+        /// Value: reason
+        /// </summary>
+        public static readonly Name Reason = new Name("reason");
+        /// <summary>
+        /// Value: source
+        /// </summary>
+        public static readonly Name Source = new Name("source");
+        /// <summary>
+        /// Value: errorCode
+        /// </summary>
+        public static readonly Name ErrorCodeFailure = new Name("errorCode");
+        /// <summary>
+        /// Value: category
+        /// </summary>
+        public static readonly Name Category = new Name("category");
+        /// <summary>
+        /// Value: subcategory
+        /// </summary>
+        public static readonly Name SubCategory = new Name("subcategory");
+        /// <summary>
+        /// Value: description
+        /// </summary>
+        public static readonly Name Description = new Name("description");
 
         // REF DATA REQUEST
         public static readonly Name Fields = new Name("fields");

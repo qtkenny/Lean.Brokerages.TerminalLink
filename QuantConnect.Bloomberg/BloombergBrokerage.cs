@@ -84,7 +84,16 @@ namespace QuantConnect.Bloomberg
                 throw new NotSupportedException("Only the Desktop API is supported for now.");
             }
 
-            _sessionOptions = new SessionOptions {ServerHost = serverHost, ServerPort = serverPort};
+            _sessionOptions = new SessionOptions
+            {
+                ServerHost = serverHost,
+                ServerPort = serverPort,
+
+                AutoRestartOnDisconnection = true,
+
+                // BLPAPI uses int.MaxValue internally to reconnect indefinitely
+                NumStartAttempts = int.MaxValue
+            };
 
             _sessionMarketData = new Session(_sessionOptions, OnBloombergMarketDataEvent);
             _sessionReferenceData = new Session(_sessionOptions);
@@ -98,9 +107,9 @@ namespace QuantConnect.Bloomberg
         {
             _isBroker = true;
             _orderProvider = orderProvider;
-            
+
             _userTimeZone = DateTimeZoneProviders.Tzdb[Config.GetValue("bloomberg-emsx-user-time-zone", TimeZones.Utc.Id)];
-            _broker = Config.GetValue<string>("bloomberg-emsx-broker") ?? throw new Exception("EMSX requries a broker");
+            _broker = Config.GetValue<string>("bloomberg-emsx-broker") ?? throw new Exception("EMSX requires a broker");
             _account = Config.GetValue<string>("bloomberg-emsx-account");
             _strategy = Config.GetValue<string>("bloomberg-emsx-strategy");
             _notes = Config.GetValue<string>("bloomberg-emsx-notes");
@@ -431,6 +440,14 @@ namespace QuantConnect.Bloomberg
         private bool DetermineResult(Message message)
         {
             Log.Trace($"Received response: '{message.MessageType}': {message}");
+
+            if (message.IsFailed())
+            {
+                var requestFailure = new BloombergRequestFailure(message);
+                var errorMessage = $"Request Failed: '{message.MessageType}' - {requestFailure}";
+                FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, requestFailure.ErrorCode, errorMessage));
+                return false;
+            }
 
             if (Equals(message.MessageType, BloombergNames.ErrorInfo))
             {
