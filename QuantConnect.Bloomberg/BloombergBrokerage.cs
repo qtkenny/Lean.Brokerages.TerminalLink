@@ -714,7 +714,7 @@ namespace QuantConnect.Bloomberg
             var securityType = ConvertSecurityType(order.GetFieldValue(SubType.Order, BloombergNames.EMSXAssetClass));
 
             var symbol = _symbolMapper.GetLeanSymbol(order.GetFieldValue(SubType.Order, BloombergNames.EMSXTicker), securityType);
-            var quantity = order.GetFieldValueDecimal(SubType.Order, BloombergNames.EMSXAmount);
+            var quantity = order.Amount;
             var orderType = ConvertOrderType(order.GetFieldValue(SubType.Order, BloombergNames.EMSXOrderType));
             var orderDirection = order.GetFieldValue(SubType.Order, BloombergNames.EMSXSide) == "BUY" ? OrderDirection.Buy : OrderDirection.Sell;
 
