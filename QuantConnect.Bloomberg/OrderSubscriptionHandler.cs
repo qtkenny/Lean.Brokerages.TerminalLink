@@ -38,16 +38,11 @@ namespace QuantConnect.Bloomberg
             }
 
             var sequence = message.GetSequence();
-            Log.Trace($"OrderSubscriptionHandler.OnOrderRouting(): Message received: '{eventStatus}'(subType:{subType},sequence:{sequence})");
-
-            // TODO: Potentially, we should reconcile order quantities with the routes?
             switch (eventStatus)
             {
                 case EventStatus.InitialPaint:
                     // Initial order statuses.
-                    var order = _orders.GetOrCreateOrder(sequence);
-                    order.PopulateFields(message, subType, false);
-
+                    OnInitialPaint(message, subType, sequence);
                     break;
                 case EventStatus.EndPaint:
                     // End of the stream of initial orders.
@@ -69,6 +64,13 @@ namespace QuantConnect.Bloomberg
                     break;
                 default: throw new Exception($"Unknown order fields update: {eventStatus}: {message}");
             }
+        }
+
+        private void OnInitialPaint(Message message, string subType, int sequence)
+        {
+            Log.Trace($"OrderSubscriptionHandler.OnOrderRouting(): Initial paint (sub-type:{subType}, sequence:{sequence})");
+            var order = _orders.GetOrCreateOrder(sequence);
+            order.PopulateFields(message, subType, false);
         }
 
         private void OnNewOrder(Message message, string subType, int sequence)
