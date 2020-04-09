@@ -600,12 +600,12 @@ namespace QuantConnect.Bloomberg
                 else if (message.MessageType.Equals(BloombergNames.SessionStartupFailure))
                 {
                     Log.Error("BloombergBrokerage.ProcessSessionEvent(): Session startup failure.");
-                    HandleError(BrokerageMessageType.Error, message);
+                    BrokerMessage(BrokerageMessageType.Error, message);
                 }
                 else if (message.MessageType.Equals(BloombergNames.SessionTerminated))
                 {
                     Log.Error("BloombergBrokerage.ProcessSessionEvent(): Session terminated.");
-                    HandleError(BrokerageMessageType.Disconnect, message);
+                    BrokerMessage(BrokerageMessageType.Disconnect, message);
                 }
                 else if (message.MessageType.Equals(BloombergNames.SessionConnectionUp))
                 {
@@ -622,7 +622,7 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        private void HandleError(BrokerageMessageType type, Message message)
+        private void BrokerMessage(BrokerageMessageType type, Message message)
         {
             if (message == null)
             {
