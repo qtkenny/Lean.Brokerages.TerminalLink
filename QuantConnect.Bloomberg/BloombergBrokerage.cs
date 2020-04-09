@@ -5,7 +5,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -203,7 +202,7 @@ namespace QuantConnect.Bloomberg
             if (_isBroker)
             {
                 InitializeEmsxFieldData();
-                Orders = new BloombergOrders(_orderFieldDefinitions, _routeFieldDefinitions);
+                Orders = new BloombergOrders();
                 _orderSubscriptionHandler = new OrderSubscriptionHandler(this, _orderProvider, Orders);
                 if (_execution)
                 {
@@ -270,7 +269,7 @@ namespace QuantConnect.Bloomberg
 
         internal bool IsValidOrder(BloombergOrder bbgOrder)
         {
-            return ConvertOrderStatus(bbgOrder.Status).IsOpen() && bbgOrder.Amount != 0 && bbgOrder.IsLeanOrder;
+            return bbgOrder.Status.IsOpen() && bbgOrder.Amount != 0 && bbgOrder.IsLeanOrder;
         }
 
         /// <summary>
@@ -413,6 +412,10 @@ namespace QuantConnect.Bloomberg
                 - If increasing, the order needs to be increased - followed by the route - so that headroom is available.
                 - If decreasing, the route needs to be decreased - followed by the order - so that the headroom can be lowered.
             */
+            var orderRequest = _serviceEms.CreateRequest(BloombergNames.ModifyOrderEx.ToString());
+            orderRequest.Set(BloombergNames.EMSXSequence, sequence);
+            PopulateRequest(orderRequest, order);
+            var orderResult = DetermineResult(_sessionEms.SendRequestSynchronous(orderRequest).SingleOrDefault());
             var routeRequest = _serviceEms.CreateRequest(BloombergNames.ModifyRouteEx.ToString());
             routeRequest.Set(BloombergNames.EMSXSequence, sequence);
             routeRequest.Set(BloombergNames.EMSXRouteId, 1);
@@ -711,28 +714,30 @@ namespace QuantConnect.Bloomberg
 
         protected Order ConvertOrder(BloombergOrder order)
         {
-            var securityType = ConvertSecurityType(order.GetFieldValue(SubType.Order, BloombergNames.EMSXAssetClass));
+            var securityType = ConvertSecurityType(order.GetString(SubType.Order, BloombergNames.EMSXAssetClass));
 
-            var symbol = _symbolMapper.GetLeanSymbol(order.GetFieldValue(SubType.Order, BloombergNames.EMSXTicker), securityType);
+            var symbol = _symbolMapper.GetLeanSymbol(order.GetString(SubType.Order, BloombergNames.EMSXTicker), securityType);
             var quantity = order.Amount;
-            var orderType = ConvertOrderType(order.GetFieldValue(SubType.Order, BloombergNames.EMSXOrderType));
-            var orderDirection = order.GetFieldValue(SubType.Order, BloombergNames.EMSXSide) == "BUY" ? OrderDirection.Buy : OrderDirection.Sell;
+            var orderType = ConvertOrderType(order.GetString(SubType.Order, BloombergNames.EMSXOrderType));
+            var orderDirection = order.GetString(SubType.Order, BloombergNames.EMSXSide) == "BUY" ? OrderDirection.Buy : OrderDirection.Sell;
 
-            var expiryDateString = order.GetFieldValue(SubType.Order, BloombergNames.EMSXGTDDate);
-            var expiryDate = string.IsNullOrEmpty(expiryDateString) || expiryDateString == "0"
-                ? DateTime.MinValue
-                : DateTime.ParseExact(expiryDateString, "yyyyMMdd", CultureInfo.InvariantCulture);
-            var timeInForce = ConvertTimeInForce(order.GetFieldValue(SubType.Order, BloombergNames.EMSXTif), expiryDate);
+            var tifValue = order.GetString(SubType.Order, BloombergNames.EMSXTif);
+            var timeInForce = ConvertTimeInForce(tifValue, tif =>
+            {
+                switch (tif)
+                {
+                    case "GTD": return order.GetDate(SubType.Order, BloombergNames.EMSXGTDDate, true);
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(tif), tif, $"TIF '{tif}' required a date, but there isn't a field map for it.");
+                }
+            });
 
             if (orderDirection == OrderDirection.Sell)
             {
                 quantity = -quantity;
             }
 
-            var date = DateTime.ParseExact(order.GetFieldValue(SubType.Order, BloombergNames.EMSXDate), "yyyyMMdd", CultureInfo.InvariantCulture);
-            // the EMSXTimeStampMicrosec field contains a value in seconds with decimals
-            var time = order.GetFieldValueDecimal(SubType.Order, BloombergNames.EMSXTimeStampMicrosec);
-            var orderTime = date.AddSeconds(Convert.ToDouble(time)).ConvertToUtc(UserTimeZone);
+            var orderTime = order.GetDateTimeCombo(SubType.Order, BloombergNames.EMSXDate, BloombergNames.EMSXTimeStampMicrosec, false).ConvertToUtc(UserTimeZone);
 
             Order newOrder;
             switch (orderType)
@@ -743,22 +748,22 @@ namespace QuantConnect.Bloomberg
 
                 case OrderType.Limit:
                     {
-                        var limitPrice = order.GetFieldValueDecimal(SubType.Order, BloombergNames.EMSXLimitPrice);
+                        var limitPrice = order.GetDecimal(SubType.Route, BloombergNames.EMSXLimitPrice, false);
                         newOrder = new LimitOrder(symbol, quantity, limitPrice, orderTime);
                     }
                     break;
 
                 case OrderType.StopMarket:
                     {
-                        var stopPrice = order.GetFieldValueDecimal(SubType.Route, BloombergNames.EMSXStopPrice);
+                        var stopPrice = order.GetDecimal(SubType.Route, BloombergNames.EMSXStopPrice, false);
                         newOrder = new LimitOrder(symbol, quantity, stopPrice, orderTime);
                     }
                     break;
 
                 case OrderType.StopLimit:
                     {
-                        var limitPrice = order.GetFieldValueDecimal(SubType.Route, BloombergNames.EMSXLimitPrice);
-                        var stopPrice = order.GetFieldValueDecimal(SubType.Route, BloombergNames.EMSXStopPrice);
+                        var limitPrice = order.GetDecimal(SubType.Route, BloombergNames.EMSXLimitPrice, false);
+                        var stopPrice = order.GetDecimal(SubType.Route, BloombergNames.EMSXStopPrice, false);
                         newOrder = new StopLimitOrder(symbol, quantity, stopPrice, limitPrice, orderTime);
                     }
                     break;
@@ -846,7 +851,7 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        private TimeInForce ConvertTimeInForce(string timeInForce, DateTime expiryDate)
+        private TimeInForce ConvertTimeInForce(string timeInForce, Func<string, DateTime> expiryDateFunc)
         {
             switch (timeInForce)
             {
@@ -859,7 +864,7 @@ namespace QuantConnect.Bloomberg
                     return TimeInForce.GoodTilCanceled;
 
                 case "GTD":
-                    return TimeInForce.GoodTilDate(expiryDate);
+                    return TimeInForce.GoodTilDate(expiryDateFunc(timeInForce));
 
                 case "FOK":
                 case "GTX":
@@ -891,74 +896,6 @@ namespace QuantConnect.Bloomberg
             }
 
             throw new NotSupportedException($"Unsupported time in force: {timeInForce}");
-        }
-
-        public OrderStatus ConvertOrderStatus(string orderStatus)
-        {
-            switch (orderStatus)
-            {
-                case "CXL-PEND":
-                case "CXL-REQ":
-                    return OrderStatus.CancelPending;
-
-                case "ASSIGN":
-                case "CANCEL":
-                case "EXPIRED":
-                    return OrderStatus.Canceled;
-
-                case "SENT":
-                case "WORKING":
-                    return OrderStatus.Submitted;
-
-                case "COMPLETED":
-                case "PARTFILLED":  // PARTFILLED means the order was cancelled before it was completely filled.
-                case "FILLED":
-                    return OrderStatus.Filled;
-
-                case "PARTFILL":
-                    return OrderStatus.PartiallyFilled;
-
-                case "CXLREJ":
-                    return OrderStatus.Invalid;
-
-                case "NEW":
-                case "ORD-PEND":
-                    return OrderStatus.New;
-
-                default:
-                    return OrderStatus.None;
-            }
-        }
-
-        private string ConvertOrderStatus(OrderStatus orderStatus)
-        {
-            switch (orderStatus)
-            {
-                case OrderStatus.CancelPending:
-                    return "CXL-PEND";
-
-                case OrderStatus.Canceled:
-                    return "CANCEL";
-
-                case OrderStatus.Submitted:
-                    return "WORKING";
-
-                case OrderStatus.Filled:
-                    return "FILLED";
-
-                case OrderStatus.PartiallyFilled:
-                    return "PARTFILLED";
-
-                case OrderStatus.Invalid:
-                    return "CXLREJ";
-
-                case OrderStatus.None:
-                case OrderStatus.New:
-                    return "NEW";
-
-                default:
-                    return string.Empty;
-            }
         }
 
         internal void FireOrderEvent(OrderEvent orderEvent)

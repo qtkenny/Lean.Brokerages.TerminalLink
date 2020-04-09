@@ -22,13 +22,6 @@ namespace QuantConnect.Bloomberg
             _fields.Clear();
         }
 
-        public SchemaFieldDefinition FindSchemaFieldByName(string name)
-        {
-            SchemaFieldDefinition field;
-
-            return _fields.TryGetValue(name, out field) ? field : null;
-        }
-
         public IEnumerator<SchemaFieldDefinition> GetEnumerator()
         {
             return _fields.Values.GetEnumerator();
