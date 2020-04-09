@@ -280,6 +280,12 @@ namespace QuantConnect.Bloomberg
                         }
 
                         break;
+                    case Event.EventType.SESSION_STATUS:
+                        Log.Trace("BloombergBrokerage.OnBloombergMarketDataEvent(): Session Status: {0}", message);
+                        break;
+                    case Event.EventType.SERVICE_STATUS:
+                        Log.Trace("BloombergBrokerage.OnBloombergMarketDataEvent(): Service Status: {0}", message);
+                        break;
                     default:
                         Log.Trace("BloombergBrokerage.OnBloombergMarketDataEvent(): Unhandled event type: {0}, message:{1}", eventObj.Type, message);
                         break;
