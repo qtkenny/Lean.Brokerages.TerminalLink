@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Bloomberglp.Blpapi;
+using QuantConnect.Brokerages;
 using QuantConnect.Interfaces;
 using QuantConnect.Logging;
 
@@ -109,7 +110,8 @@ namespace QuantConnect.Bloomberg
                 if (msg.IsFailed())
                 {
                     var requestFailure = new BloombergRequestFailure(msg);
-                    Log.Error($"Unable to obtain chain for '{ticker}': Request failed - reason: {requestFailure}");
+                    var errorMessage = $"Unable to obtain chain for '{ticker}': Request failed - reason: {requestFailure}";
+                    FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, requestFailure.ErrorCode, errorMessage));
                     yield break;
                 }
 
@@ -122,7 +124,8 @@ namespace QuantConnect.Bloomberg
                     {
                         var error = securityItem["securityError"];
                         var message = error["message"];
-                        Log.Error($"Unable to obtain chain for '{ticker}': {message}");
+                        var errorMessage = $"Unable to obtain chain for '{ticker}': {message}";
+                        FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, errorMessage));
                         yield break;
                     }
 

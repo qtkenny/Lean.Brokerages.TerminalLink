@@ -333,13 +333,13 @@ namespace QuantConnect.Bloomberg
                 {
                     var requestFailure = new BloombergRequestFailure(msg);
                     var errorMessage = $"Request Failed: '{msg.MessageType}' - {requestFailure}";
-                    FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, requestFailure.ErrorCode, errorMessage));
+                    FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, requestFailure.ErrorCode, errorMessage));
                     continue;
                 }
 
                 if (msg.HasElement(BloombergNames.ResponseError))
                 {
-                    FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, -1, "Error: " + msg));
+                    FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, "Error: " + msg));
                     continue;
                 }
 

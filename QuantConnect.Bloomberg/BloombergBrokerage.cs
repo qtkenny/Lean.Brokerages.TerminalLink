@@ -445,7 +445,7 @@ namespace QuantConnect.Bloomberg
             {
                 var requestFailure = new BloombergRequestFailure(message);
                 var errorMessage = $"Request Failed: '{message.MessageType}' - {requestFailure}";
-                FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, requestFailure.ErrorCode, errorMessage));
+                FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, requestFailure.ErrorCode, errorMessage));
                 return false;
             }
 
@@ -453,7 +453,7 @@ namespace QuantConnect.Bloomberg
             {
                 var code = message.GetElementAsInt32(BloombergNames.ErrorCode);
                 var errorMessage = $"Failed: '{message.MessageType}' - {message.GetElementAsString(BloombergNames.ErrorMessage)}";
-                FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, code, errorMessage));
+                FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, code, errorMessage));
                 return false;
             }
 
