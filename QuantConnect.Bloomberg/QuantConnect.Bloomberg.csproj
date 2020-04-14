@@ -79,6 +79,7 @@
     <Compile Include="BloombergNames.cs" />
     <Compile Include="BloombergOrder.cs" />
     <Compile Include="BloombergOrders.cs" />
+    <Compile Include="BloombergRequestFailure.cs" />
     <Compile Include="BloombergSubscriptionData.cs" />
     <Compile Include="BloombergSymbolMapper.cs" />
     <Compile Include="Enums.cs" />

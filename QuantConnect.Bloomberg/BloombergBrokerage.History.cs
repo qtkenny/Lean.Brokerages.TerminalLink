@@ -323,24 +323,23 @@ namespace QuantConnect.Bloomberg
 
         private IReadOnlyCollection<T> RequestAndParse<T>(Request request, Name arrayName, Name arrayItemName, Func<Element, T> createFunc)
         {
-            var correlationId = GetNewCorrelationId();
-            _sessionReferenceData.SendRequest(request, correlationId);
-            var responsePending = true;
             var bars = new List<T>();
-            while (responsePending)
-            {
-                var eventObj = _sessionReferenceData.NextEvent();
 
-                var msg = eventObj.GetMessages().FirstOrDefault(f => f.CorrelationIDs.Contains(correlationId));
-                if (msg == null)
+            var responses = _sessionReferenceData.SendRequestSynchronous(request);
+
+            foreach (var msg in responses)
+            {
+                if (msg.IsFailed())
                 {
+                    var requestFailure = new BloombergRequestFailure(msg);
+                    var errorMessage = $"Request Failed: '{msg.MessageType}' - {requestFailure}";
+                    FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, requestFailure.ErrorCode, errorMessage));
                     continue;
                 }
 
-                responsePending = eventObj.Type != Event.EventType.RESPONSE;
                 if (msg.HasElement(BloombergNames.ResponseError))
                 {
-                    FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Error, -1, "Error: " + msg));
+                    FireBrokerMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, "Error: " + msg));
                     continue;
                 }
 
