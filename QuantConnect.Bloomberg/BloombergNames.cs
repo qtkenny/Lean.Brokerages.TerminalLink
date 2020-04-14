@@ -242,6 +242,9 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         public static readonly Name ErrorMessage = new Name("ERROR_MESSAGE");
         public static readonly Name SecurityData = new Name("securityData");
+        /// <summary>
+        /// Value: fieldData
+        /// </summary>
         public static readonly Name FieldData = new Name("fieldData");
         public static readonly Name Date = new Name("date");
         public static readonly Name ResponseError = new Name("responseError");
@@ -277,6 +280,10 @@ namespace QuantConnect.Bloomberg
         // REF DATA REQUEST
         public static readonly Name Fields = new Name("fields");
         public static readonly Name Securities = new Name("securities");
+        /// <summary>
+        /// Value: TICKER
+        /// </summary>
+        public static readonly Name Ticker = new Name("TICKER");
 
         /// <summary>
         /// Value: OPEN

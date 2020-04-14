@@ -40,6 +40,7 @@ namespace QuantConnect.Bloomberg
         private readonly Session _sessionEms;
         private static long _nextCorrelationId;
         private readonly bool _isBroker;
+        private readonly bool _startAtActive;
 
         private Service _serviceEms;
         private Service _serviceReferenceData;
@@ -108,6 +109,7 @@ namespace QuantConnect.Bloomberg
             _account = Config.GetValue<string>("bloomberg-emsx-account");
             _strategy = Config.GetValue<string>("bloomberg-emsx-strategy");
             _notes = Config.GetValue<string>("bloomberg-emsx-notes");
+            _startAtActive = Config.GetValue<bool>("bloomberg-futures-start-at-active", true);
             _handlingInstruction = Config.GetValue<string>("bloomberg-emsx-handling");
             _execution = Config.GetBool("bloomberg-execution");
             _allowModification = Config.GetBool("bloomberg-allow-modification");
