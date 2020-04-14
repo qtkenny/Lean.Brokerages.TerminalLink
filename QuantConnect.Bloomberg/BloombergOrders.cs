@@ -12,17 +12,11 @@ namespace QuantConnect.Bloomberg
     public class BloombergOrders : IEnumerable<BloombergOrder>
     {
         private readonly Dictionary<int, BloombergOrder> _orders = new Dictionary<int, BloombergOrder>();
-        private readonly SchemaFieldDefinitions _orderFieldDefinitions;
         private readonly object _lock = new object();
-
-        public BloombergOrders(SchemaFieldDefinitions orderFieldDefinitions)
-        {
-            _orderFieldDefinitions = orderFieldDefinitions;
-        }
 
         public BloombergOrder GetOrCreateOrder(int sequence)
         {
-            var order = new BloombergOrder(_orderFieldDefinitions, sequence);
+            var order = new BloombergOrder(sequence);
             lock (_lock)
             {
                 if (_orders.TryGetValue(sequence, out var existingOrder))

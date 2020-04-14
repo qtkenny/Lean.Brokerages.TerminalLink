@@ -115,6 +115,16 @@ namespace QuantConnect.Bloomberg
         public static readonly Name EMSXFilled = new Name("EMSX_FILLED");
 
         /// <summary>
+        /// Value: EMSX_LAST_FILL_DATE
+        /// </summary>
+        public static readonly Name EMSXLastFillDate = new Name("EMSX_LAST_FILL_DATE");
+
+        /// <summary>
+        /// Value: EMSX_LAST_FILL_TIME
+        /// </summary>
+        public static readonly Name EMSXLastFillTime = new Name("EMSX_LAST_FILL_TIME");
+
+        /// <summary>
         /// Value: EMSX_ORDER_REF_ID
         /// </summary>
         public static readonly Name EMSXReferenceOrderIdRequest = new Name("EMSX_ORDER_REF_ID");
@@ -232,6 +242,9 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         public static readonly Name ErrorMessage = new Name("ERROR_MESSAGE");
         public static readonly Name SecurityData = new Name("securityData");
+        /// <summary>
+        /// Value: fieldData
+        /// </summary>
         public static readonly Name FieldData = new Name("fieldData");
         public static readonly Name Date = new Name("date");
         public static readonly Name ResponseError = new Name("responseError");
@@ -267,6 +280,10 @@ namespace QuantConnect.Bloomberg
         // REF DATA REQUEST
         public static readonly Name Fields = new Name("fields");
         public static readonly Name Securities = new Name("securities");
+        /// <summary>
+        /// Value: TICKER
+        /// </summary>
+        public static readonly Name Ticker = new Name("TICKER");
 
         /// <summary>
         /// Value: OPEN

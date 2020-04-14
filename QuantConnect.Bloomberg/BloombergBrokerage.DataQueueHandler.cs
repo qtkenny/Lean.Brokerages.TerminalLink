@@ -225,16 +225,25 @@ namespace QuantConnect.Bloomberg
                                 Log.Trace(prefix + "subscription activated");
                                 break;
                             case "SubscriptionTerminated":
-                                Log.Error(prefix + "subscription terminated");
-                                HandleError(BrokerageMessageType.Disconnect, message);
+                                if (message.GetElementAsString("category") == "CANCELED")
+                                {
+                                    BrokerMessage(BrokerageMessageType.Information, message);
+                                    Log.Trace(prefix + "subscription canceled");
+                                }
+                                else
+                                {
+                                    BrokerMessage(BrokerageMessageType.Disconnect, message);
+                                    Log.Error(prefix + "subscription terminated");
+                                }
+
                                 break;
                             case "SubscriptionFailure":
                                 Log.Error($"{prefix}subscription failed: {DescribeCorrelationIds(message.CorrelationIDs)}{message}");
-                                HandleError(BrokerageMessageType.Error, message);
+                                BrokerMessage(BrokerageMessageType.Error, message);
                                 break;
                             default: 
                                 Log.Error($"Message type is not yet handled: {message.MessageType} [message:{message}]");
-                                HandleError(BrokerageMessageType.Error, message);
+                                BrokerMessage(BrokerageMessageType.Error, message);
                                 break;
                         }
 
@@ -275,10 +284,16 @@ namespace QuantConnect.Bloomberg
                             else
                             {
                                 Log.Error($"BloombergBrokerage.OnBloombergMarketDataEvent(): Correlation Id not found: {correlationId} [message topic:{message.TopicName}]");
-                                HandleError(BrokerageMessageType.Error, message);
+                                BrokerMessage(BrokerageMessageType.Error, message);
                             }
                         }
 
+                        break;
+                    case Event.EventType.SESSION_STATUS:
+                        Log.Trace("BloombergBrokerage.OnBloombergMarketDataEvent(): Session Status: {0}", message);
+                        break;
+                    case Event.EventType.SERVICE_STATUS:
+                        Log.Trace("BloombergBrokerage.OnBloombergMarketDataEvent(): Service Status: {0}", message);
                         break;
                     default:
                         Log.Trace("BloombergBrokerage.OnBloombergMarketDataEvent(): Unhandled event type: {0}, message:{1}", eventObj.Type, message);

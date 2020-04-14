@@ -88,6 +88,7 @@ namespace QuantConnect.Bloomberg
             request.Append(BloombergNames.Securities, ticker);
 
             request.Append(BloombergNames.Fields, chainFieldName);
+            request.Append(BloombergNames.Fields, BloombergNames.Ticker.ToString());
 
             var overrides = request.GetElement("overrides");
 
@@ -130,17 +131,23 @@ namespace QuantConnect.Bloomberg
                     }
 
                     var fieldData = securityItem[BloombergNames.FieldData];
-                    if (!fieldData.HasElement(chainFieldName, true))
+                    if (!fieldData.HasElement(chainFieldName, true) || !fieldData.HasElement(BloombergNames.Ticker))
                     {
                         continue;
                     }
 
+                    var currentActive = fieldData.GetElementAsString(BloombergNames.Ticker);
                     var chainTickers = fieldData.GetElement(chainFieldName);
+                    var hasFoundActive = !_startAtActive;
                     for (var index = 0; index < chainTickers.NumValues; index++)
                     {
                         var chainTicker = chainTickers.GetValueAsElement(index);
                         var contractTicker = chainTicker.GetElementAsString("Security Description");
-                        yield return contractTicker;
+                        hasFoundActive |= contractTicker.StartsWith(currentActive);
+                        if (hasFoundActive)
+                        {
+                            yield return contractTicker;
+                        }
                     }
                 }
             }
