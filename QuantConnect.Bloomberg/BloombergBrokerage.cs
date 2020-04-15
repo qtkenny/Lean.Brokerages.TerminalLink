@@ -94,6 +94,7 @@ namespace QuantConnect.Bloomberg
 
             _sessionMarketData = new Session(_sessionOptions, OnBloombergMarketDataEvent);
             _sessionReferenceData = new Session(_sessionOptions);
+            _startAtActive = Config.GetValue("bloomberg-futures-start-at-active", true);
         }
 
         /// <summary>
@@ -109,7 +110,6 @@ namespace QuantConnect.Bloomberg
             _account = Config.GetValue<string>("bloomberg-emsx-account");
             _strategy = Config.GetValue<string>("bloomberg-emsx-strategy");
             _notes = Config.GetValue<string>("bloomberg-emsx-notes");
-            _startAtActive = Config.GetValue<bool>("bloomberg-futures-start-at-active", true);
             _handlingInstruction = Config.GetValue<string>("bloomberg-emsx-handling");
             _execution = Config.GetBool("bloomberg-execution");
             _allowModification = Config.GetBool("bloomberg-allow-modification");
