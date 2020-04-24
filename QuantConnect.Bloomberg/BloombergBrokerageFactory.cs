@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using QuantConnect.Brokerages;
 using QuantConnect.Configuration;
 using QuantConnect.Interfaces;
@@ -83,13 +84,19 @@ namespace QuantConnect.Bloomberg
                 throw new Exception(string.Join(System.Environment.NewLine, errors));
             }
 
-            var symbolMapper = new BloombergSymbolMapper(symbolMapFile);
+            var symbolMapper = Composer.Instance.GetExportedValues<IBloombergSymbolMapper>().FirstOrDefault();
+            if (symbolMapper == null)
+            {
+                symbolMapper = new BloombergSymbolMapper(symbolMapFile);
+                Composer.Instance.AddPart<ISymbolMapper>(symbolMapper);
+            }
+
             var instance = CreateInstance(algorithm, apiType, environment, serverHost, serverPort, symbolMapper);
             Composer.Instance.AddPart<IDataQueueHandler>(instance);
             return instance;
         }
 
-        protected virtual BloombergBrokerage CreateInstance(IAlgorithm algorithm, ApiType apiType, Environment environment, string serverHost, int serverPort, BloombergSymbolMapper symbolMapper)
+        protected virtual BloombergBrokerage CreateInstance(IAlgorithm algorithm, ApiType apiType, Environment environment, string serverHost, int serverPort, IBloombergSymbolMapper symbolMapper)
         {
             return new BloombergBrokerage(algorithm.Transactions, apiType, environment, serverHost, serverPort, symbolMapper);
         }

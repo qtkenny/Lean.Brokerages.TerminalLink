@@ -9,6 +9,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
+using QuantConnect.Configuration;
 using QuantConnect.Logging;
 using QuantConnect.Securities.Future;
 using QuantConnect.Util;
@@ -29,7 +30,7 @@ namespace QuantConnect.Bloomberg
 
         private readonly HashSet<string> _forexCurrencies = Currencies.CurrencyPairs.ToHashSet();
 
-        public BloombergSymbolMapper() : this("bloomberg-symbol-map.json") { }
+        public BloombergSymbolMapper() : this(Config.Get("bloomberg-symbol-map-file", "bloomberg-symbol-map.json")) { }
 
         /// <summary>
         /// Constructs BloombergSymbolMapper
