@@ -253,3 +253,6 @@ FakesAssemblies/
 
 # AlgoSeekOptionConverterTest will download a 64 MB file into that folder, don't track that file.
 Cli\.Tests/TestData/OneRealOpra/
+
+# Integration Specifics
+QuantConnect.BloombergTests/integration-config.json
