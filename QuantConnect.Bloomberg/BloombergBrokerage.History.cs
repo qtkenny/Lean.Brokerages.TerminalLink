@@ -175,11 +175,8 @@ namespace QuantConnect.Bloomberg
         private IEnumerable<BaseData> GetHistoricalData(HistoryRequest historyRequest)
         {
             var request = _serviceReferenceData.CreateRequest("HistoricalDataRequest");
-
-            var startDate = historyRequest.StartTimeUtc
-                .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone).Date;
-            var endDate = historyRequest.EndTimeUtc
-                .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone).Date;
+            var startDate = historyRequest.StartTimeUtc.ConvertFromUtc(UserTimeZone).Date;
+            var endDate = historyRequest.EndTimeUtc.ConvertFromUtc(UserTimeZone).Date;
             request.Append(BloombergNames.Securities, _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
 
             var fields = request.GetElement(BloombergNames.Fields);
@@ -197,7 +194,7 @@ namespace QuantConnect.Bloomberg
             return RequestAndParse(request, BloombergNames.SecurityData, BloombergNames.FieldData, row => CreateTradeBar(historyRequest, row, Time.OneDay));
         }
 
-        private static TradeBar CreateTradeBar(HistoryRequest request, Element row, TimeSpan period)
+        private TradeBar CreateTradeBar(HistoryRequest request, Element row, TimeSpan period)
         {
             var bar = new TradeBar {Symbol = request.Symbol, Period = period};
             if (row.HasElement(BloombergNames.Date))
@@ -209,7 +206,7 @@ namespace QuantConnect.Bloomberg
             else if (row.HasElement(BloombergNames.Time))
             {
                 var time = row[BloombergNames.Time].GetValueAsDatetime();
-                var barTime = new DateTime(time.Year, time.Month, time.DayOfMonth, time.Hour, time.Minute, time.Second).ConvertFromUtc(request.ExchangeHours.TimeZone);
+                var barTime = new DateTime(time.Year, time.Month, time.DayOfMonth, time.Hour, time.Minute, time.Second).ConvertTo(UserTimeZone, request.ExchangeHours.TimeZone);
                 bar.Time = barTime;
             }
             else
@@ -304,13 +301,9 @@ namespace QuantConnect.Bloomberg
         private IEnumerable<TradeBar> GetIntradayTradeBars(HistoryRequest historyRequest, string eventType)
         {
             var request = _serviceReferenceData.CreateRequest("IntradayBarRequest");
-
             var period = historyRequest.Resolution.ToTimeSpan();
-
-            var startDateTime = historyRequest.StartTimeUtc
-                .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone);
-            var endDateTime = historyRequest.EndTimeUtc
-                .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone);
+            var startDateTime = historyRequest.StartTimeUtc.ConvertFromUtc(UserTimeZone);
+            var endDateTime = historyRequest.EndTimeUtc.ConvertFromUtc(UserTimeZone);
 
             request.Set("security", _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
             request.Set(BloombergNames.EventType, eventType);
@@ -357,11 +350,8 @@ namespace QuantConnect.Bloomberg
         private IEnumerable<Tick> GetIntradayTickData(HistoryRequest historyRequest)
         {
             var request = _serviceReferenceData.CreateRequest("IntradayTickRequest");
-
-            var startDateTime = historyRequest.StartTimeUtc
-                .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone);
-            var endDateTime = historyRequest.EndTimeUtc
-                .ConvertFromUtc(historyRequest.ExchangeHours.TimeZone);
+            var startDateTime = historyRequest.StartTimeUtc.ConvertFromUtc(UserTimeZone);
+            var endDateTime = historyRequest.EndTimeUtc.ConvertFromUtc(UserTimeZone);
 
             request.Set(BloombergNames.Security, _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
 
@@ -421,10 +411,10 @@ namespace QuantConnect.Bloomberg
             return results;
         }
 
-        private static Tick CreateTick(HistoryRequest historyRequest, Element row)
+        private Tick CreateTick(HistoryRequest historyRequest, Element row)
         {
             var time = row[BloombergNames.Time].GetValueAsDatetime();
-            var tickTime = time.ToSystemDateTime().ConvertFromUtc(historyRequest.ExchangeHours.TimeZone);
+            var tickTime = time.ToSystemDateTime().ConvertTo(UserTimeZone, historyRequest.ExchangeHours.TimeZone);
             var type = row.GetElementAsString(BloombergNames.Type);
             var value = Convert.ToDecimal(row.GetElementAsFloat64(BloombergNames.Value));
             var size = Convert.ToDecimal(row.GetElementAsFloat64(BloombergNames.Size));
