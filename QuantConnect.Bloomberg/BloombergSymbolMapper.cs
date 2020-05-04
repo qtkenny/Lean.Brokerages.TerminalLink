@@ -22,6 +22,8 @@ namespace QuantConnect.Bloomberg
     /// </summary>
     public class BloombergSymbolMapper : IBloombergSymbolMapper
     {
+        private readonly object _lock = new object();
+
         // Manual mapping of Bloomberg tickers to Lean symbols
         private readonly Dictionary<string, Symbol> _mapBloombergToLean = new Dictionary<string, Symbol>();
 
@@ -55,9 +57,6 @@ namespace QuantConnect.Bloomberg
             {
                 if (MappingInfo == null) MappingInfo = new Dictionary<string, BloombergMappingInfo>(0);
             }
-
-            _mapBloombergToLean = new Dictionary<string, Symbol>();
-            _mapLeanToBloomberg = new Dictionary<Symbol, string>();
         }
 
         /// <summary>
@@ -121,16 +120,20 @@ namespace QuantConnect.Bloomberg
 
             if (securityType == SecurityType.Future)
             {
-                if (!_mapBloombergToLean.TryGetValue(brokerageSymbol, out var leanSymbol))
+                lock (_lock)
                 {
-                    if (TryBuildLeanSymbolFromFutureTicker(brokerageSymbol, out leanSymbol))
+                    if (!_mapBloombergToLean.TryGetValue(brokerageSymbol, out var leanSymbol))
                     {
-                        return leanSymbol;
+                        if (TryBuildLeanSymbolFromFutureTicker(brokerageSymbol, out leanSymbol))
+                        {
+                            return leanSymbol;
+                        }
+
+                        throw new Exception($"Ticker cannot be parsed as a future symbol: {brokerageSymbol}");
                     }
 
-                    throw new Exception($"Ticker cannot be parsed as a future symbol: {brokerageSymbol}");
+                    return leanSymbol;
                 }
-                return leanSymbol;
             }
 
             return GetLeanSymbol(brokerageSymbol);
@@ -193,12 +196,14 @@ namespace QuantConnect.Bloomberg
         {
             if (symbol.SecurityType == SecurityType.Future)
             {
-                if (!_mapLeanToBloomberg.TryGetValue(symbol, out var ticker))
+                lock (_lock)
                 {
-                    ticker = BuildFutureTickerFromLeanSymbol(symbol);
+                    if (!_mapLeanToBloomberg.TryGetValue(symbol, out var ticker))
+                    {
+                        ticker = BuildFutureTickerFromLeanSymbol(symbol);
+                    }
+                    return ticker;
                 }
-
-                return ticker;
             }
 
             var topicName = GetBloombergSymbol(symbol);
@@ -233,8 +238,11 @@ namespace QuantConnect.Bloomberg
                 ticker = $"{entry.Key}{brokerageTicker} {entry.Value.TickerSuffix}";
             }
 
-            _mapBloombergToLean.Add(ticker, symbol);
-            _mapLeanToBloomberg.Add(symbol, ticker);
+            lock (_lock)
+            {
+                _mapBloombergToLean[ticker] = symbol;
+                _mapLeanToBloomberg[symbol] = ticker;
+            }
 
             return ticker;
         }
@@ -375,8 +383,11 @@ namespace QuantConnect.Bloomberg
                 symbol = Symbol.CreateFuture(info.Underlying, info.Market, expiryDate);
             }
 
-            _mapBloombergToLean[brokerageSymbol] = symbol;
-            _mapLeanToBloomberg[symbol] = brokerageSymbol;
+            lock (_lock)
+            {
+                _mapBloombergToLean[brokerageSymbol] = symbol;
+                _mapLeanToBloomberg[symbol] = brokerageSymbol;
+            }
 
             return true;
         }

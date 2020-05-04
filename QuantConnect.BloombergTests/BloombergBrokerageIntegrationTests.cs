@@ -32,7 +32,7 @@ using TimeInForce = QuantConnect.Orders.TimeInForce;
 namespace QuantConnect.BloombergTests
 {
     [TestFixture]
-    //[Ignore("Broker tests should be executed manually")]
+    [Ignore("Broker tests should be executed manually")]
     [Timeout(60000)]
     public class BloombergBrokerageIntegrationTests
     {

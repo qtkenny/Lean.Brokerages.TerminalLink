@@ -225,7 +225,9 @@ namespace QuantConnect.Bloomberg
                                 Log.Trace(prefix + "subscription activated");
                                 break;
                             case "SubscriptionTerminated":
-                                if (message.GetElementAsString("category") == "CANCELED")
+                                if (message.HasElement("reason") &&
+                                    message.GetElement("reason").HasElement("category") &&
+                                    message.GetElement("reason").GetElementAsString("category") == "CANCELED")
                                 {
                                     BrokerMessage(BrokerageMessageType.Information, message);
                                     Log.Trace(prefix + "subscription canceled");
@@ -291,6 +293,16 @@ namespace QuantConnect.Bloomberg
                         break;
                     case Event.EventType.SESSION_STATUS:
                         Log.Trace("BloombergBrokerage.OnBloombergMarketDataEvent(): Session Status: {0}", message);
+                        switch (message.MessageType.ToString())
+                        {
+                            case "SessionConnectionDown":
+                                BrokerMessage(BrokerageMessageType.Error, message);
+                                break;
+                            case "SessionConnectionUp":
+                            default:
+                                BrokerMessage(BrokerageMessageType.Information, message);
+                                break;
+                        }
                         break;
                     case Event.EventType.SERVICE_STATUS:
                         Log.Trace("BloombergBrokerage.OnBloombergMarketDataEvent(): Service Status: {0}", message);
