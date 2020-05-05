@@ -113,7 +113,7 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         /// <param name="brokerageSymbol">The Bloomberg symbol</param>
         /// <param name="securityType">The security type</param>
-        public virtual Symbol GetLeanSymbol(string brokerageSymbol, SecurityType? securityType = null)
+        public virtual Symbol GetLeanSymbol(string brokerageSymbol, SecurityType? securityType)
         {
             if (string.IsNullOrWhiteSpace(brokerageSymbol))
                 throw new ArgumentException("Invalid brokerage symbol: " + brokerageSymbol);
@@ -360,12 +360,13 @@ namespace QuantConnect.Bloomberg
                 return false;
             }
 
-            var parts = brokerageSymbol.Substring(2).Split(' ');
+            var parts = brokerageSymbol.Substring(2).Split(' '); 
+            var underlyingSymbol = CreateUnderlyingSymbol(info);
 
             if (parts[0] == info.RootLookupSuffix)
             {
                 // canonical future symbol
-                symbol = Symbol.Create(info.Underlying, SecurityType.Future, info.Market, $"/{info.Underlying}");
+                symbol = underlyingSymbol;
             }
             else
             {
@@ -374,7 +375,7 @@ namespace QuantConnect.Bloomberg
 
                 var newTicker = ticker;
                 var properties = SymbolRepresentation.ParseFutureTicker(newTicker);
-                var expiryFunc = FuturesExpiryFunctions.FuturesExpiryFunction(info.Underlying);
+                var expiryFunc = FuturesExpiryFunctions.FuturesExpiryFunction(underlyingSymbol);
 
                 var year = DateTime.UtcNow.Year;
                 year = year - year % (properties.ExpirationYearShort < 10 ? 10 : 100) + properties.ExpirationYearShort;
@@ -392,6 +393,10 @@ namespace QuantConnect.Bloomberg
             return true;
         }
 
+        private static Symbol CreateUnderlyingSymbol(BloombergMappingInfo info)
+        {
+            return Symbol.Create(info.Underlying, SecurityType.Future, info.Market, $"/{info.Underlying}");
+        }
 
         private string GetBloombergSymbol(Symbol symbol)
         {
