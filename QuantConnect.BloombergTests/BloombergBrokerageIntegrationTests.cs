@@ -56,7 +56,7 @@ namespace QuantConnect.BloombergTests
             OrderIdSetter = (o, i) => propertyInfo?.SetValue(o, i);
         }
 
-        [TestFixtureSetUp]
+        [OneTimeSetUp]
         public static void SetupFixture()
         {
             // Ensure the log handler is still attached.
@@ -80,7 +80,7 @@ namespace QuantConnect.BloombergTests
             _singleTestLogHandler?.Dispose();
         }
 
-        [TestFixtureTearDown]
+        [OneTimeTearDown]
         public static void PackUpFixture()
         {
             Log.LogHandler = FixtureLogHandler;
@@ -160,10 +160,10 @@ namespace QuantConnect.BloombergTests
         [TestCase("BO1 COMB Comdty", OneDay * 16, Resolution.Daily, TickType.Quote)]
         [TestCase("BO1 COMB Comdty", OneDay * 16, Resolution.Hour, TickType.Trade)]
         // Active month
-        [TestCase("BO1 COMB Comdty", OneDay * 16, Resolution.Minute, TickType.Quote, Ignore = true)]
-        [TestCase("BOA COMB Comdty", OneDay * 16, Resolution.Minute, TickType.Quote, Ignore = true)]
-        [TestCase("BO1 COMB Comdty", OneDay * 16, Resolution.Daily, TickType.Quote, Ignore = true)]
-        [TestCase("BOA COMB Comdty", OneDay * 16, Resolution.Daily, TickType.Quote, Ignore = true)]
+        [TestCase("BO1 COMB Comdty", OneDay * 16, Resolution.Minute, TickType.Quote, Ignore = "")]
+        [TestCase("BOA COMB Comdty", OneDay * 16, Resolution.Minute, TickType.Quote, Ignore = "")]
+        [TestCase("BO1 COMB Comdty", OneDay * 16, Resolution.Daily, TickType.Quote, Ignore = "")]
+        [TestCase("BOA COMB Comdty", OneDay * 16, Resolution.Daily, TickType.Quote, Ignore = "")]
         public void Can_Request_History(string bbSymbol, int minutes, Resolution resolution, TickType tickType)
         {
             Log.Trace("Receiving data for: " + bbSymbol);
@@ -264,7 +264,7 @@ namespace QuantConnect.BloombergTests
                 message = await brokerMessagesTask;
                 Assert.True(result);
             }
-            
+
             // Wait for the OnNewOrder,OnOrderUpdate event. etc.
             await orderTask;
             return message;

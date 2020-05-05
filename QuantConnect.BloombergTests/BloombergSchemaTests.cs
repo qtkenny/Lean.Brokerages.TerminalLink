@@ -7,7 +7,7 @@ using NUnit.Framework;
 namespace QuantConnect.BloombergTests
 {
 #if LIVE_API
-    [TestFixture(Ignore = true, IgnoreReason = "Don't execute by default")]
+    [TestFixture(Ignore = "Don't execute by default")]
     public class BloombergSchemaTests
     {
         private readonly SessionOptions _sessionOptions = new SessionOptions {AutoRestartOnDisconnection = false, NumStartAttempts = 1};
@@ -62,7 +62,7 @@ namespace QuantConnect.BloombergTests
             return result.ToString();
         }
 
-        [TestFixtureSetUp]
+        [OneTimeSetUp]
         public void SetupBloomberg()
         {
             var currentDirectory = new DirectoryInfo(TestContext.CurrentContext.WorkDirectory);
@@ -85,7 +85,7 @@ namespace QuantConnect.BloombergTests
             }
         }
 
-        [TestFixtureTearDown]
+        [OneTimeTearDown]
         public void TearDown()
         {
             _session?.Stop(AbstractSession.StopOption.SYNC);

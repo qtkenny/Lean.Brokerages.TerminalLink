@@ -77,12 +77,12 @@ namespace QuantConnect.BloombergTests
         {
             var mapper = new BloombergSymbolMapper(TestFileName);
 
-            var symbol = mapper.GetLeanSymbol("SPY US Equity");
+            var symbol = mapper.GetLeanSymbol("SPY US Equity", SecurityType.Equity);
             Assert.AreEqual("SPY", symbol.Value);
             Assert.AreEqual(SecurityType.Equity, symbol.ID.SecurityType);
             Assert.AreEqual(Market.USA, symbol.ID.Market);
 
-            symbol = mapper.GetLeanSymbol("EURUSD Curncy");
+            symbol = mapper.GetLeanSymbol("EURUSD Curncy", SecurityType.Forex);
             Assert.AreEqual("EURUSD", symbol.Value);
             Assert.AreEqual(SecurityType.Forex, symbol.ID.SecurityType);
             Assert.AreEqual(Market.FXCM, symbol.ID.Market);
@@ -195,7 +195,7 @@ namespace QuantConnect.BloombergTests
             Assert.AreEqual(SecurityType.Future, symbol.ID.SecurityType);
             Assert.AreEqual(Market.USA, symbol.ID.Market);
 
-            symbol = mapper.GetLeanSymbol("SPY UO 12/31/19 C200.00 Equity");
+            symbol = mapper.GetLeanSymbol("SPY UO 12/31/19 C200.00 Equity", SecurityType.Option);
             Assert.AreEqual("SPY", symbol.Underlying.Value);
             Assert.AreEqual(OptionRight.Call, symbol.ID.OptionRight);
             Assert.AreEqual(200m, symbol.ID.StrikePrice);

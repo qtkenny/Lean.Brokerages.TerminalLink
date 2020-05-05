@@ -22,7 +22,7 @@ namespace QuantConnect.BloombergTests
     [TestFixture, Ignore("These tests require a Bloomberg terminal.")]
     public class BloombergTests
     {
-        [TestFixtureSetUp]
+        [OneTimeSetUp]
         public void SetupFixture()
         {
             const string dataDirectory = "../../../../Lean/Data";

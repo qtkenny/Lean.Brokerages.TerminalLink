@@ -39,7 +39,7 @@ namespace QuantConnect.BloombergTests
         /// <summary>
         /// Provides the data required to test each order type in various cases
         /// </summary>
-        public override TestCaseData[] OrderParameters => new[]
+        private TestCaseData[] OrderParameters => new[]
         {
             new TestCaseData(new MarketOrderTestParameters(Symbol)).SetName("MarketOrder"),
             new TestCaseData(new LimitOrderTestParameters(Symbol, HighPrice, LowPrice)).SetName("LimitOrder"),
@@ -60,12 +60,12 @@ namespace QuantConnect.BloombergTests
         /// <summary>
         /// Gets a high price for the specified symbol so a limit sell won't fill
         /// </summary>
-        protected override decimal HighPrice => 1000m;
+        protected decimal HighPrice => 1000m;
 
         /// <summary>
         /// Gets a low price for the specified symbol so a limit buy won't fill
         /// </summary>
-        protected override decimal LowPrice => 0.1m;
+        protected decimal LowPrice => 0.1m;
 
         /// <summary>
         /// Returns whether or not the brokers order methods implementation are async
