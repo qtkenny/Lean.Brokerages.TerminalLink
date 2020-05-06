@@ -60,12 +60,59 @@ namespace QuantConnect.Bloomberg
                         : AggregateTicksToTradeBars(GetIntradayTickData(historyRequest), historyRequest.Symbol, Time.OneSecond);
 
                 case Resolution.Tick:
-                    return GetIntradayTickData(historyRequest);
+                    if (historyRequest.TickType == TickType.OpenInterest)
+                    {
+                        // Bloomberg does not support OpenInterest historical data,
+                        // so we just return a single tick containing the current value.
+                        return GetOpenInterestTickData(historyRequest);
+                    }
+                    else
+                    {
+                        return GetIntradayTickData(historyRequest);
+                    }
 
                 default:
                     Log.Error($"Unsupported resolution: {historyRequest.Resolution}");
                     return Enumerable.Empty<BaseData>();
             }
+        }
+
+        private IEnumerable<BaseData> GetOpenInterestTickData(HistoryRequest historyRequest)
+        {
+            var request = _serviceReferenceData.CreateRequest("ReferenceDataRequest");
+
+            request.Append(BloombergNames.Securities, _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
+
+            var fields = request.GetElement(BloombergNames.Fields);
+            fields.AppendValue(BloombergNames.OpenInterest);
+            fields.AppendValue(BloombergNames.OpenInterestDate);
+
+            return RequestAndParse(request, BloombergNames.SecurityData, BloombergNames.FieldData, row => CreateOpenInterestTick(historyRequest, row));
+        }
+
+        private Tick CreateOpenInterestTick(HistoryRequest historyRequest, Element row)
+        {
+            var tick = new Tick
+            {
+                Symbol = historyRequest.Symbol,
+                TickType = TickType.OpenInterest
+            };
+            if (row.HasElement(BloombergNames.OpenInterestDate))
+            {
+                var date = row[BloombergNames.OpenInterestDate].GetValueAsDate();
+                tick.Time = new DateTime(date.Year, date.Month, date.DayOfMonth);
+            }
+            else
+            {
+                throw new Exception($"OpenInterestDate was not received [symbol:{historyRequest.Symbol},bbg-row:{row}]");
+            }
+
+            if (TryReadDecimal(row, BloombergNames.OpenInterest, out var openInterest))
+            {
+                tick.Value = openInterest;
+            }
+
+            return tick;
         }
 
         private static IEnumerable<BaseData> AggregateQuoteBars(IEnumerable<BaseData> bars, Symbol symbol, TimeSpan period)

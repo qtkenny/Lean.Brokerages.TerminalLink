@@ -313,6 +313,10 @@ namespace QuantConnect.Bloomberg
         /// Value: RT_OPEN_INT_DT
         /// </summary>
         public static readonly Name OpenInterestDate = new Name("RT_OPEN_INT_DT");
+        /// <summary>
+        /// Value: RT_OPEN_INT_DT
+        /// </summary>
+        public static readonly Name OpenInterest = new Name("RT_OPEN_INTEREST");
 
         /// <summary>
         /// Value: open

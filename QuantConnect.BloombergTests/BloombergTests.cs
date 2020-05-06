@@ -380,6 +380,16 @@ namespace QuantConnect.BloombergTests
                     TickType = TickType.Trade
                 },
 
+                // Future open interest (tick)
+                new HistoryTestParameters
+                {
+                    Symbol = futureSymbol,
+                    DataType = typeof(Tick),
+                    Resolution = Resolution.Tick,
+                    DataTimeZone = TimeZones.Utc,
+                    TickType = TickType.OpenInterest
+                },
+
                 // Option quotes (daily)
                 new HistoryTestParameters
                 {
@@ -478,6 +488,16 @@ namespace QuantConnect.BloombergTests
                     Resolution = Resolution.Tick,
                     DataTimeZone = TimeZones.Utc,
                     TickType = TickType.Trade
+                },
+
+                // Option open interest (tick)
+                new HistoryTestParameters
+                {
+                    Symbol = optionSymbol,
+                    DataType = typeof(Tick),
+                    Resolution = Resolution.Tick,
+                    DataTimeZone = TimeZones.Utc,
+                    TickType = TickType.OpenInterest
                 },
 
             }.Select(x => new TestCaseData(x).SetName(x.Name)).ToArray();
