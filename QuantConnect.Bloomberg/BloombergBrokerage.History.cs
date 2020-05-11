@@ -84,8 +84,8 @@ namespace QuantConnect.Bloomberg
             request.Append(BloombergNames.Securities, _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
 
             var fields = request.GetElement(BloombergNames.Fields);
-            fields.AppendValue(BloombergNames.OpenInterest);
-            fields.AppendValue(BloombergNames.OpenInterestDate);
+            fields.AppendValue(BloombergNames.OpenInterest.ToString());
+            fields.AppendValue(BloombergNames.OpenInterestDate.ToString());
 
             return RequestAndParse(request, BloombergNames.SecurityData, BloombergNames.FieldData, row => CreateOpenInterestTick(historyRequest, row));
         }
