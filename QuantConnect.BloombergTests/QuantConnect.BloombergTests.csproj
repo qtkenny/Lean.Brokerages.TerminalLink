@@ -84,6 +84,7 @@
     <Compile Include="BloombergCommon.cs" />
     <Compile Include="BloombergBrokerageIntegrationTests.cs" />
     <Compile Include="BloombergBrokerageTests.cs" />
+    <Compile Include="BloombergDataDownloaderTests.cs" />
     <Compile Include="BloombergSchemaTests.cs" />
     <Compile Include="BloombergSymbolMapperTests.cs" />
     <Compile Include="BloombergMappingInfoTests.cs" />
@@ -130,6 +131,10 @@
     <ProjectReference Include="..\..\Lean\Tests\QuantConnect.Tests.csproj">
       <Project>{f15e0e67-e6ca-4be4-ba36-54d73c5acc11}</Project>
       <Name>QuantConnect.Tests</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Lean\ToolBox\QuantConnect.ToolBox.csproj">
+      <Project>{ac9a142c-b485-44d7-91ff-015c22c43d05}</Project>
+      <Name>QuantConnect.ToolBox</Name>
     </ProjectReference>
     <ProjectReference Include="..\QuantConnect.Bloomberg\QuantConnect.Bloomberg.csproj">
       <Project>{dc246e85-5c45-4d61-849c-5a59509cf743}</Project>
