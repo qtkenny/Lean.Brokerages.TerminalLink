@@ -18,7 +18,7 @@
         // TRADE EVENTS
         public const string TradePrice = "EVT_TRADE_PRICE_RT";
         public const string TradeSize = "EVT_TRADE_SIZE_RT";
-        public const string TradeTime = "EVT_TRADE_TIME_RT";
+        //public const string TradeTime = "EVT_TRADE_TIME_RT";
         public const string TradeDate = "EVT_TRADE_DATE_RT";
     }
 }

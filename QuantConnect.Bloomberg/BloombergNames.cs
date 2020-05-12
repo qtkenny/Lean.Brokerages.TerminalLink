@@ -186,6 +186,11 @@ namespace QuantConnect.Bloomberg
         public static readonly Name TradeUpdateStamp = new Name("TRADE_UPDATE_STAMP_RT");
 
         /// <summary>
+        /// Value: EVT_TRADE_TIME_RT
+        /// </summary>
+        public static readonly Name EventTradeTimeRealTime = new Name("EVT_TRADE_TIME_RT");
+
+        /// <summary>
         /// Value: BLOOMBERG_SEND_TIME_RT
         /// </summary>
         public static readonly Name BloombergSendTime = new Name("BLOOMBERG_SEND_TIME_RT");
