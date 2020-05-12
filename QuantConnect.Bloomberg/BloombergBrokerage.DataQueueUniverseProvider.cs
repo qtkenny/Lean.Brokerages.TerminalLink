@@ -23,10 +23,11 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         /// <param name="lookupName">String representing the name to lookup</param>
         /// <param name="securityType">Expected security type of the returned symbols (if any)</param>
+        /// <param name="includeExpired">Include expired contracts</param>
         /// <param name="securityCurrency">Expected security currency(if any)</param>
         /// <param name="securityExchange">Expected security exchange name(if any)</param>
         /// <returns></returns>
-        public IEnumerable<Symbol> LookupSymbols(string lookupName, SecurityType securityType, string securityCurrency = null, string securityExchange = null)
+        public IEnumerable<Symbol> LookupSymbols(string lookupName, SecurityType securityType, bool includeExpired, string securityCurrency = null, string securityExchange = null)
         {
             if (string.IsNullOrWhiteSpace(lookupName))
             {
@@ -41,7 +42,7 @@ namespace QuantConnect.Bloomberg
             Log.Trace($"BloombergBrokerage.LookupSymbols(): Requesting symbol list for {lookupName} ...");
             var market = _symbolMapper.GetMarket(lookupName) ?? Market.USA;
             var canonicalSymbol = Symbol.Create(lookupName, securityType, market);
-            var symbols = GetChain(canonicalSymbol, securityType).ToList();
+            var symbols = GetChain(canonicalSymbol, securityType, includeExpired).ToList();
 
             Log.Trace($"BloombergBrokerage.LookupSymbols(): Returning {symbols.Count} contract(s) for {lookupName}");
 
@@ -58,12 +59,12 @@ namespace QuantConnect.Bloomberg
             return true;
         }
 
-        private IEnumerable<Symbol> GetChain(Symbol canonicalSymbol, SecurityType securityType)
+        private IEnumerable<Symbol> GetChain(Symbol canonicalSymbol, SecurityType securityType, bool includeExpired)
         {
             var chain = _symbolMapper.GetManualChain(canonicalSymbol);
             if (chain == null || chain.Length == 0)
             {
-                chain = GetChainFromBloomberg(canonicalSymbol, securityType).ToArray();
+                chain = GetChainFromBloomberg(canonicalSymbol, securityType, includeExpired).ToArray();
             }
 
             foreach (var contractTicker in chain)
@@ -78,7 +79,7 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        private IEnumerable<string> GetChainFromBloomberg(Symbol canonicalSymbol, SecurityType securityType)
+        private IEnumerable<string> GetChainFromBloomberg(Symbol canonicalSymbol, SecurityType securityType, bool includeExpired)
         {
             var ticker = _symbolMapper.GetBrokerageSymbol(canonicalSymbol);
             var chainFieldName = securityType == SecurityType.Future ? BloombergFieldNames.FuturesChain : BloombergFieldNames.OptionsChain;
@@ -94,7 +95,7 @@ namespace QuantConnect.Bloomberg
 
             var element = overrides.AppendElement();
             element.SetElement("fieldId", "INCLUDE_EXPIRED_CONTRACTS");
-            element.SetElement("value", "N");
+            element.SetElement("value", includeExpired ? "Y" : "N");
 
             element = overrides.AppendElement();
             element.SetElement("fieldId", "CHAIN_POINTS_OVRD");

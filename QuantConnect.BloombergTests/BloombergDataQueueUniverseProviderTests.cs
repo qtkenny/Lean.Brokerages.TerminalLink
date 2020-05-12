@@ -27,7 +27,7 @@ namespace QuantConnect.BloombergTests
             using (var brokerage = BloombergCommon.CreateBrokerage())
             {
                 brokerage.Connect();
-                var symbols = brokerage.LookupSymbols("ES", SecurityType.Future).ToList();
+                var symbols = brokerage.LookupSymbols("ES", SecurityType.Future, false).ToList();
 
                 Log.Trace($"Future contracts found: {symbols.Count}");
                 Assert.That(symbols.Count > 0);
@@ -40,7 +40,7 @@ namespace QuantConnect.BloombergTests
             using (var brokerage = BloombergCommon.CreateBrokerage())
             {
                 brokerage.Connect();
-                var symbols = brokerage.LookupSymbols("SPY", SecurityType.Option).ToList();
+                var symbols = brokerage.LookupSymbols("SPY", SecurityType.Option, false).ToList();
 
                 Log.Trace($"Option contracts found: {symbols.Count}");
                 Assert.That(symbols.Count > 0);
