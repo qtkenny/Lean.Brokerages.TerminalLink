@@ -482,7 +482,7 @@ namespace QuantConnect.Bloomberg
                     var timestamp = GetBloombergFieldValue(message, BloombergNames.TradeUpdateStamp);
                     if (string.IsNullOrWhiteSpace(timestamp))
                     {
-                        timestamp = GetBloombergFieldValue(message, BloombergNames.BloombergSendTime);
+                        timestamp = GetBloombergFieldValue(message, BloombergNames.EventTradeTimeRealTime);
                     }
                     utcTime = DateTime.Parse(timestamp, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
                     break;

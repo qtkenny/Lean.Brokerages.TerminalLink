@@ -60,12 +60,60 @@ namespace QuantConnect.Bloomberg
                         : AggregateTicksToTradeBars(GetIntradayTickData(historyRequest), historyRequest.Symbol, Time.OneSecond);
 
                 case Resolution.Tick:
-                    return GetIntradayTickData(historyRequest);
+                    if (historyRequest.TickType == TickType.OpenInterest)
+                    {
+                        // Bloomberg does not support OpenInterest historical data,
+                        // so we just return a single tick containing the current value.
+                        return GetOpenInterestTickData(historyRequest);
+                    }
+                    else
+                    {
+                        return GetIntradayTickData(historyRequest);
+                    }
 
                 default:
                     Log.Error($"Unsupported resolution: {historyRequest.Resolution}");
                     return Enumerable.Empty<BaseData>();
             }
+        }
+
+        private IEnumerable<BaseData> GetOpenInterestTickData(HistoryRequest historyRequest)
+        {
+            var request = _serviceReferenceData.CreateRequest("ReferenceDataRequest");
+
+            request.Append(BloombergNames.Securities, _symbolMapper.GetBrokerageSymbol(historyRequest.Symbol));
+
+            var fields = request.GetElement(BloombergNames.Fields);
+            fields.AppendValue(BloombergNames.OpenInterest.ToString());
+            fields.AppendValue(BloombergNames.OpenInterestDate.ToString());
+
+            return RequestAndParse(request, BloombergNames.SecurityData, null, BloombergNames.FieldData, row => CreateOpenInterestTick(historyRequest, row));
+        }
+
+        private Tick CreateOpenInterestTick(HistoryRequest historyRequest, Element row)
+        {
+            var tick = new Tick
+            {
+                Symbol = historyRequest.Symbol,
+                TickType = TickType.OpenInterest
+            };
+
+            if (row.HasElement(BloombergNames.OpenInterestDate))
+            {
+                var date = row[BloombergNames.OpenInterestDate].GetValueAsDate();
+                tick.Time = new DateTime(date.Year, date.Month, date.DayOfMonth);
+                if (TryReadDecimal(row, BloombergNames.OpenInterest, out var openInterest))
+                {
+                    tick.Value = openInterest;
+                }
+            }
+            else
+            {
+                Log.Error("OpenInterestDate was not received [symbol:{0},bbg-row:{1}]", historyRequest.Symbol, row);
+                return null;
+            }
+
+            return tick;
         }
 
         private static IEnumerable<BaseData> AggregateQuoteBars(IEnumerable<BaseData> bars, Symbol symbol, TimeSpan period)
@@ -191,7 +239,7 @@ namespace QuantConnect.Bloomberg
             request.Set("startDate", startDate.ToString("yyyyMMdd"));
             request.Set("endDate", endDate.ToString("yyyyMMdd"));
 
-            return RequestAndParse(request, BloombergNames.SecurityData, BloombergNames.FieldData, row => CreateTradeBar(historyRequest, row, Time.OneDay));
+            return RequestAndParse(request, BloombergNames.SecurityData, BloombergNames.FieldData, null, row => CreateTradeBar(historyRequest, row, Time.OneDay));
         }
 
         private TradeBar CreateTradeBar(HistoryRequest request, Element row, TimeSpan period)
@@ -275,7 +323,7 @@ namespace QuantConnect.Bloomberg
         {
             if (element.HasElement(name, true))
             {
-                result = Convert.ToDecimal(element.GetElementAsFloat64(name));
+                result = new decimal(element.GetElementAsFloat64(name));
                 return true;
             }
 
@@ -311,10 +359,10 @@ namespace QuantConnect.Bloomberg
             request.Set(BloombergNames.StartDateTime, new Datetime(startDateTime.RoundDown(period)));
             request.Set(BloombergNames.EndDateTime, new Datetime(endDateTime.RoundDown(period)));
 
-            return RequestAndParse(request, BloombergNames.BarData, BloombergNames.BarTickData, row => CreateTradeBar(historyRequest, row, period));
+            return RequestAndParse(request, BloombergNames.BarData, BloombergNames.BarTickData, null, row => CreateTradeBar(historyRequest, row, period));
         }
 
-        private IReadOnlyCollection<T> RequestAndParse<T>(Request request, Name arrayName, Name arrayItemName, Func<Element, T> createFunc)
+        private IReadOnlyCollection<T> RequestAndParse<T>(Request request, Name arrayName, Name arrayItemName, Name childElementName, Func<Element, T> createFunc)
         {
             var bars = new List<T>();
 
@@ -336,11 +384,43 @@ namespace QuantConnect.Bloomberg
                     continue;
                 }
 
-                var rows = msg.AsElement[arrayName][arrayItemName];
+                if (!msg.HasElement(arrayName))
+                {
+                    Log.Error("Required element '{0}' was not found in message: {1}", arrayName, msg);
+                    continue;
+                }
+
+                var rows = msg.AsElement[arrayName];
+                if (arrayItemName != null)
+                {
+                    if (!rows.HasElement(arrayItemName))
+                    {
+                        Log.Error("Required element '{0}' was not found in message: {1}", arrayName, msg);
+                        continue;
+                    }
+
+                    rows = rows.GetElement(arrayItemName);
+                }
+
                 for (var i = 0; i < rows.NumValues; i++)
                 {
                     var row = rows.GetValueAsElement(i);
-                    bars.Add(createFunc(row));
+                    if (childElementName != null)
+                    {
+                        if (!row.HasElement(childElementName))
+                        {
+                            Log.Error("Required child '{0}' within array item was not found: {2}", childElementName, msg);
+                            break;
+                        }
+
+                        row = row.GetElement(childElementName);
+                    }
+
+                    var result = createFunc(row);
+                    if (result != null)
+                    {
+                        bars.Add(result);
+                    }
                 }
             }
 
@@ -370,7 +450,7 @@ namespace QuantConnect.Bloomberg
             request.Set(BloombergNames.EndDateTime, new Datetime(endDateTime));
             request.Set("includeConditionCodes", true);
 
-            var tickData = RequestAndParse(request, BloombergNames.TickData, BloombergNames.TickData, row => CreateTick(historyRequest, row));
+            var tickData = RequestAndParse(request, BloombergNames.TickData, BloombergNames.TickData, null, row => CreateTick(historyRequest, row));
             if (tickData.Count == 0 || historyRequest.TickType == TickType.Trade)
             {
                 return tickData;
