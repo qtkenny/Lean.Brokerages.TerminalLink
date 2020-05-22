@@ -94,7 +94,7 @@ namespace QuantConnect.BloombergTests
         public void Can_Lookup_Futures(Symbol symbol)
         {
             Log.LogHandler = new ConsoleLogHandler();
-            var result = _underTest.LookupSymbols(symbol.Value, symbol.SecurityType).ToList();
+            var result = _underTest.LookupSymbols(symbol.Value, symbol.SecurityType, false).ToList();
             Assert.IsNotEmpty(result);
         }
 
