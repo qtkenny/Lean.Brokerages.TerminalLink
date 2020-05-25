@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.960
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30011.22
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuantConnect.Bloomberg", "QuantConnect.Bloomberg\QuantConnect.Bloomberg.csproj", "{DC246E85-5C45-4D61-849C-5A59509CF743}"
 EndProject
@@ -32,8 +32,6 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuantConnect.Compression", "..\Lean\Compression\QuantConnect.Compression.csproj", "{BC3BC77E-0502-43DB-A727-B94F9765D74B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuantConnect.Indicators", "..\Lean\Indicators\QuantConnect.Indicators.csproj", "{73FB2522-C3ED-4E47-8E3D-AFAD48A6B888}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuantConnect.Jupyter", "..\Lean\Jupyter\QuantConnect.Jupyter.csproj", "{9561D14A-467E-40AD-928E-EE9F758D7D98}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuantConnect.Lean.Launcher", "..\Lean\Launcher\QuantConnect.Lean.Launcher.csproj", "{09E7B916-E58B-4021-BD8B-C10B4446E226}"
 EndProject
@@ -328,24 +326,6 @@ Global
 		{73FB2522-C3ED-4E47-8E3D-AFAD48A6B888}.Release|x64.Build.0 = Release|Any CPU
 		{73FB2522-C3ED-4E47-8E3D-AFAD48A6B888}.Release|x86.ActiveCfg = Release|Any CPU
 		{73FB2522-C3ED-4E47-8E3D-AFAD48A6B888}.Release|x86.Build.0 = Release|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Debug|x64.Build.0 = Debug|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Debug|x86.Build.0 = Debug|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Mono|Any CPU.ActiveCfg = Release|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Mono|Any CPU.Build.0 = Release|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Mono|x64.ActiveCfg = Release|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Mono|x64.Build.0 = Release|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Mono|x86.ActiveCfg = Release|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Mono|x86.Build.0 = Release|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Release|x64.ActiveCfg = Release|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Release|x64.Build.0 = Release|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Release|x86.ActiveCfg = Release|Any CPU
-		{9561D14A-467E-40AD-928E-EE9F758D7D98}.Release|x86.Build.0 = Release|Any CPU
 		{09E7B916-E58B-4021-BD8B-C10B4446E226}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{09E7B916-E58B-4021-BD8B-C10B4446E226}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{09E7B916-E58B-4021-BD8B-C10B4446E226}.Debug|x64.ActiveCfg = Debug|Any CPU
