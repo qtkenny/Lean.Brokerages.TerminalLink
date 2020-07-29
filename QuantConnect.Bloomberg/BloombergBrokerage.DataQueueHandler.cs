@@ -188,7 +188,6 @@ namespace QuantConnect.Bloomberg
 
         private static bool CanSubscribe(Symbol symbol)
         {
-            var market = symbol.ID.Market;
             var securityType = symbol.ID.SecurityType;
 
             if (symbol.Value.IndexOfInvariant("universe", true) != -1)
@@ -196,11 +195,7 @@ namespace QuantConnect.Bloomberg
                 return false;
             }
 
-            return
-                securityType == SecurityType.Equity && market == Market.USA ||
-                securityType == SecurityType.Forex && market == Market.FXCM ||
-                securityType == SecurityType.Option && market == Market.USA ||
-                securityType == SecurityType.Future;
+            return securityType == SecurityType.Equity || securityType == SecurityType.Forex || securityType == SecurityType.Option || securityType == SecurityType.Future;
         }
 
         internal static CorrelationID GetNewCorrelationId()
