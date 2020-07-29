@@ -408,7 +408,7 @@ namespace QuantConnect.Bloomberg
             if (symbol.SecurityType == SecurityType.Option)
             {
                 // Equity options: Root Ticker x Exchange Code x Expiry MM/DD/YY (or Expiry M/Y only) x C or P x Strike Price
-                return Invariant($"{symbol.Underlying.Value} UO {symbol.ID.Date:MM/dd/yy} {(symbol.ID.OptionRight == OptionRight.Call ? "C" : "P")}{symbol.ID.StrikePrice:F2}");
+                return $"{symbol.Underlying.Value} UO {symbol.ID.Date:MM/dd/yy} {(symbol.ID.OptionRight == OptionRight.Call ? "C" : "P")}{symbol.ID.StrikePrice:F2}";
             }
 
             return symbol.Value;
