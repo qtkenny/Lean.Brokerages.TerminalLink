@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using QuantConnect.Data;
 using QuantConnect.ToolBox;
 
-namespace QuantConnect.Bloomberg
+namespace QuantConnect.Bloomberg.Toolbox
 {
     public class BloombergDataDownloader : IDataDownloader
     {
@@ -20,7 +20,7 @@ namespace QuantConnect.Bloomberg
         }
 
         /// <summary>
-        /// Get historical data enumerable for a single symbol, type and resolution given this start and end time (in UTC).
+        ///     Get historical data enumerable for a single symbol, type and resolution given this start and end time (in UTC).
         /// </summary>
         /// <param name="symbol">Symbol for the data we're looking for.</param>
         /// <param name="resolution">Resolution of the data request</param>
@@ -33,7 +33,7 @@ namespace QuantConnect.Bloomberg
         }
 
         /// <summary>
-        /// Returns an IEnumerable of Future/Option contract symbols for the given root ticker
+        ///     Returns an IEnumerable of Future/Option contract symbols for the given root ticker
         /// </summary>
         /// <param name="ticker">The root ticker</param>
         /// <param name="securityType">Expected security type of the returned symbols (if any)</param>
@@ -44,7 +44,7 @@ namespace QuantConnect.Bloomberg
         }
 
         /// <summary>
-        /// Downloads historical data from the brokerage and saves it in LEAN format.
+        ///     Downloads historical data from the brokerage and saves it in LEAN format.
         /// </summary>
         /// <param name="symbols">The list of symbols</param>
         /// <param name="tickType">The tick type</param>

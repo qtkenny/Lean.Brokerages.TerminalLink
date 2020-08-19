@@ -72,7 +72,6 @@
     <Compile Include="BloombergBrokerage.DataQueueHandler.cs" />
     <Compile Include="BloombergBrokerage.History.cs" />
     <Compile Include="BloombergBrokerageFactory.cs" />
-    <Compile Include="BloombergDataDownloader.cs" />
     <Compile Include="BloombergExtensions.cs" />
     <Compile Include="BloombergFieldNames.cs" />
     <Compile Include="BloombergNames.cs" />
@@ -115,10 +114,6 @@
     <ProjectReference Include="..\..\Lean\Logging\QuantConnect.Logging.csproj">
       <Project>{01911409-86be-4e7d-9947-df714138610d}</Project>
       <Name>QuantConnect.Logging</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Lean\ToolBox\QuantConnect.ToolBox.csproj">
-      <Project>{AC9A142C-B485-44D7-91FF-015C22C43D05}</Project>
-      <Name>QuantConnect.ToolBox</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
