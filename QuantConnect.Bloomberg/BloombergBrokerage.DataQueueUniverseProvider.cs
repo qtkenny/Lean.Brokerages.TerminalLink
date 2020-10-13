@@ -90,6 +90,7 @@ namespace QuantConnect.Bloomberg
 
             request.Append(BloombergNames.Fields, chainFieldName);
             request.Append(BloombergNames.Fields, BloombergNames.Ticker.ToString());
+            request.Append(BloombergNames.Fields, BloombergNames.CurrentGenericFuturesTicker.ToString());
 
             var overrides = request.GetElement("overrides");
 
@@ -132,20 +133,36 @@ namespace QuantConnect.Bloomberg
                     }
 
                     var fieldData = securityItem[BloombergNames.FieldData];
-                    if (!fieldData.HasElement(chainFieldName, true) || !fieldData.HasElement(BloombergNames.Ticker))
+                    if (!fieldData.HasElement(chainFieldName, true) || 
+                        !(fieldData.HasElement(BloombergNames.CurrentGenericFuturesTicker) || fieldData.HasElement(BloombergNames.Ticker)))
                     {
                         continue;
                     }
 
-                    var currentActive = fieldData.GetElementAsString(BloombergNames.Ticker);
+                    string firstContract;
+
+                    switch (securityType)
+                    {
+                        case SecurityType.Future:
+                            firstContract = fieldData.HasElement(BloombergNames.CurrentGenericFuturesTicker)
+                                ? fieldData.GetElementAsString(BloombergNames.CurrentGenericFuturesTicker)
+                                : fieldData.GetElementAsString(BloombergNames.Ticker);
+                            break;
+                        case SecurityType.Option:
+                            firstContract = fieldData.GetElementAsString(BloombergNames.Ticker);
+                            break;
+                        default:
+                            throw new ArgumentException(nameof(securityType));
+                    }
+
                     var chainTickers = fieldData.GetElement(chainFieldName);
-                    var hasFoundActive = !_startAtActive;
+                    var hasFoundFirstContract = !_startAtActive;
                     for (var index = 0; index < chainTickers.NumValues; index++)
                     {
                         var chainTicker = chainTickers.GetValueAsElement(index);
                         var contractTicker = chainTicker.GetElementAsString("Security Description");
-                        hasFoundActive |= contractTicker.StartsWith(currentActive);
-                        if (hasFoundActive)
+                        hasFoundFirstContract |= contractTicker.StartsWith(firstContract);
+                        if (hasFoundFirstContract)
                         {
                             yield return contractTicker;
                         }

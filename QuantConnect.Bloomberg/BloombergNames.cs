@@ -289,6 +289,10 @@ namespace QuantConnect.Bloomberg
         /// Value: TICKER
         /// </summary>
         public static readonly Name Ticker = new Name("TICKER");
+        /// <summary>
+        /// Value: FUT_CUR_GEN_TICKER
+        /// </summary>
+        public static readonly Name CurrentGenericFuturesTicker = new Name("FUT_CUR_GEN_TICKER");
 
         /// <summary>
         /// Value: OPEN
