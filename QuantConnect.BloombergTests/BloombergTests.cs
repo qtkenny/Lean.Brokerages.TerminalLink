@@ -79,7 +79,7 @@ namespace QuantConnect.BloombergTests
                 var historyProvider = new BrokerageHistoryProvider();
 
                 historyProvider.SetBrokerage(brokerage);
-                historyProvider.Initialize(new HistoryProviderInitializeParameters(null, null, null, null, mapFileProvider, factorFileProvider, null, false));
+                historyProvider.Initialize(new HistoryProviderInitializeParameters(null, null, null, null, mapFileProvider, factorFileProvider, null, false, null));
 
                 var historyRequests = new List<HistoryRequest>
                 {

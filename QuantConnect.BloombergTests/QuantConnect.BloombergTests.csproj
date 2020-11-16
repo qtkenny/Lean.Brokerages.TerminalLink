@@ -136,6 +136,10 @@
       <Project>{ac9a142c-b485-44d7-91ff-015c22c43d05}</Project>
       <Name>QuantConnect.ToolBox</Name>
     </ProjectReference>
+    <ProjectReference Include="..\QuantConnect.Bloomberg.Toolbox\QuantConnect.Bloomberg.Toolbox.csproj">
+      <Project>{F6990F28-9032-4461-84A9-CF290413ECD3}</Project>
+      <Name>QuantConnect.Bloomberg.Toolbox</Name>
+    </ProjectReference>
     <ProjectReference Include="..\QuantConnect.Bloomberg\QuantConnect.Bloomberg.csproj">
       <Project>{dc246e85-5c45-4d61-849c-5a59509cf743}</Project>
       <Name>QuantConnect.Bloomberg</Name>

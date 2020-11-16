@@ -2,7 +2,15 @@
     "ES": {
         "Underlying": "ES",
         "SecurityType": "Future",
-        "Market": "usa",
+        "Market": "cme",
+        "TickerSuffix": "COMB Index",
+        "RootLookupSuffix": "1"
+    },
+
+    "TWT": {
+        "Underlying": "TWN",
+        "SecurityType": "Future",
+        "Market": "sgx",
         "TickerSuffix": "COMB Index",
         "RootLookupSuffix": "1"
     },
@@ -10,7 +18,7 @@
     "AD": {
         "Underlying": "6A",
         "SecurityType": "Future",
-        "Market": "usa",
+        "Market": "cme",
         "TickerSuffix": "COMB Curncy",
         "RootLookupSuffix": "1"
     },
@@ -18,7 +26,7 @@
     "BO": {
         "Underlying": "ZL",
         "SecurityType": "Future",
-        "Market": "usa",
+        "Market": "cbot",
         "TickerSuffix": "COMB Comdty",
         "RootLookupSuffix": "1"
     },
@@ -26,7 +34,7 @@
     "C ": {
         "Underlying": "ZC",
         "SecurityType": "Future",
-        "Market": "usa",
+        "Market": "cbot",
         "TickerSuffix": "COMB Comdty",
         "RootLookupSuffix": "1"
     },
@@ -34,7 +42,7 @@
     "CL": {
         "Underlying": "CL",
         "SecurityType": "Future",
-        "Market": "usa",
+        "Market": "nymex",
         "TickerSuffix": "COMB Comdty",
         "RootLookupSuffix": "1"
     },

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using QuantConnect.Configuration;
 using QuantConnect.Logging;
@@ -31,6 +32,9 @@ namespace QuantConnect.Bloomberg
         private readonly Dictionary<Symbol, string> _mapLeanToBloomberg = new Dictionary<Symbol, string>();
 
         private readonly HashSet<string> _forexCurrencies = Currencies.CurrencyPairs.ToHashSet();
+
+        private readonly List<string> _futuresMonthCodes = new List<string> { "F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z" };
+        private readonly Regex _futureSymbolRegex = new Regex(@"^(?<RootTicker>[A-Z\s]+)[0-9]+\s", RegexOptions.Compiled);
 
         public BloombergSymbolMapper() : this(Config.Get("bloomberg-symbol-map-file", "bloomberg-symbol-map.json")) { }
 
@@ -343,6 +347,15 @@ namespace QuantConnect.Bloomberg
             return true;
         }
 
+        public string GetRootTicker(string brokerageSymbol)
+        {
+            var match = _futureSymbolRegex.Match(brokerageSymbol);
+            var rootTicker = match.Groups["RootTicker"].Value;
+            return !string.IsNullOrWhiteSpace(rootTicker) && _futuresMonthCodes.Contains(rootTicker.Substring(rootTicker.Length - 1))
+                ? rootTicker.Substring(0, rootTicker.Length - 1)
+                : rootTicker;
+        }
+
         private bool TryBuildLeanSymbolFromFutureTicker(string brokerageSymbol, out Symbol symbol)
         {
             symbol = null;
@@ -352,7 +365,7 @@ namespace QuantConnect.Bloomberg
                 return false;
             }
 
-            var rootTicker = brokerageSymbol.Substring(0, 2);
+            var rootTicker = GetRootTicker(brokerageSymbol);
 
             if (!MappingInfo.TryGetValue(rootTicker, out var info))
             {
@@ -360,7 +373,7 @@ namespace QuantConnect.Bloomberg
                 return false;
             }
 
-            var parts = brokerageSymbol.Substring(2).Split(' '); 
+            var parts = brokerageSymbol.Substring(rootTicker.Length).Split(' '); 
             var underlyingSymbol = CreateUnderlyingSymbol(info);
 
             if (parts[0] == info.RootLookupSuffix)
