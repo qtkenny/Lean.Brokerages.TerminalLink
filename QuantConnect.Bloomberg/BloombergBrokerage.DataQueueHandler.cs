@@ -12,6 +12,7 @@ using System.Text;
 using System.Threading;
 using Bloomberglp.Blpapi;
 using QuantConnect.Brokerages;
+using QuantConnect.Brokerages.Alpaca.Markets;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;
 using QuantConnect.Interfaces;
@@ -333,21 +334,28 @@ namespace QuantConnect.Bloomberg
 
             if (data.IsQuoteValid())
             {
-                var time = GetTickTime(message, data, TickType.Quote, eventSubtype);
+                var localTickTime = GetLocalTickTime(message, data, TickType.Quote, eventSubtype);
+
+                var tick = new Tick
+                {
+                    Symbol = data.Symbol,
+                    Time =  localTickTime,
+                    TickType = TickType.Quote,
+                    BidPrice = data.BidPrice,
+                    AskPrice = data.AskPrice,
+                    BidSize = data.BidSize,
+                    AskSize = data.AskSize,
+                    Value = (data.BidPrice + data.AskPrice) / 2
+                };
 
                 lock (_locker)
                 {
-                    _ticks.Add(new Tick
-                    {
-                        Symbol = data.Symbol,
-                        Time = time,
-                        TickType = TickType.Quote,
-                        BidPrice = data.BidPrice,
-                        AskPrice = data.AskPrice,
-                        BidSize = data.BidSize,
-                        AskSize = data.AskSize,
-                        Value = (data.BidPrice + data.AskPrice) / 2
-                    });
+                    _ticks.Add(tick);
+                }
+
+                if (_logTicks)
+                {
+                    _tickStreamWriterDictionary[TickType.Quote].WriteLine($"{tick.Symbol.ID.Symbol},{localTickTime.ConvertToUtc(data.ExchangeTimeZone):O},{tick.Time:O},{tick.TickType},{tick.BidPrice},{tick.BidSize},{tick.AskPrice},{tick.AskSize}");
                 }
             }
         }
@@ -361,18 +369,25 @@ namespace QuantConnect.Bloomberg
 
             var price = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.TradePrice);
             var quantity = GetBloombergFieldValue<decimal>(message, BloombergFieldNames.TradeSize);
-            var time = GetTickTime(message, data, TickType.Trade);
+            var localTickTime = GetLocalTickTime(message, data, TickType.Trade);
+
+            var tick = new Tick
+            {
+                Symbol = data.Symbol,
+                Time =  localTickTime,
+                TickType = TickType.Trade,
+                Value = price,
+                Quantity = quantity
+            };
 
             lock (_locker)
             {
-                _ticks.Add(new Tick
-                {
-                    Symbol = data.Symbol,
-                    Time = time,
-                    TickType = TickType.Trade,
-                    Value = price,
-                    Quantity = quantity
-                });
+                _ticks.Add(tick);
+            }
+
+            if (_logTicks)
+            {
+                _tickStreamWriterDictionary[TickType.Trade].WriteLine($"{tick.Symbol.ID.Symbol},{localTickTime.ConvertToUtc(data.ExchangeTimeZone):O},{tick.Time:O},{tick.TickType},{tick.Exchange},{tick.Value},{tick.Quantity},{tick.SaleCondition},{tick.Suspicious}");
             }
         }
 
@@ -384,17 +399,24 @@ namespace QuantConnect.Bloomberg
                 return;
             }
 
-            var time = GetTickTime(message, data, TickType.OpenInterest);
+            var localTickTime = GetLocalTickTime(message, data, TickType.OpenInterest);
+
+            var tick = new Tick
+            {
+                Symbol = data.Symbol,
+                Time =  localTickTime.ConvertFromUtc(data.ExchangeTimeZone),
+                TickType = TickType.OpenInterest,
+                Value = openInterest
+            };
 
             lock (_locker)
             {
-                _ticks.Add(new Tick
-                {
-                    Symbol = data.Symbol,
-                    Time = time,
-                    TickType = TickType.OpenInterest,
-                    Value = openInterest
-                });
+                _ticks.Add(tick);
+            }
+
+            if (_logTicks)
+            {
+                _tickStreamWriterDictionary[TickType.OpenInterest].WriteLine($"{tick.Symbol.ID.Symbol},{localTickTime.ConvertToUtc(data.ExchangeTimeZone):O},{tick.Time:O},{tick.TickType},{tick.Value}");
             }
         }
 
@@ -440,9 +462,9 @@ namespace QuantConnect.Bloomberg
             return message.HasElement(field, true) ? message[field.ToString()].GetValue().ToString() : string.Empty;
         }
 
-        private static DateTime GetTickTime(Message message, BloombergSubscriptionData data, TickType tickType, Name eventSubtype = null)
+        private static DateTime GetLocalTickTime(Message message, BloombergSubscriptionData data, TickType tickType, Name eventSubtype = null)
         {
-            DateTime utcTime;
+            var utcTime = default(DateTime);
             switch (tickType)
             {
                 case TickType.Quote:
@@ -467,7 +489,8 @@ namespace QuantConnect.Bloomberg
                     }
 
                     var timestamp = GetBloombergFieldValue(message, bloombergName);
-                    utcTime = DateTime.Parse(timestamp, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
+                    var datestamp = GetBloombergFieldValue(message, BloombergNames.TradingDateTime);
+                    utcTime = DateTime.Parse($"{datestamp} {timestamp}", CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
                     break;
                 }
 
@@ -486,13 +509,6 @@ namespace QuantConnect.Bloomberg
                 case TickType.OpenInterest:
                 {
                     var timestamp = GetBloombergFieldValue(message, BloombergNames.OpenInterestDate);
-                    utcTime = DateTime.Parse(timestamp, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
-                    break;
-                }
-
-                default:
-                {
-                    var timestamp = GetBloombergFieldValue(message, BloombergNames.BidUpdateStamp);
                     utcTime = DateTime.Parse(timestamp, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal);
                     break;
                 }

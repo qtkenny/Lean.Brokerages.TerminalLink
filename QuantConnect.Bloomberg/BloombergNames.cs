@@ -358,6 +358,7 @@ namespace QuantConnect.Bloomberg
         public static readonly Name Value = new Name("value");
         public static readonly Name Type = new Name("type");
         public static readonly Name BidAskTime = new Name("BID_ASK_TIME");
+        public static readonly Name TradingDateTime = new Name("TRADING_DT_REALTIME");
 
         // MKTDATA_EVENT_TYPE
         public static readonly Name Trade = new Name("TRADE");

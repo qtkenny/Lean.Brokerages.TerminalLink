@@ -36,7 +36,7 @@ namespace QuantConnect.Bloomberg
                 return BidPrice > 0 && AskPrice > 0;
             }
 
-            // TODO: This isn't necessary true for Futures, particularly spreads which can have a price of 0.
+            // TODO: This isn't necessarily true for Futures, particularly spreads which can have a price of 0.
             return BidPrice > 0 && BidSize > 0 && AskPrice > 0 && AskSize > 0;
         }
     }

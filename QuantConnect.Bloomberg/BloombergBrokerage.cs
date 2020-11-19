@@ -5,6 +5,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -58,14 +60,22 @@ namespace QuantConnect.Bloomberg
         private OrderSubscriptionHandler _orderSubscriptionHandler;
         private bool _isConnected;
 
-        public BloombergBrokerage() : this(Config.GetValue<ApiType>("bloomberg-api-type"), Config.GetValue<Environment>("bloomberg-environment"),
-            Config.Get("bloomberg-server-host"), Config.GetInt("bloomberg-server-port"), new BloombergSymbolMapper(Config.Get("bloomberg-symbol-map-file")))
+        private readonly bool _logTicks;
+        private readonly Dictionary<TickType, StreamWriter> _tickStreamWriterDictionary = new Dictionary<TickType, StreamWriter>();
+
+        public BloombergBrokerage()
+            : this(Config.GetValue<ApiType>("bloomberg-api-type"),
+                Config.GetValue<Environment>("bloomberg-environment"),
+                Config.Get("bloomberg-server-host"),
+                Config.GetInt("bloomberg-server-port"),
+                new BloombergSymbolMapper(Config.Get("bloomberg-symbol-map-file")))
         {
             _isBroker = false;
             Connect();
         }
 
-        private BloombergBrokerage(ApiType apiType, Environment environment, string serverHost, int serverPort, IBloombergSymbolMapper symbolMapper) : base("Bloomberg brokerage")
+        private BloombergBrokerage(ApiType apiType, Environment environment, string serverHost, int serverPort, IBloombergSymbolMapper symbolMapper)
+            : base("Bloomberg brokerage")
         {
             _symbolMapper = symbolMapper;
             Composer.Instance.AddPart<ISymbolMapper>(symbolMapper);
@@ -95,6 +105,18 @@ namespace QuantConnect.Bloomberg
             _sessionMarketData = new Session(_sessionOptions, OnBloombergMarketDataEvent);
             _sessionReferenceData = new Session(_sessionOptions);
             _startAtActive = Config.GetValue("bloomberg-futures-start-at-active", true);
+            _logTicks = Convert.ToBoolean(Config.Get("bloomberg-log-ticks", "false"), CultureInfo.InvariantCulture);
+
+            if (_logTicks)
+            {
+                var outputPath = Path.Combine(Config.Get("results-destination-folder"), "Ticks");
+                if (!Directory.Exists(outputPath))
+                    Directory.CreateDirectory(outputPath);
+                foreach (var tickType in Enum.GetValues(typeof(TickType)).Cast<TickType>())
+                {
+                    _tickStreamWriterDictionary.Add(tickType, new StreamWriter(Path.Combine(outputPath, $"{tickType}_Ticks.csv"), true) {AutoFlush = true});
+                }
+            }
         }
 
         /// <summary>
@@ -486,6 +508,13 @@ namespace QuantConnect.Bloomberg
         /// </summary>
         public override void Dispose()
         {
+            foreach (var streamWriter in _tickStreamWriterDictionary)
+            {
+                streamWriter.Value?.Flush();
+                streamWriter.Value?.Close();
+                _tickStreamWriterDictionary.Remove(streamWriter.Key);
+            }
+
             _sessionMarketData?.Stop();
             _sessionReferenceData?.Stop();
             _sessionEms?.Stop();
