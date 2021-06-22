@@ -18,6 +18,7 @@ using QuantConnect.Brokerages;
 using QuantConnect.Configuration;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;
+using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
 using QuantConnect.Securities;
@@ -62,7 +63,7 @@ namespace QuantConnect.BloombergTests
             // Ensure the log handler is still attached.
             Log.LogHandler = FixtureLogHandler;
             _underTest = new BloombergBrokerage(MockOrderProvider.Object, ApiType.Desktop, Environment.Beta, Config.GetValue<string>("bloomberg-server-host"),
-                Config.GetValue<int>("bloomberg-server-port"), MockBloombergSymbolMapper.Object);
+                Config.GetValue<int>("bloomberg-server-port"), MockBloombergSymbolMapper.Object, new AggregationManager());
             _underTest.Connect();
         }
 

@@ -4,14 +4,15 @@
 */
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
+using QuantConnect.Data;
+using QuantConnect.Util;
+using QuantConnect.Packets;
+using QuantConnect.Interfaces;
+using QuantConnect.Securities;
 using QuantConnect.Brokerages;
 using QuantConnect.Configuration;
-using QuantConnect.Interfaces;
-using QuantConnect.Packets;
-using QuantConnect.Securities;
-using QuantConnect.Util;
+using System.Collections.Generic;
 
 namespace QuantConnect.Bloomberg
 {
@@ -91,14 +92,18 @@ namespace QuantConnect.Bloomberg
                 Composer.Instance.AddPart<ISymbolMapper>(symbolMapper);
             }
 
-            var instance = CreateInstance(algorithm, apiType, environment, serverHost, serverPort, symbolMapper);
+            var dataAggregator = Composer.Instance.GetExportedValueByTypeName<IDataAggregator>(
+                Config.Get("data-aggregator", "QuantConnect.Lean.Engine.DataFeeds.AggregationManager"));
+
+            var instance = CreateInstance(algorithm, apiType, environment, serverHost, serverPort, symbolMapper, dataAggregator);
             Composer.Instance.AddPart<IDataQueueHandler>(instance);
             return instance;
         }
 
-        protected virtual BloombergBrokerage CreateInstance(IAlgorithm algorithm, ApiType apiType, Environment environment, string serverHost, int serverPort, IBloombergSymbolMapper symbolMapper)
+        protected virtual BloombergBrokerage CreateInstance(IAlgorithm algorithm, ApiType apiType, Environment environment,
+            string serverHost, int serverPort, IBloombergSymbolMapper symbolMapper, IDataAggregator aggregator)
         {
-            return new BloombergBrokerage(algorithm.Transactions, apiType, environment, serverHost, serverPort, symbolMapper);
+            return new BloombergBrokerage(algorithm.Transactions, apiType, environment, serverHost, serverPort, symbolMapper, aggregator);
         }
     }
 }

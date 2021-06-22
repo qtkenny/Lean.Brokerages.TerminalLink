@@ -28,7 +28,6 @@ namespace QuantConnect.Bloomberg
         private readonly object _locker = new object();
         private readonly IDataAggregator _dataAggregator;
         private readonly EventBasedDataQueueHandlerSubscriptionManager _subscriptionManager;
-        private readonly List<Tick> _ticks = new List<Tick>();
         private readonly ConcurrentDictionary<string, Subscription> _subscriptionsByTopicName = new ConcurrentDictionary<string, Subscription>();
         private readonly ConcurrentDictionary<CorrelationID, BloombergSubscriptionData> _subscriptionDataByCorrelationId =
             new ConcurrentDictionary<CorrelationID, BloombergSubscriptionData>();
@@ -365,14 +364,9 @@ namespace QuantConnect.Bloomberg
                     Value = (data.BidPrice + data.AskPrice) / 2
                 };
 
-                lock (_locker)
+                lock (_dataAggregator)
                 {
                     _dataAggregator.Update(tick);
-                }
-
-                if (_logTicks)
-                {
-                    _tickStreamWriterDictionary[TickType.Quote].WriteLine($"{tick.Symbol.ID.Symbol},{localTickTime.ConvertToUtc(data.ExchangeTimeZone):O},{tick.Time:O},{tick.TickType},{tick.BidPrice},{tick.BidSize},{tick.AskPrice},{tick.AskSize}");
                 }
             }
         }
@@ -397,14 +391,9 @@ namespace QuantConnect.Bloomberg
                 Quantity = quantity
             };
 
-            lock (_locker)
+            lock (_dataAggregator)
             {
                 _dataAggregator.Update(tick);
-            }
-
-            if (_logTicks)
-            {
-                _tickStreamWriterDictionary[TickType.Trade].WriteLine($"{tick.Symbol.ID.Symbol},{localTickTime.ConvertToUtc(data.ExchangeTimeZone):O},{tick.Time:O},{tick.TickType},{tick.Exchange},{tick.Value},{tick.Quantity},{tick.SaleCondition},{tick.Suspicious}");
             }
         }
 
@@ -426,14 +415,9 @@ namespace QuantConnect.Bloomberg
                 Value = openInterest
             };
 
-            lock (_locker)
+            lock (_dataAggregator)
             {
                 _dataAggregator.Update(tick);
-            }
-
-            if (_logTicks)
-            {
-                _tickStreamWriterDictionary[TickType.OpenInterest].WriteLine($"{tick.Symbol.ID.Symbol},{localTickTime.ConvertToUtc(data.ExchangeTimeZone):O},{tick.Time:O},{tick.TickType},{tick.Value}");
             }
         }
 
