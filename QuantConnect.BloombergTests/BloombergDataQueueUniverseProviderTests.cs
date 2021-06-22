@@ -5,8 +5,9 @@
 
 using System.Linq;
 using NUnit.Framework;
-using QuantConnect.Configuration;
 using QuantConnect.Logging;
+using QuantConnect.Securities;
+using QuantConnect.Configuration;
 
 namespace QuantConnect.BloombergTests
 {
@@ -27,7 +28,8 @@ namespace QuantConnect.BloombergTests
             using (var brokerage = BloombergCommon.CreateBrokerage())
             {
                 brokerage.Connect();
-                var symbols = brokerage.LookupSymbols("ES", SecurityType.Future, false).ToList();
+                var canonicalSymbol = Symbol.Create(Futures.Indices.SP500EMini, SecurityType.Future, Market.CME);
+                var symbols = brokerage.LookupSymbols(canonicalSymbol, false).ToList();
 
                 Log.Trace($"Future contracts found: {symbols.Count}");
                 Assert.That(symbols.Count > 0);
@@ -40,7 +42,8 @@ namespace QuantConnect.BloombergTests
             using (var brokerage = BloombergCommon.CreateBrokerage())
             {
                 brokerage.Connect();
-                var symbols = brokerage.LookupSymbols("SPY", SecurityType.Option, false).ToList();
+                var canonicalSymbol = Symbol.Create("SPY", SecurityType.Option, Market.USA);
+                var symbols = brokerage.LookupSymbols(canonicalSymbol, false).ToList();
 
                 Log.Trace($"Option contracts found: {symbols.Count}");
                 Assert.That(symbols.Count > 0);

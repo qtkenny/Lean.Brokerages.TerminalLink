@@ -40,7 +40,11 @@ namespace QuantConnect.Bloomberg.Toolbox
         /// <param name="includeExpired">Include expired contracts</param>
         public IEnumerable<Symbol> GetChainSymbols(string ticker, SecurityType securityType, bool includeExpired)
         {
-            return _brokerage.LookupSymbols(ticker, securityType, includeExpired);
+            var symbolMapper = new BloombergSymbolMapper();
+            var market = symbolMapper.GetMarket(ticker) ?? Market.USA;
+            var canonicalSymbol = Symbol.Create(ticker, securityType, market);
+
+            return _brokerage.LookupSymbols(canonicalSymbol, includeExpired);
         }
 
         /// <summary>

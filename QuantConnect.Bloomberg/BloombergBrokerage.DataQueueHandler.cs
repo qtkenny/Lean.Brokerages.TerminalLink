@@ -12,7 +12,6 @@ using System.Text;
 using System.Threading;
 using Bloomberglp.Blpapi;
 using QuantConnect.Brokerages;
-using QuantConnect.Brokerages.Alpaca.Markets;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;
 using QuantConnect.Interfaces;
@@ -27,6 +26,8 @@ namespace QuantConnect.Bloomberg
     public partial class BloombergBrokerage
     {
         private readonly object _locker = new object();
+        private readonly IDataAggregator _dataAggregator;
+        private readonly EventBasedDataQueueHandlerSubscriptionManager _subscriptionManager;
         private readonly List<Tick> _ticks = new List<Tick>();
         private readonly ConcurrentDictionary<string, Subscription> _subscriptionsByTopicName = new ConcurrentDictionary<string, Subscription>();
         private readonly ConcurrentDictionary<CorrelationID, BloombergSubscriptionData> _subscriptionDataByCorrelationId =
@@ -47,25 +48,43 @@ namespace QuantConnect.Bloomberg
         #region IDataQueueHandler implementation
 
         /// <summary>
-        /// Get the next ticks from the live trading data queue
+        /// Subscribe to the specified configuration
         /// </summary>
-        /// <returns>IEnumerable list of ticks since the last update.</returns>
-        public IEnumerable<BaseData> GetNextTicks()
+        /// <param name="dataConfig">defines the parameters to subscribe to a data feed</param>
+        /// <param name="newDataAvailableHandler">handler to be fired on new data available</param>
+        /// <returns>The new enumerator for this subscription request</returns>
+        public IEnumerator<BaseData> Subscribe(SubscriptionDataConfig dataConfig, System.EventHandler newDataAvailableHandler)
         {
-            lock (_locker)
+            if (!CanSubscribe(dataConfig.Symbol))
             {
-                var copy = _ticks.ToArray();
-                _ticks.Clear();
-                return copy;
+                return Enumerable.Empty<BaseData>().GetEnumerator();
             }
+
+            var enumerator = _dataAggregator.Add(dataConfig, newDataAvailableHandler);
+            _subscriptionManager.Subscribe(dataConfig);
+
+            return enumerator;
+        }
+
+        /// <summary>
+        /// Removes the specified configuration
+        /// </summary>
+        /// <param name="dataConfig">Subscription config to be removed</param>
+        public void Unsubscribe(SubscriptionDataConfig dataConfig)
+        {
+            _subscriptionManager.Unsubscribe(dataConfig);
+            _dataAggregator.Remove(dataConfig);
+        }
+
+        public void SetJob(LiveNodePacket job)
+        {
         }
 
         /// <summary>
         /// Adds the specified symbols to the subscription
         /// </summary>
-        /// <param name="job">Job we're subscribing for:</param>
         /// <param name="symbols">The symbols to be added keyed by SecurityType</param>
-        public void Subscribe(LiveNodePacket job, IEnumerable<Symbol> symbols)
+        private bool Subscribe(IEnumerable<Symbol> symbols)
         {
             var subscriptions = CreateNewBloombergSubscriptions(symbols);
 
@@ -77,33 +96,36 @@ namespace QuantConnect.Bloomberg
                 }
 
                 _sessionMarketData.Subscribe(subscriptions);
+                return true;
             }
+            return false;
         }
 
         /// <summary>
         /// Removes the specified symbols to the subscription
         /// </summary>
-        /// <param name="job">Job we're processing.</param>
         /// <param name="symbols">The symbols to be removed keyed by SecurityType</param>
-        public void Unsubscribe(LiveNodePacket job, IEnumerable<Symbol> symbols)
+        private bool Unsubscribe(IEnumerable<Symbol> symbols)
         {
             var subscriptions = RemoveExistingBloombergSubscriptions(symbols);
 
             if (subscriptions.Count == 0)
             {
-                return;
+                return false;
             }
 
             Log.Trace($"BloombergBrokerage.Unsubscribe(): Count={subscriptions.Count}: {string.Join(",", subscriptions.Select(x => x.SubscriptionString))}");
             try
             {
                 _sessionMarketData.Unsubscribe(subscriptions);
+                return true;
             }
             catch (Exception e)
             {
                 Log.Error(e,
                     $"Failed to unsubscribe from market data cleanly [{subscriptions.Count} subscriptions: {string.Join(",", subscriptions.Select(x => x.SubscriptionString))}]");
             }
+            return false;
         }
 
         #endregion
@@ -114,11 +136,6 @@ namespace QuantConnect.Bloomberg
 
             foreach (var symbol in symbols)
             {
-                if (!CanSubscribe(symbol))
-                {
-                    continue;
-                }
-
                 lock (_locker)
                 {
                     var subscribeSymbol = symbol;
@@ -350,7 +367,7 @@ namespace QuantConnect.Bloomberg
 
                 lock (_locker)
                 {
-                    _ticks.Add(tick);
+                    _dataAggregator.Update(tick);
                 }
 
                 if (_logTicks)
@@ -382,7 +399,7 @@ namespace QuantConnect.Bloomberg
 
             lock (_locker)
             {
-                _ticks.Add(tick);
+                _dataAggregator.Update(tick);
             }
 
             if (_logTicks)
@@ -411,7 +428,7 @@ namespace QuantConnect.Bloomberg
 
             lock (_locker)
             {
-                _ticks.Add(tick);
+                _dataAggregator.Update(tick);
             }
 
             if (_logTicks)

@@ -1,60 +1,26 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{F6990F28-9032-4461-84A9-CF290413ECD3}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>QuantConnect.Bloomberg.Toolbox</RootNamespace>
+    <TargetFramework>net5.0</TargetFramework>
+    <AssemblyTitle>QuantConnect.Bloomberg.Toolbox</AssemblyTitle>
+    <Product>QuantConnect.Bloomberg.Toolbox</Product>
     <AssemblyName>QuantConnect.Bloomberg.Toolbox</AssemblyName>
-    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <Deterministic>true</Deterministic>
+    <Copyright>Copyright ©  2020</Copyright>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+    <DebugType>full</DebugType>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+    <DebugType>pdbonly</DebugType>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
+    <ProjectReference Include="..\..\Lean\Brokerages\QuantConnect.Brokerages.csproj" />
+    <ProjectReference Include="..\..\Lean\Common\QuantConnect.csproj" />
+    <ProjectReference Include="..\..\Lean\ToolBox\QuantConnect.ToolBox.csproj" />
+    <ProjectReference Include="..\QuantConnect.Bloomberg\QuantConnect.Bloomberg.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="BloombergDataDownloader.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\Lean\Brokerages\QuantConnect.Brokerages.csproj">
-      <Project>{2d3e13cf-2d14-4180-a42d-f0a13af0ade2}</Project>
-      <Name>QuantConnect.Brokerages</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Lean\Common\QuantConnect.csproj">
-      <Project>{2545c0b4-fabb-49c9-8dd1-9ad7ee23f86b}</Project>
-      <Name>QuantConnect</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Lean\ToolBox\QuantConnect.ToolBox.csproj">
-      <Project>{ac9a142c-b485-44d7-91ff-015c22c43d05}</Project>
-      <Name>QuantConnect.ToolBox</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\QuantConnect.Bloomberg\QuantConnect.Bloomberg.csproj">
-      <Project>{dc246e85-5c45-4d61-849c-5a59509cf743}</Project>
-      <Name>QuantConnect.Bloomberg</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

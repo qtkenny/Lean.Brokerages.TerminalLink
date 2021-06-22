@@ -14,6 +14,7 @@ using Bloomberglp.Blpapi;
 using NodaTime;
 using QuantConnect.Brokerages;
 using QuantConnect.Configuration;
+using QuantConnect.Data;
 using QuantConnect.Interfaces;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
@@ -117,6 +118,10 @@ namespace QuantConnect.Bloomberg
                     _tickStreamWriterDictionary.Add(tickType, new StreamWriter(Path.Combine(outputPath, $"{tickType}_Ticks.csv"), true) {AutoFlush = true});
                 }
             }
+
+            _subscriptionManager = new EventBasedDataQueueHandlerSubscriptionManager();
+            _subscriptionManager.SubscribeImpl += (s, t) => Subscribe(s);
+            _subscriptionManager.UnsubscribeImpl += (s, t) => Unsubscribe(s);
         }
 
         /// <summary>

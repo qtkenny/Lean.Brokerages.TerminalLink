@@ -31,7 +31,7 @@ namespace QuantConnect.Bloomberg
         // Manual mapping of Lean symbols back to Bloomberg tickets
         private readonly Dictionary<Symbol, string> _mapLeanToBloomberg = new Dictionary<Symbol, string>();
 
-        private readonly HashSet<string> _forexCurrencies = Currencies.CurrencyPairs.ToHashSet();
+        private readonly HashSet<string> _forexCurrencies = Currencies.CurrencySymbols.Keys.ToHashSet();
 
         private readonly List<string> _futuresMonthCodes = new List<string> { "F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z" };
         private readonly Regex _futureSymbolRegex = new Regex(@"^(?<RootTicker>[A-Z\s]+)[0-9]+\s", RegexOptions.Compiled);
