@@ -6,7 +6,6 @@
 using System;
 using System.Linq;
 using NUnit.Framework;
-using QuantConnect.Bloomberg;
 using QuantConnect.Bloomberg.Toolbox;
 using QuantConnect.Configuration;
 using QuantConnect.Logging;

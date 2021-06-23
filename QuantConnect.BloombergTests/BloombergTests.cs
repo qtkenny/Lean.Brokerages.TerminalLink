@@ -13,6 +13,7 @@ using QuantConnect.Configuration;
 using QuantConnect.Data;
 using QuantConnect.Data.Auxiliary;
 using QuantConnect.Data.Market;
+using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.Lean.Engine.HistoricalData;
 using QuantConnect.Logging;
 using QuantConnect.Securities;
@@ -55,15 +56,28 @@ namespace QuantConnect.BloombergTests
                     Symbol.CreateOption("SPY", Market.USA, OptionStyle.American, OptionRight.Call, 320, new DateTime(2020, 3, 20))
                 };
 
-                bb.Subscribe(null, symbols);
-
-                Thread.Sleep(5000);
-
-                bb.Unsubscribe(null, symbols);
-
-                foreach (var tick in bb.GetNextTicks())
+                var data = new List<IEnumerator<BaseData>>();
+                foreach (var symbol in symbols)
                 {
-                    Log.Trace(tick.ToString());
+                    var config = new SubscriptionDataConfig(typeof(TradeBar), symbol, Resolution.Second,
+                        TimeZones.NewYork, TimeZones.NewYork, false, true, false);
+
+                    data.Add(bb.Subscribe(config, (sender, args) => { }));
+
+                    Thread.Sleep(5000);
+
+                    bb.Unsubscribe(config);
+                }
+
+                foreach (var enumerator in data)
+                {
+                    do
+                    {
+                        if (enumerator.Current != null)
+                        {
+                            Log.Trace(enumerator.Current.ToString());
+                        }
+                    } while (enumerator.MoveNext() && enumerator.Current != null);
                 }
             }
         }
@@ -71,8 +85,13 @@ namespace QuantConnect.BloombergTests
         [Test, TestCaseSource(nameof(GetHistoryTestData))]
         public void GetsHistory(HistoryTestParameters parameters)
         {
+            var dataProvider = new DefaultDataProvider();
+
             var mapFileProvider = new LocalDiskMapFileProvider();
-            var factorFileProvider = new LocalDiskFactorFileProvider(mapFileProvider);
+            mapFileProvider.Initialize(dataProvider);
+
+            var factorFileProvider = new LocalDiskFactorFileProvider();
+            factorFileProvider.Initialize(mapFileProvider, dataProvider);
 
             using (var brokerage = BloombergCommon.CreateBrokerage())
             {

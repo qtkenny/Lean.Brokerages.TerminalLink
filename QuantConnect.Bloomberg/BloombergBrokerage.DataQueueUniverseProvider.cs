@@ -4,12 +4,12 @@
 */
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Bloomberglp.Blpapi;
+using QuantConnect.Logging;
 using QuantConnect.Brokerages;
 using QuantConnect.Interfaces;
-using QuantConnect.Logging;
+using System.Collections.Generic;
 
 namespace QuantConnect.Bloomberg
 {
@@ -19,42 +19,41 @@ namespace QuantConnect.Bloomberg
     public partial class BloombergBrokerage : IDataQueueUniverseProvider
     {
         /// <summary>
-        /// Method returns a collection of Symbols that are available at the broker.
+        /// Method returns a collection of Symbols that are available at the data source.
         /// </summary>
-        /// <param name="lookupName">String representing the name to lookup</param>
-        /// <param name="securityType">Expected security type of the returned symbols (if any)</param>
+        /// <param name="symbol">Symbol to lookup</param>
         /// <param name="includeExpired">Include expired contracts</param>
         /// <param name="securityCurrency">Expected security currency(if any)</param>
-        /// <param name="securityExchange">Expected security exchange name(if any)</param>
+        /// <returns>Enumerable of Symbols, that are associated with the provided Symbol</returns>
         /// <returns></returns>
-        public IEnumerable<Symbol> LookupSymbols(string lookupName, SecurityType securityType, bool includeExpired, string securityCurrency = null, string securityExchange = null)
+        public IEnumerable<Symbol> LookupSymbols(Symbol symbol, bool includeExpired, string securityCurrency = null)
         {
-            if (string.IsNullOrWhiteSpace(lookupName))
+            if (symbol == null)
             {
-                throw new ArgumentException($"Only {nameof(LookupSymbols)} providing '{nameof(lookupName)}' are supported.");
+                throw new ArgumentException($"Only {nameof(LookupSymbols)} providing '{nameof(symbol)}' are supported.");
             }
 
+            var securityType = symbol.SecurityType;
             if (securityType != SecurityType.Option && securityType != SecurityType.Future)
             {
                 throw new NotSupportedException($"Only {SecurityType.Option} and {SecurityType.Future} security types are supported.");
             }
 
-            Log.Trace($"BloombergBrokerage.LookupSymbols(): Requesting symbol list for {lookupName} ...");
-            var market = _symbolMapper.GetMarket(lookupName) ?? Market.USA;
-            var canonicalSymbol = Symbol.Create(lookupName, securityType, market);
-            var symbols = GetChain(canonicalSymbol, securityType, includeExpired).ToList();
-
-            Log.Trace($"BloombergBrokerage.LookupSymbols(): Returning {symbols.Count} contract(s) for {lookupName}");
+            var canonical = symbol.Canonical;
+            Log.Trace($"BloombergBrokerage.LookupSymbols(): Requesting symbol list for {canonical} ...");
+            var symbols = GetChain(canonical, securityType, includeExpired).ToList();
+            Log.Trace($"BloombergBrokerage.LookupSymbols(): Returning {symbols.Count} contract(s) for {canonical}");
 
             return symbols;
         }
 
         /// <summary>
-        /// Returns whether the time can be advanced or not.
+        /// Returns whether selection can take place or not.
         /// </summary>
-        /// <param name="securityType">The security type</param>
-        /// <returns>true if the time can be advanced</returns>
-        public bool CanAdvanceTime(SecurityType securityType)
+        /// <remarks>This is useful to avoid a selection taking place during invalid times, for example IB reset times or when not connected,
+        /// because if allowed selection would fail since IB isn't running and would kill the algorithm</remarks>
+        /// <returns>True if selection can take place</returns>
+        public bool CanPerformSelection()
         {
             return true;
         }

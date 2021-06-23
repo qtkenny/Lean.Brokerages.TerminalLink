@@ -16,10 +16,11 @@ using NUnit.Framework;
 using QuantConnect.Bloomberg;
 using QuantConnect.Brokerages;
 using QuantConnect.Configuration;
+using QuantConnect.Data;
 using QuantConnect.Data.Market;
+using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.Logging;
 using QuantConnect.Orders;
-using QuantConnect.Packets;
 using QuantConnect.Securities;
 using DateTime = System.DateTime;
 using Environment = QuantConnect.Bloomberg.Environment;
@@ -62,7 +63,7 @@ namespace QuantConnect.BloombergTests
             // Ensure the log handler is still attached.
             Log.LogHandler = FixtureLogHandler;
             _underTest = new BloombergBrokerage(MockOrderProvider.Object, ApiType.Desktop, Environment.Beta, Config.GetValue<string>("bloomberg-server-host"),
-                Config.GetValue<int>("bloomberg-server-port"), MockBloombergSymbolMapper.Object);
+                Config.GetValue<int>("bloomberg-server-port"), MockBloombergSymbolMapper.Object, new AggregationManager());
             _underTest.Connect();
         }
 
@@ -94,7 +95,7 @@ namespace QuantConnect.BloombergTests
         public void Can_Lookup_Futures(Symbol symbol)
         {
             Log.LogHandler = new ConsoleLogHandler();
-            var result = _underTest.LookupSymbols(symbol.Value, symbol.SecurityType, false).ToList();
+            var result = _underTest.LookupSymbols(symbol, false).ToList();
             Assert.IsNotEmpty(result);
         }
 
@@ -200,18 +201,24 @@ namespace QuantConnect.BloombergTests
         {
             MockBloombergSymbolMapper.Setup(x => x.GetBrokerageSymbol(TestSymbol)).Returns(bbgSymbol);
             MockBloombergSymbolMapper.Setup(x => x.GetLeanSymbol(bbgSymbol, null)).Returns(TestSymbol);
-            _underTest.Subscribe(new LiveNodePacket(), new[] {TestSymbol});
-            Tick[] ticks;
-            while (true)
-            {
-                ticks = (Tick[]) _underTest.GetNextTicks();
-                if (ticks != null && ticks.Length > 0)
-                {
-                    break;
-                }
+            var config = new SubscriptionDataConfig(typeof(TradeBar), TestSymbol, Resolution.Tick,
+                TimeZones.NewYork, TimeZones.NewYork, false, true, false);
 
-                Thread.Sleep(0);
-            }
+            var enumerator = _underTest.Subscribe(config, (sender, args) => { });
+            var ticks = new List<Tick>();
+            var count = 10;
+            do
+            {
+                if (enumerator.Current != null)
+                {
+                    Log.Trace(enumerator.Current.ToString());
+                    ticks.Add(enumerator.Current as Tick);
+                }
+                else
+                {
+                    Thread.Sleep(100);
+                }
+            } while (enumerator.MoveNext() && --count > 0);
 
             Assert.That(ticks, Is.Not.Empty.And.All.Matches<Tick>(p => Equals(p.Symbol, TestSymbol)));
         }

@@ -4,8 +4,9 @@
 */
 
 using QuantConnect.Bloomberg;
-using QuantConnect.Configuration;
 using QuantConnect.Securities;
+using QuantConnect.Configuration;
+using QuantConnect.Lean.Engine.DataFeeds;
 
 namespace QuantConnect.BloombergTests
 {
@@ -19,7 +20,7 @@ namespace QuantConnect.BloombergTests
             var serverPort = Config.GetInt("bloomberg-server-port", 8194);
 
             var symbolMapper = new BloombergSymbolMapper(Config.Get("bloomberg-symbol-map-file"));
-            return new BloombergBrokerage(orderProvider, apiType, environment, serverHost, serverPort, symbolMapper);
+            return new BloombergBrokerage(orderProvider, apiType, environment, serverHost, serverPort, symbolMapper, new AggregationManager());
         }
     }
 }
