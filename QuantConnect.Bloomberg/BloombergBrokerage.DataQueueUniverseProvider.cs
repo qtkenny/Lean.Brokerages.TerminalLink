@@ -41,7 +41,7 @@ namespace QuantConnect.Bloomberg
 
             var canonical = symbol.Canonical;
             Log.Trace($"BloombergBrokerage.LookupSymbols(): Requesting symbol list for {canonical} ...");
-            var symbols = GetChain(symbol.Canonical, securityType, includeExpired).ToList();
+            var symbols = GetChain(canonical, securityType, includeExpired).ToList();
             Log.Trace($"BloombergBrokerage.LookupSymbols(): Returning {symbols.Count} contract(s) for {canonical}");
 
             return symbols;
