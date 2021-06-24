@@ -6,8 +6,8 @@
     <AssemblyTitle>QuantConnect.Bloomberg.Toolbox</AssemblyTitle>
     <Product>QuantConnect.Bloomberg.Toolbox</Product>
     <AssemblyName>QuantConnect.Bloomberg.Toolbox</AssemblyName>
-    <Copyright>Copyright ©  2020</Copyright>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <OutputPath>bin\Debug\</OutputPath>
@@ -17,6 +17,9 @@
     <OutputPath>bin\Release\</OutputPath>
     <DebugType>pdbonly</DebugType>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\Lean\Common\Properties\SharedAssemblyInfo.cs" Link="Properties\SharedAssemblyInfo.cs" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Lean\Brokerages\QuantConnect.Brokerages.csproj" />
     <ProjectReference Include="..\..\Lean\Common\QuantConnect.csproj" />
