@@ -6,8 +6,8 @@
     <AssemblyTitle>QuantConnect.Bloomberg</AssemblyTitle>
     <Product>QuantConnect.Bloomberg</Product>
     <AssemblyName>QuantConnect.Bloomberg</AssemblyName>
-    <Copyright>Copyright ©  2020</Copyright>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <OutputPath>bin\Debug\</OutputPath>
@@ -20,13 +20,16 @@
     <DefineConstants>TRACE;LIVE_API</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="Lib\Bloomberglp.Blpapi.dll">
+    <Compile Include="..\..\Lean\Common\Properties\SharedAssemblyInfo.cs" Link="Properties\SharedAssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="lib\Bloomberglp.Blpapi.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Lib\Bloomberglp.Blpapi.xml">
+    <Content Include="lib\Bloomberglp.Blpapi.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Lib\Bloomberglp.Blpapi.License.txt">
+    <Content Include="lib\Bloomberglp.Blpapi.License.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
@@ -46,7 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Bloomberglp.Blpapi">
-      <HintPath>Lib\Bloomberglp.Blpapi.dll</HintPath>
+      <HintPath>lib\Bloomberglp.Blpapi.dll</HintPath>
     </Reference>
   </ItemGroup>
 </Project>
