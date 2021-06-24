@@ -55,7 +55,7 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Bloomberglp.Blpapi">
-      <HintPath>..\QuantConnect.Bloomberg\lib\Bloomberglp.Blpapi.dll</HintPath>
+      <HintPath>..\QuantConnect.Bloomberg\Bloomberglp.Blpapi.dll</HintPath>
     </Reference>
   </ItemGroup>
 </Project>

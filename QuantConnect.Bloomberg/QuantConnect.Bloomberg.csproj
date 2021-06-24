@@ -24,17 +24,6 @@
     <Compile Include="..\..\Lean\Common\Properties\SharedAssemblyInfo.cs" Link="Properties\SharedAssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="lib\Bloomberglp.Blpapi.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="lib\Bloomberglp.Blpapi.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="lib\Bloomberglp.Blpapi.License.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
     <PackageReference Include="NodaTime" Version="3.0.5" />
   </ItemGroup>
@@ -49,8 +38,22 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Bloomberglp.Blpapi">
-      <HintPath>lib\Bloomberglp.Blpapi.dll</HintPath>
+      <HintPath>Bloomberglp.Blpapi.dll</HintPath>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="Bloomberglp.Blpapi.dll" Pack="True">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </None>
+    <None Update="Bloomberglp.Blpapi.xml" Pack="True">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </None>
+    <None Update="Bloomberglp.Blpapi.License.txt" Pack="True">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </None>
   </ItemGroup>
   <Target Name="_ExactProjectReferencesVersion" AfterTargets="_GetProjectReferenceVersions">
     <ItemGroup>
