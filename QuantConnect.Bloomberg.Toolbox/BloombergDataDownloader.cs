@@ -4,15 +4,21 @@
 */
 
 using System;
-using System.Collections.Generic;
+using System.Linq;
 using QuantConnect.Data;
-using QuantConnect.ToolBox;
+using QuantConnect.Util;
+using QuantConnect.Securities;
+using System.Collections.Generic;
 
 namespace QuantConnect.Bloomberg.Toolbox
 {
     public class BloombergDataDownloader : IDataDownloader
     {
         private readonly BloombergBrokerage _brokerage;
+
+        public BloombergDataDownloader() : this(new BloombergBrokerage())
+        {
+        }
 
         public BloombergDataDownloader(BloombergBrokerage brokerage)
         {
@@ -29,7 +35,20 @@ namespace QuantConnect.Bloomberg.Toolbox
         /// <returns>Enumerable of base data for this symbol</returns>
         public IEnumerable<BaseData> Get(Symbol symbol, Resolution resolution, DateTime startUtc, DateTime endUtc)
         {
-            throw new NotImplementedException();
+            var exchangeHours = MarketHoursDatabase.FromDataFolder().GetExchangeHours(symbol.ID.Market, symbol, symbol.SecurityType);
+            var dataTimeZone = MarketHoursDatabase.FromDataFolder().GetDataTimeZone(symbol.ID.Market, symbol, symbol.SecurityType);
+
+            var tickTypes = SubscriptionManager.DefaultDataTypes()[symbol.SecurityType];
+
+            var result = Enumerable.Empty<BaseData>();
+            foreach (var tickType in tickTypes)
+            {
+                var dataType = LeanData.GetDataType(resolution, tickType);
+                result = result.Concat(_brokerage.GetHistory(new HistoryRequest(startUtc, endUtc, dataType, symbol, resolution, exchangeHours,
+                    dataTimeZone, fillForwardResolution: null, true, false, DataNormalizationMode.Raw, tickType)));
+            }
+
+            return result;
         }
 
         /// <summary>
