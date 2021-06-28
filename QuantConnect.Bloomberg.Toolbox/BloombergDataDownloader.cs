@@ -4,15 +4,20 @@
 */
 
 using System;
-using System.Collections.Generic;
 using QuantConnect.Data;
-using QuantConnect.ToolBox;
+using QuantConnect.Util;
+using QuantConnect.Securities;
+using System.Collections.Generic;
 
 namespace QuantConnect.Bloomberg.Toolbox
 {
     public class BloombergDataDownloader : IDataDownloader
     {
         private readonly BloombergBrokerage _brokerage;
+
+        public BloombergDataDownloader() : this(new BloombergBrokerage())
+        {
+        }
 
         public BloombergDataDownloader(BloombergBrokerage brokerage)
         {
@@ -29,7 +34,30 @@ namespace QuantConnect.Bloomberg.Toolbox
         /// <returns>Enumerable of base data for this symbol</returns>
         public IEnumerable<BaseData> Get(Symbol symbol, Resolution resolution, DateTime startUtc, DateTime endUtc)
         {
-            throw new NotImplementedException();
+            var exchangeHours = MarketHoursDatabase.FromDataFolder().GetExchangeHours(symbol.ID.Market, symbol, symbol.SecurityType);
+            var dataTimeZone = MarketHoursDatabase.FromDataFolder().GetDataTimeZone(symbol.ID.Market, symbol, symbol.SecurityType);
+
+            var tickTypes = SubscriptionManager.DefaultDataTypes()[symbol.SecurityType];
+
+            IEnumerable<Symbol> symbols = new List<Symbol> { symbol };
+            if (symbol.IsCanonical())
+            {
+                symbols = _brokerage.LookupSymbols(symbol, true);
+            }
+
+            foreach (var tickType in tickTypes)
+            {
+                var dataType = LeanData.GetDataType(resolution, tickType);
+
+                foreach (var targetSymbol in symbols)
+                {
+                    foreach (var data in _brokerage.GetHistory(new HistoryRequest(startUtc, endUtc, dataType, targetSymbol, resolution, exchangeHours,
+                        dataTimeZone, fillForwardResolution: null, true, false, DataNormalizationMode.Raw, tickType)))
+                    {
+                        yield return data;
+                    }
+                }
+            }
         }
 
         /// <summary>
