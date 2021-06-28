@@ -4,7 +4,6 @@
 */
 
 using System;
-using System.Linq;
 using QuantConnect.Data;
 using QuantConnect.Util;
 using QuantConnect.Securities;
@@ -40,15 +39,25 @@ namespace QuantConnect.Bloomberg.Toolbox
 
             var tickTypes = SubscriptionManager.DefaultDataTypes()[symbol.SecurityType];
 
-            var result = Enumerable.Empty<BaseData>();
+            IEnumerable<Symbol> symbols = new List<Symbol> { symbol };
+            if (symbol.IsCanonical())
+            {
+                symbols = _brokerage.LookupSymbols(symbol, true);
+            }
+
             foreach (var tickType in tickTypes)
             {
                 var dataType = LeanData.GetDataType(resolution, tickType);
-                result = result.Concat(_brokerage.GetHistory(new HistoryRequest(startUtc, endUtc, dataType, symbol, resolution, exchangeHours,
-                    dataTimeZone, fillForwardResolution: null, true, false, DataNormalizationMode.Raw, tickType)));
-            }
 
-            return result;
+                foreach (var targetSymbol in symbols)
+                {
+                    foreach (var data in _brokerage.GetHistory(new HistoryRequest(startUtc, endUtc, dataType, targetSymbol, resolution, exchangeHours,
+                        dataTimeZone, fillForwardResolution: null, true, false, DataNormalizationMode.Raw, tickType)))
+                    {
+                        yield return data;
+                    }
+                }
+            }
         }
 
         /// <summary>
