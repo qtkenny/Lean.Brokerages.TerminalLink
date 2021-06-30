@@ -255,7 +255,7 @@ namespace QuantConnect.Bloomberg
                                 Log.Error($"{prefix}subscription failed: {DescribeCorrelationIds(message.CorrelationIDs)}{message}");
                                 BrokerMessage(BrokerageMessageType.Error, message);
                                 break;
-                            default: 
+                            default:
                                 Log.Error($"Message type is not yet handled: {message.MessageType} [message:{message}]");
                                 BrokerMessage(BrokerageMessageType.Error, message);
                                 break;
@@ -368,6 +368,36 @@ namespace QuantConnect.Bloomberg
                 {
                     _dataAggregator.Update(tick);
                 }
+
+                if (Log.DebuggingEnabled)
+                {
+                    Name bloombergName;
+                    if (Equals(eventSubtype, BloombergNames.Bid))
+                    {
+                        bloombergName = BloombergNames.BidUpdateStamp;
+                    }
+                    else if (Equals(eventSubtype, BloombergNames.Ask))
+                    {
+                        bloombergName = BloombergNames.AskUpdateStamp;
+                    }
+                    else
+                    {
+                        bloombergName = BloombergNames.BidAskTime;
+                    }
+
+                    var datestamp = GetBloombergFieldValue(message, BloombergNames.TradingDateTime);
+                    var timestamp = GetBloombergFieldValue(message, bloombergName);
+
+                    Log.Debug("[Quote] " +
+                              $"Datestamp: {datestamp}, " +
+                              $"Timestamp: {timestamp} " +
+                              $"LocalTickTime: {localTickTime:O}, " +
+                              $"Symbol: {data.Symbol}, " +
+                              $"BidPrice: {data.BidPrice}, " +
+                              $"BidSize: {data.BidSize}, " +
+                              $"AskPrice: {data.AskPrice}, " +
+                              $"AskSize: {data.AskSize}");
+                }
             }
         }
 
@@ -395,6 +425,20 @@ namespace QuantConnect.Bloomberg
             {
                 _dataAggregator.Update(tick);
             }
+
+            if (Log.DebuggingEnabled)
+            {
+                var tradeUpdateStamp = GetBloombergFieldValue(message, BloombergNames.TradeUpdateStamp);
+                var eventTradeTimeRealTime = GetBloombergFieldValue(message, BloombergNames.EventTradeTimeRealTime);
+
+                Log.Debug("[Trade] " +
+                          $"TradeUpdateStamp: {tradeUpdateStamp}, " +
+                          $"EventTradeTimeRealTime: {eventTradeTimeRealTime} " +
+                          $"LocalTickTime: {localTickTime:O}, " +
+                          $"Symbol: {data.Symbol}, " +
+                          $"Price: {price}, " +
+                          $"Quantity: {quantity}");
+            }
         }
 
         private void EmitOpenInterestTick(Message message, BloombergSubscriptionData data)
@@ -418,6 +462,17 @@ namespace QuantConnect.Bloomberg
             lock (_dataAggregator)
             {
                 _dataAggregator.Update(tick);
+            }
+
+            if (Log.DebuggingEnabled)
+            {
+                var openInterestDate = GetBloombergFieldValue(message, BloombergNames.OpenInterestDate);
+
+                Log.Debug("[OpenInterest] " +
+                          $"OpenInterestDate: {openInterestDate}, " +
+                          $"LocalTickTime: {localTickTime:O}, " +
+                          $"Symbol: {data.Symbol}, " +
+                          $"Value: {openInterest}");
             }
         }
 
