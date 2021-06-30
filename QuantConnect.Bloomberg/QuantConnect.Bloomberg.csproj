@@ -28,9 +28,6 @@
     <PackageReference Include="NodaTime" Version="3.0.5" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="bloomberg-symbol-map.json" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\..\Lean\Brokerages\QuantConnect.Brokerages.csproj" />
     <ProjectReference Include="..\..\Lean\Common\QuantConnect.csproj" />
     <ProjectReference Include="..\..\Lean\Configuration\QuantConnect.Configuration.csproj" />
@@ -51,6 +48,10 @@
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </None>
     <None Update="Bloomberglp.Blpapi.License.txt" Pack="True">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <PackageCopyToOutput>true</PackageCopyToOutput>
+    </None>
+    <None Update="bloomberg-symbol-map.json" Pack="True">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <PackageCopyToOutput>true</PackageCopyToOutput>
     </None>

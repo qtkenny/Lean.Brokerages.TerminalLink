@@ -19,7 +19,7 @@ namespace QuantConnect.BloombergTests
             var serverHost = Config.Get("bloomberg-server-host", "localhost");
             var serverPort = Config.GetInt("bloomberg-server-port", 8194);
 
-            var symbolMapper = new BloombergSymbolMapper(Config.Get("bloomberg-symbol-map-file"));
+            var symbolMapper = new BloombergSymbolMapper(Config.Get("bloomberg-symbol-map-file", "bloomberg-symbol-map.json"));
             return new BloombergBrokerage(orderProvider, apiType, environment, serverHost, serverPort, symbolMapper, new AggregationManager());
         }
     }

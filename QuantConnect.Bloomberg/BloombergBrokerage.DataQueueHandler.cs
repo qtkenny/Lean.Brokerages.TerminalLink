@@ -4,19 +4,19 @@
 */
 
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using Bloomberglp.Blpapi;
-using QuantConnect.Brokerages;
 using QuantConnect.Data;
-using QuantConnect.Data.Market;
-using QuantConnect.Interfaces;
+using Bloomberglp.Blpapi;
+using System.Globalization;
 using QuantConnect.Logging;
 using QuantConnect.Packets;
+using QuantConnect.Interfaces;
+using QuantConnect.Brokerages;
+using QuantConnect.Data.Market;
+using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 namespace QuantConnect.Bloomberg
 {
@@ -410,7 +410,7 @@ namespace QuantConnect.Bloomberg
             var tick = new Tick
             {
                 Symbol = data.Symbol,
-                Time =  localTickTime.ConvertFromUtc(data.ExchangeTimeZone),
+                Time =  localTickTime,
                 TickType = TickType.OpenInterest,
                 Value = openInterest
             };

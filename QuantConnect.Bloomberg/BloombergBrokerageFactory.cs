@@ -53,7 +53,7 @@ namespace QuantConnect.Bloomberg
             { "bloomberg-environment", Config.Get("bloomberg-environment") },
             { "bloomberg-server-host", Config.Get("bloomberg-server-host") },
             { "bloomberg-server-port", Config.Get("bloomberg-server-port") },
-            { "bloomberg-symbol-map-file", Config.Get("bloomberg-symbol-map-file") }
+            { "bloomberg-symbol-map-file", Config.Get("bloomberg-symbol-map-file", "bloomberg-symbol-map.json") }
         };
 
         /// <summary>
