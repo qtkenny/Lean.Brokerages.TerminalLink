@@ -1,9 +1,220 @@
-/* This is a manually created file that contains mappings from Bloomberg's own naming to original symbols defined by respective exchanges. */
 {
-  // Example:
-  /*"SPY US Equity": {
-    "Underlying": "SPY",
-    "SecurityType": "Equity",
-    "Market": "usa"
-  }*/
+  // This is a manually created file that contains mappings from Bloomberg's own naming to original symbols defined by respective exchanges
+  "ES": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Index",
+    "Market": "cme",
+    "Underlying": "ES",
+    "RootLookupSuffix": "A"
+  },
+  "HI": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Index",
+    "Market": "hkfe",
+    "Underlying": "HSI",
+    "RootLookupSuffix": "A"
+  },
+  "TW": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Index",
+    "Market": "sgx",
+    "Underlying": "TW",
+    "RootLookupSuffix": "A"
+  },
+  "IH": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Index",
+    "Market": "sgx",
+    "Underlying": "IN",
+    "RootLookupSuffix": "A"
+  },
+  "NK": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Index",
+    "Market": "sgx",
+    "Underlying": "NK",
+    "RootLookupSuffix": "A"
+  },
+  "LH": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "cme",
+    "Underlying": "HE",
+    "RootLookupSuffix": "A"
+  },
+  "JO": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "ice",
+    "Underlying": "OJ",
+    "RootLookupSuffix": "A"
+  },
+  "HG": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "comex",
+    "Underlying": "HG",
+    "RootLookupSuffix": "A"
+  },
+  "LB": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "cme",
+    "Underlying": "LBS",
+    "RootLookupSuffix": "A"
+  },
+  "HO": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "nymex",
+    "Underlying": "HO",
+    "RootLookupSuffix": "A"
+  },
+  "KC": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "ice",
+    "Underlying": "KC",
+    "RootLookupSuffix": "A"
+  },
+  "LC": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "cme",
+    "Underlying": "LE",
+    "RootLookupSuffix": "A"
+  },
+  "SB": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "ice",
+    "Underlying": "SB",
+    "RootLookupSuffix": "A"
+  },
+  "SM": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "cbot",
+    "Underlying": "ZM",
+    "RootLookupSuffix": "A"
+  },
+  "KW": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "cbot",
+    "Underlying": "KE",
+    "RootLookupSuffix": "A"
+  },
+  "SI": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "comex",
+    "Underlying": "SI",
+    "RootLookupSuffix": "A"
+  },
+  "PL": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "nymex",
+    "Underlying": "PL",
+    "RootLookupSuffix": "A"
+  },
+  "BO": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "cbot",
+    "Underlying": "ZL",
+    "RootLookupSuffix": "A"
+  },
+  "CC": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "ice",
+    "Underlying": "CC",
+    "RootLookupSuffix": "A"
+  },
+  "CL": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "nymex",
+    "Underlying": "CL",
+    "RootLookupSuffix": "A"
+  },
+  "CO": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "ice",
+    "Underlying": "B",
+    "RootLookupSuffix": "A"
+  },
+  "PA": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "nymex",
+    "Underlying": "PA",
+    "RootLookupSuffix": "A"
+  },
+  "C ": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "cbot",
+    "Underlying": "ZC",
+    "RootLookupSuffix": "A"
+  },
+  "CT": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "ice",
+    "Underlying": "CT",
+    "RootLookupSuffix": "A"
+  },
+  "NG": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "nymex",
+    "Underlying": "NG",
+    "RootLookupSuffix": "A"
+  },
+  "XB": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "nymex",
+    "Underlying": "RB",
+    "RootLookupSuffix": "A"
+  },
+  "FC": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "cme",
+    "Underlying": "GF",
+    "RootLookupSuffix": "A"
+  },
+  "QS": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "ice",
+    "Underlying": "G",
+    "RootLookupSuffix": "A"
+  },
+  "W ": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "cbot",
+    "Underlying": "ZW",
+    "RootLookupSuffix": "A"
+  },
+  "GC": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "comex",
+    "Underlying": "GC",
+    "RootLookupSuffix": "A"
+  },
+  "S ": {
+    "SecurityType": "Future",
+    "TickerSuffix": "Comdty",
+    "Market": "cbot",
+    "Underlying": "ZS",
+    "RootLookupSuffix": "A"
+  }
 }
