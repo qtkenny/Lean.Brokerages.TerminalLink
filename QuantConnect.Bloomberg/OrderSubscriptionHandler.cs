@@ -77,7 +77,7 @@ namespace QuantConnect.Bloomberg
                 case EventStatus.EndPaint:
                     // End of the stream of initial orders.
                     Log.Trace("OrderSubscriptionHandler.OnOrderRouting(): End of Initial Paint ({0})", subType);
-                    _brokerage.SignalBlotterInitialised();
+                    _brokerage.SignalBlotterInitialized();
                     break;
                 case EventStatus.New:
                     OnNewOrder(message, subType, sequence);
@@ -233,6 +233,10 @@ namespace QuantConnect.Bloomberg
             {
                 _lastEvent[bbOrder.Sequence] = evt;
                 _brokerage.FireOrderEvent(orderEvent);
+            }
+            else
+            {
+                Log.Error($"OrderSubscriptionHandler.EmitOrderEvent(): Event dropped sequence={bbOrder.Sequence}");
             }
         }
 
