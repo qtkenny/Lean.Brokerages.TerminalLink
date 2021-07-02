@@ -42,7 +42,6 @@ namespace QuantConnect.Bloomberg
         private readonly string _strategy;
         private readonly string _notes;
         private readonly string _handlingInstruction;
-        private readonly bool _execution;
         private readonly bool _allowModification;
         private readonly Session _sessionMarketData;
         private readonly Session _sessionReferenceData;
@@ -63,6 +62,7 @@ namespace QuantConnect.Bloomberg
         private readonly MarketHoursDatabase _marketHoursDatabase;
 
         private readonly IOrderProvider _orderProvider;
+        private readonly BrokerageConcurrentMessageHandler<Event> _emsxEventHandler;
         private readonly CountdownEvent _blotterInitializedEvent = new CountdownEvent(2);
         private OrderSubscriptionHandler _orderSubscriptionHandler;
         private bool _isConnected;
@@ -85,6 +85,7 @@ namespace QuantConnect.Bloomberg
             _dataAggregator = aggregator;
             _symbolMapper = symbolMapper;
             Composer.Instance.AddPart<ISymbolMapper>(symbolMapper);
+            _emsxEventHandler = new BrokerageConcurrentMessageHandler<Event>(ProcessEmsxEvent);
 
             ApiType = apiType;
             Environment = environment;
@@ -134,7 +135,6 @@ namespace QuantConnect.Bloomberg
             _strategy = Config.GetValue<string>("bloomberg-emsx-strategy");
             _notes = Config.GetValue<string>("bloomberg-emsx-notes");
             _handlingInstruction = Config.GetValue<string>("bloomberg-emsx-handling");
-            _execution = Config.GetBool("bloomberg-execution");
             _allowModification = Config.GetBool("bloomberg-allow-modification");
             _sessionEms = new Session(_sessionOptions, OnBloombergEvent);
         }
@@ -229,15 +229,8 @@ namespace QuantConnect.Bloomberg
                 InitializeEmsxFieldData();
                 Orders = new BloombergOrders();
                 _orderSubscriptionHandler = new OrderSubscriptionHandler(this, _orderProvider, Orders);
-                if (_execution)
-                {
-                    SubscribeToEmsx();
-                    _blotterInitializedEvent.Wait();
-                }
-                else
-                {
-                    Log.Debug("Not subscribing to order events - execution is disabled.");
-                }
+                SubscribeToEmsx();
+                _blotterInitializedEvent.Wait();
             }
 
             _isConnected = true;
@@ -349,15 +342,20 @@ namespace QuantConnect.Bloomberg
             request.Set(BloombergNames.EMSXReferenceOrderIdRequest, order.Id);
             request.Set(BloombergNames.EMSXReferenceRouteId, order.Id);
             PopulateRequest(request, order);
-            // Only 1 response should be received.
-            var response = _sessionEms.SendRequestSynchronous(request).SingleOrDefault();
-            var result = DetermineResult(response);
-            if (result)
+
+            var result = false;
+            _emsxEventHandler.WithLockedStream(() =>
             {
-                var sequence = response.GetSequence();
-                order.BrokerId.Add(sequence.ToString());
-                OnOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero) {Status = OrderStatus.Submitted});
-            }
+                // Only 1 response should be received.
+                var response = _sessionEms.SendRequestSynchronous(request).SingleOrDefault();
+                result = DetermineResult(response);
+                if (result)
+                {
+                    var sequence = response.GetSequence();
+                    order.BrokerId.Add(sequence.ToString());
+                    OnOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero) { Status = OrderStatus.Submitted });
+                }
+            });
 
             return result;
         }
@@ -440,13 +438,20 @@ namespace QuantConnect.Bloomberg
             var orderRequest = _serviceEms.CreateRequest(BloombergNames.ModifyOrderEx.ToString());
             orderRequest.Set(BloombergNames.EMSXSequence, sequence);
             PopulateRequest(orderRequest, order);
-            var orderResult = DetermineResult(_sessionEms.SendRequestSynchronous(orderRequest).SingleOrDefault());
             var routeRequest = _serviceEms.CreateRequest(BloombergNames.ModifyRouteEx.ToString());
             routeRequest.Set(BloombergNames.EMSXSequence, sequence);
             routeRequest.Set(BloombergNames.EMSXRouteId, 1);
             PopulateRequest(routeRequest, order);
 
-            return DetermineResult(_sessionEms.SendRequestSynchronous(routeRequest).SingleOrDefault());
+            var orderResult = false;
+            var routeResult = false;
+            _emsxEventHandler.WithLockedStream(() =>
+            {
+                orderResult = DetermineResult(_sessionEms.SendRequestSynchronous(orderRequest).SingleOrDefault());
+                routeResult = DetermineResult(_sessionEms.SendRequestSynchronous(routeRequest).SingleOrDefault());
+            });
+
+            return orderResult && routeResult;
         }
 
         /// <summary>
@@ -462,10 +467,13 @@ namespace QuantConnect.Bloomberg
             var cancelOrderRequest = _serviceEms.CreateRequest(BloombergNames.CancelOrderEx.ToString());
             cancelOrderRequest.GetElement(BloombergNames.EMSXSequence).AppendValue(sequence);
 
-            foreach (var response in _sessionEms.SendRequestSynchronous(cancelOrderRequest))
+            _emsxEventHandler.WithLockedStream(() =>
             {
-                DetermineResult(response);
-            }
+                foreach (var response in _sessionEms.SendRequestSynchronous(cancelOrderRequest))
+                {
+                    DetermineResult(response);
+                }
+            });
 
             return true;
         }
@@ -574,28 +582,35 @@ namespace QuantConnect.Bloomberg
 
         private void OnBloombergEvent(Event @event, Session session)
         {
-            switch (@event.Type)
+            try
             {
-                case Event.EventType.ADMIN:
-                    ProcessAdminEvent(@event, session);
-                    break;
+                switch (@event.Type)
+                {
+                    case Event.EventType.ADMIN:
+                        ProcessAdminEvent(@event, session);
+                        break;
 
-                case Event.EventType.SESSION_STATUS:
-                    ProcessSessionEvent(@event, session);
-                    break;
+                    case Event.EventType.SESSION_STATUS:
+                        ProcessSessionEvent(@event, session);
+                        break;
 
-                case Event.EventType.SERVICE_STATUS:
-                    ProcessServiceEvent(@event, session);
-                    break;
+                    case Event.EventType.SERVICE_STATUS:
+                        ProcessServiceEvent(@event, session);
+                        break;
 
-                case Event.EventType.SUBSCRIPTION_DATA:
-                case Event.EventType.SUBSCRIPTION_STATUS:
-                    ProcessEmsxEvent(@event);
-                    break;
+                    case Event.EventType.SUBSCRIPTION_DATA:
+                    case Event.EventType.SUBSCRIPTION_STATUS:
+                        _emsxEventHandler.HandleNewMessage(@event);
+                        break;
 
-                default:
-                    ProcessOtherEvents(@event, session);
-                    break;
+                    default:
+                        ProcessOtherEvents(@event, session);
+                        break;
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Error(e);
             }
         }
 
@@ -728,7 +743,7 @@ namespace QuantConnect.Bloomberg
             return $"{serviceName}/route?fields={string.Join(",", fields)}";
         }
 
-        public void SignalBlotterInitialised()
+        public void SignalBlotterInitialized()
         {
             _blotterInitializedEvent.Signal();
         }
