@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Bloomberglp.Blpapi;
+using QuantConnect.Logging;
 using QuantConnect.Orders;
 
 namespace QuantConnect.Bloomberg
@@ -52,7 +53,7 @@ namespace QuantConnect.Bloomberg
             var element = GetElement(subType, name);
             if (element == null)
             {
-                return allowDefault ? DateTime.MinValue : throw new ArgumentException($"Required {subType} element '{name}' was not found.", nameof(element));
+                return GetDefault<DateTime>(subType, name, allowDefault);
             }
 
             var actual = VerifyType(element, Schema.Datatype.INT32, Schema.Datatype.DATE, Schema.Datatype.DATETIME);
@@ -81,12 +82,12 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        public TimeSpan GetTime(SubType subType, Name name, bool allowDefault)
+        private TimeSpan GetTime(SubType subType, Name name, bool allowDefault)
         {
             var element = GetElement(subType, name);
             if (element == null)
             {
-                return allowDefault ? TimeSpan.Zero : throw new ArgumentException($"Required {subType} element '{name}' was not found.", nameof(element));
+                return GetDefault<TimeSpan>(subType, name, allowDefault);
             }
 
             var actual = VerifyType(element, Schema.Datatype.FLOAT64, Schema.Datatype.TIME, Schema.Datatype.DATETIME);
@@ -137,7 +138,7 @@ namespace QuantConnect.Bloomberg
             return actual;
         }
 
-        public bool HasValue(SubType subType, Name name)
+        private bool HasValue(SubType subType, Name name)
         {
             return !string.IsNullOrWhiteSpace(GetElement(subType, name)?.GetValueAsString());
         }
@@ -147,7 +148,7 @@ namespace QuantConnect.Bloomberg
             var element = GetElement(subType, name);
             if (element == null)
             {
-                return allowDefault ? 0m : throw new ArgumentException($"Required {subType} element '{name}' was not found.", nameof(element));
+                return GetDefault<decimal>(subType, name, allowDefault);
             }
 
             VerifyType(element, Schema.Datatype.FLOAT64);
@@ -162,12 +163,12 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        public int GetInt(SubType subType, Name name, bool allowDefault)
+        private int GetInt(SubType subType, Name name, bool allowDefault)
         {
             var element = GetElement(subType, name);
             if (element == null)
             {
-                return allowDefault ? 0 : throw new ArgumentException($"Required {subType} element '{name}' was not found.", nameof(element));
+                return GetDefault<int>(subType, name, allowDefault);
             }
 
             VerifyType(element, Schema.Datatype.INT32);
@@ -181,46 +182,55 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        public Element GetElement(SubType subType, Name name)
+        private Element GetElement(SubType subType, Name name)
         {
             if (name == null)
             {
                 throw new ArgumentNullException(nameof(name));
             }
 
-            Dictionary<Name, Element> source;
-            switch (subType)
-            {
-                case SubType.Order:
-                    source = _orders;
-                    break;
-                case SubType.Route:
-                    source = _routes;
-                    break;
-                default: throw new ArgumentOutOfRangeException(nameof(subType), subType, "Unknown subtype: " + subType);
-            }
-
+            var source = GetCollection(subType);
             return source.TryGetValue(name, out var element) ? element : null;
         }
 
-        public void PopulateFields(Message message, string subType)
+        public void PopulateFields(Message message, SubType subType)
         {
-            Dictionary<Name, Element> target;
-            switch (subType)
-            {
-                case "O":
-                    target = _orders;
-                    break;
-                case "R":
-                    target = _routes;
-                    break;
-                default: throw new Exception("Unknown sub-type received: " + subType);
-            }
-
+            var target = GetCollection(subType);
             foreach (var element in message.Elements)
             {
                 target[element.Name] = element;
             }
+        }
+
+        private Dictionary<Name, Element> GetCollection(SubType subType)
+        {
+            switch (subType)
+            {
+                case SubType.Order:
+                    return _orders;
+                case SubType.Route:
+                    return _routes;
+                default: throw new Exception("Unknown sub-type received: " + subType);
+            }
+        }
+
+        private T GetDefault<T>(SubType subType, Name name, bool allowDefault)
+        {
+            if (allowDefault)
+            {
+                return default;
+            }
+
+            if (Log.DebuggingEnabled)
+            {
+                // we are going to throw an unexpected exception, let's log all the information we have
+                var order = GetCollection(SubType.Order).Select(x => $"{x.Key}={x.Value}").ToArray();
+                var route = GetCollection(SubType.Route).Select(x => $"{x.Key}={x.Value}").ToArray();
+
+                Log.Debug($"BloombergOrder.GetDefault(): Route [{string.Join(",", route)}] -------- Order [{string.Join(",", order)}]");
+            }
+
+            throw new ArgumentException($"Required {subType} element '{name}' was not found.");
         }
 
         private static OrderStatus ConvertOrderStatus(string orderStatus)
