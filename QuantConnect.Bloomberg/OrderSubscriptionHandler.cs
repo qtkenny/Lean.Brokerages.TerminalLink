@@ -60,6 +60,24 @@ namespace QuantConnect.Bloomberg
             }
         }
 
+        /// <summary>
+        /// Handles a new order event, dropping duplicates
+        /// </summary>
+        public void NewOrderEvent(OrderEvent newOrderEvent, int sequence)
+        {
+            if (!_lastEvent.TryGetValue(sequence, out var lastEvent)
+                // if the order status has changed or we got a new fill (partial fill case)
+                || lastEvent.Status != newOrderEvent.Status || newOrderEvent.FillQuantity != 0)
+            {
+                _lastEvent[sequence] = newOrderEvent;
+                _brokerage.FireOrderEvent(newOrderEvent);
+            }
+            else if(Log.DebuggingEnabled)
+            {
+                Log.Debug($"OrderSubscriptionHandler.NewOrderEvent(ord={newOrderEvent.OrderId},seq={sequence}): Duplicated event dropped: '{newOrderEvent}'");
+            }
+        }
+
         private void OnOrderRouting(Message message, SubType subType)
         {
             var eventStatus = GetEventStatus(message);
@@ -236,17 +254,7 @@ namespace QuantConnect.Bloomberg
                 Log.Error($"OrderSubscriptionHandler.EmitOrderEvent(ord={order.Id},seq={bbOrder.Sequence},type={subType}): OrderTicket not found, but we have fills: {bbOrder.Filled}");
             }
 
-            if (!_lastEvent.TryGetValue(bbOrder.Sequence, out var lastEvent)
-                // if the order status has changed or we got a new fill (partial fill case)
-                || lastEvent.Status != newOrderEvent.Status || newOrderEvent.FillQuantity != 0)
-            {
-                _lastEvent[bbOrder.Sequence] = newOrderEvent;
-                _brokerage.FireOrderEvent(newOrderEvent);
-            }
-            else
-            {
-                Log.Error($"OrderSubscriptionHandler.EmitOrderEvent(ord={order.Id},seq={bbOrder.Sequence},type={subType}): Duplicated event dropped");
-            }
+            NewOrderEvent(newOrderEvent, bbOrder.Sequence);
         }
 
         private static EventStatus GetEventStatus(Message message)

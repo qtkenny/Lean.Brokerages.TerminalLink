@@ -353,7 +353,9 @@ namespace QuantConnect.Bloomberg
                 {
                     var sequence = response.GetSequence();
                     order.BrokerId.Add(sequence.ToString());
-                    OnOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero) { Status = OrderStatus.Submitted });
+
+                    _orderSubscriptionHandler?.NewOrderEvent(
+                        new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero) { Status = OrderStatus.New }, sequence);
                 }
             });
 
@@ -449,6 +451,12 @@ namespace QuantConnect.Bloomberg
             {
                 orderResult = DetermineResult(_sessionEms.SendRequestSynchronous(orderRequest).SingleOrDefault());
                 routeResult = DetermineResult(_sessionEms.SendRequestSynchronous(routeRequest).SingleOrDefault());
+
+                if (orderResult && routeResult)
+                {
+                    _orderSubscriptionHandler?.NewOrderEvent(
+                        new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero) { Status = OrderStatus.UpdateSubmitted }, sequence);
+                }
             });
 
             return orderResult && routeResult;
@@ -467,15 +475,22 @@ namespace QuantConnect.Bloomberg
             var cancelOrderRequest = _serviceEms.CreateRequest(BloombergNames.CancelOrderEx.ToString());
             cancelOrderRequest.GetElement(BloombergNames.EMSXSequence).AppendValue(sequence);
 
+            var result = true;
             _emsxEventHandler.WithLockedStream(() =>
             {
                 foreach (var response in _sessionEms.SendRequestSynchronous(cancelOrderRequest))
                 {
-                    DetermineResult(response);
+                    result &= DetermineResult(response);
+                }
+
+                if (result)
+                {
+                    _orderSubscriptionHandler?.NewOrderEvent(
+                        new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero) { Status = OrderStatus.CancelPending }, sequence);
                 }
             });
 
-            return true;
+            return result;
         }
 
         private bool DetermineResult(Message message)
