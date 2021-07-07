@@ -4,14 +4,14 @@
 */
 
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using Bloomberglp.Blpapi;
-using QuantConnect.Logging;
 using QuantConnect.Orders;
-using QuantConnect.Orders.Fees;
+using QuantConnect.Logging;
 using QuantConnect.Securities;
+using QuantConnect.Orders.Fees;
+using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace QuantConnect.Bloomberg
 {
@@ -34,20 +34,21 @@ namespace QuantConnect.Bloomberg
         public void ProcessMessage(Message message)
         {
             var msgType = message.MessageType;
-            var subType = message.HasElement(BloombergNames.MessageSubType) ? message.GetElementAsString(BloombergNames.MessageSubType) : null;
-            if (string.IsNullOrWhiteSpace(subType))
+            var subTypeStr = message.HasElement(BloombergNames.MessageSubType) ? message.GetElementAsString(BloombergNames.MessageSubType) : null;
+            if (string.IsNullOrWhiteSpace(subTypeStr))
             {
                 return;
             }
 
-            Log.Trace($"OrderSubscriptionHandler.ProcessMessage(): Received [{msgType},{subType}]: {message}");
+            var subType = subTypeStr.Equals("R", StringComparison.InvariantCultureIgnoreCase) ? SubType.Route : SubType.Order;
+            Log.Trace($"OrderSubscriptionHandler.ProcessMessage(type={subType}): Received [{msgType}]: {message}");
             if (msgType.Equals(BloombergNames.SubscriptionStarted))
             {
-                Log.Trace("OrderSubscriptionHandler.ProcessMessage(): Subscription started: " + subType);
+                Log.Trace($"OrderSubscriptionHandler.ProcessMessage(type={subType}): Subscription started");
             }
             else if (msgType.Equals(BloombergNames.SubscriptionStreamsActivated))
             {
-                Log.Trace("OrderSubscriptionHandler.ProcessMessage(): Subscription stream activated: " + subType);
+                Log.Trace($"OrderSubscriptionHandler.ProcessMessage(type={subType}): Subscription stream activated");
             }
             else if (msgType.Equals(BloombergNames.OrderRouteFields))
             {
@@ -55,11 +56,11 @@ namespace QuantConnect.Bloomberg
             }
             else
             {
-                Log.Error($"OrderSubscriptionHandler.ProcessMessage(): Unknown message type: {msgType}, message:{message}");
+                Log.Error($"OrderSubscriptionHandler.ProcessMessage(type={subType}): Unknown message type: {msgType}, message:{message}");
             }
         }
 
-        private void OnOrderRouting(Message message, string subType)
+        private void OnOrderRouting(Message message, SubType subType)
         {
             var eventStatus = GetEventStatus(message);
             if (eventStatus == EventStatus.Heartbeat)
@@ -76,7 +77,7 @@ namespace QuantConnect.Bloomberg
                     break;
                 case EventStatus.EndPaint:
                     // End of the stream of initial orders.
-                    Log.Trace("OrderSubscriptionHandler.OnOrderRouting(): End of Initial Paint ({0})", subType);
+                    Log.Trace($"OrderSubscriptionHandler.OnOrderRouting(type={subType}): End of Initial Paint");
                     _brokerage.SignalBlotterInitialized();
                     break;
                 case EventStatus.New:
@@ -92,70 +93,70 @@ namespace QuantConnect.Bloomberg
             }
         }
 
-        private void OnInitialPaint(Message message, string subType, int sequence)
+        private void OnInitialPaint(Message message, SubType subType, int sequence)
         {
-            Log.Trace($"OrderSubscriptionHandler.OnInitialPaint(): Initial paint (sub-type:{subType}, sequence:{sequence})");
+            Log.Trace($"OrderSubscriptionHandler.OnInitialPaint(seq={sequence},type={subType}): Initial paint");
             var order = _orders.GetOrCreateOrder(sequence);
             order.PopulateFields(message, subType);
         }
 
-        private void OnNewOrder(Message message, string subType, int sequence)
+        private void OnNewOrder(Message message, SubType subType, int sequence)
         {
             // If an order is created manually in the terminal, we'll still receive an event.
             if (!TryGetOurOrderId(message, out var orderId))
             {
-                Log.Trace($"OrderSubscriptionHandler.OnNewOrder(): Ignoring new order event for a manual trade (sequence:{sequence})");
+                Log.Trace($"OrderSubscriptionHandler.OnNewOrder(seq={sequence},type={subType}): Ignoring new order event for a manual trade");
                 return;
             }
 
             _sequenceToOrderId[sequence] = orderId;
-            Log.Trace($"OrderSubscriptionHandler.OnNewOrder(): Received (orderId={orderId}, sequence={sequence})");
+            Log.Trace($"OrderSubscriptionHandler.OnNewOrder(ord={orderId},seq={sequence},type={subType}): Received");
 
             var bbOrder = _orders.GetOrCreateOrder(sequence);
             bbOrder.PopulateFields(message, subType);
 
-            if (TryGetOrder(orderId, out var order))
+            if (TryGetOrder(orderId, subType, sequence, out var order))
             {
-                EmitOrderEvent(bbOrder, order);
+                EmitOrderEvent(bbOrder, order, subType);
             }
         }
 
-        private void OnOrderUpdate(Message message, string subType, int sequence)
+        private void OnOrderUpdate(Message message, SubType subType, int sequence)
         {
             if (!_sequenceToOrderId.TryGetValue(sequence, out var orderId))
             {
-                Log.Trace($"OrderSubscriptionHandler.OnOrderUpdate(): Ignoring order update event for manual order (sequence:{sequence})");
+                Log.Trace($"OrderSubscriptionHandler.OnOrderUpdate(seq={sequence},type={subType}): Ignoring order update event for manual order");
                 return;
             }
 
-            Log.Trace($"OrderSubscriptionHandler.OnOrderUpdate(): Received (orderId={orderId}, sequence={sequence})");
-            if (TryGetAndUpdateBloombergOrder(sequence, message, subType, out var bbOrder) && TryGetOrder(orderId, out var order))
+            Log.Trace($"OrderSubscriptionHandler.OnOrderUpdate(ord={orderId},seq={sequence},type={subType}): Received");
+            if (TryGetAndUpdateBloombergOrder(sequence, message, subType, orderId, out var bbOrder) && TryGetOrder(orderId, subType, sequence, out var order))
             {
-                EmitOrderEvent(bbOrder, order);
+                EmitOrderEvent(bbOrder, order, subType);
             }
         }
 
-        private void OnOrderDelete(Message message, string subType, int sequence)
+        private void OnOrderDelete(Message message, SubType subType, int sequence)
         {
             if (!_sequenceToOrderId.TryGetValue(sequence, out var orderId))
             {
                 if (_brokerage.IsInitialized())
                 {
-                    Log.Error($"OrderSubscriptionHandler.OnOrderDelete(): Deletion received for an unknown sequence '{sequence}': {message}");
+                    Log.Error($"OrderSubscriptionHandler.OnOrderDelete(seq={sequence},type={subType}): Deletion received for an unknown sequence: {message}");
                 }
                 else
                 {
-                    Log.Trace($"OrderSubscriptionHandler.OnOrderDelete(): Discarding order in a deleted state: '{sequence}'");
+                    Log.Trace($"OrderSubscriptionHandler.OnOrderDelete(seq={sequence},type={subType}): Discarding order in a deleted state");
                     return;
                 }
 
                 return;
             }
 
-            Log.Trace($"OrderSubscriptionHandler.OnOrderDelete(): Received (orderId={orderId}, sequence={sequence})");
-            if (TryGetAndUpdateBloombergOrder(sequence, message, subType, out var bbOrder) && TryGetOrder(orderId, out var order))
+            Log.Trace($"OrderSubscriptionHandler.OnOrderDelete(ord={orderId},seq={sequence},type={subType}): Received");
+            if (TryGetAndUpdateBloombergOrder(sequence, message, subType, orderId, out var bbOrder) && TryGetOrder(orderId, subType, sequence, out var order))
             {
-                EmitOrderEvent(bbOrder, order);
+                EmitOrderEvent(bbOrder, order, subType);
                 _lastEvent.Remove(sequence);
             }
         }
@@ -186,12 +187,12 @@ namespace QuantConnect.Bloomberg
             return false;
         }
 
-        private bool TryGetAndUpdateBloombergOrder(int sequence, Message message, string subType, out BloombergOrder bbOrder, [CallerMemberName] string callerMemberName = null)
+        private bool TryGetAndUpdateBloombergOrder(int sequence, Message message, SubType subType, int orderId, out BloombergOrder bbOrder, [CallerMemberName] string callerMemberName = null)
         {
             bbOrder = _orders.GetBySequenceNumber(sequence);
             if (bbOrder == null)
             {
-                Log.Error($"OrderSubscriptionHandler.TryGetAndUpdateBloombergOrder(): No existing BB order for sequence '{sequence}' [caller:{callerMemberName}]");
+                Log.Error($"OrderSubscriptionHandler.TryGetAndUpdateBloombergOrder(ord={orderId},seq={sequence},type={subType}): No existing BB order [caller:{callerMemberName}]");
                 return false;
             }
 
@@ -199,7 +200,7 @@ namespace QuantConnect.Bloomberg
             return true;
         }
 
-        private bool TryGetOrder(int orderId, out Order order, [CallerMemberName] string callerMemberName = null)
+        private bool TryGetOrder(int orderId, SubType subType, int sequence, out Order order, [CallerMemberName] string callerMemberName = null)
         {
             order = _orderProvider.GetOrderById(orderId);
             if (order != null)
@@ -207,36 +208,44 @@ namespace QuantConnect.Bloomberg
                 return true;
             }
 
-            Log.Error($"OrderSubscriptionHandler.TryGetOrder(): No order found for '{orderId}' [caller:{callerMemberName}]");
+            Log.Error($"OrderSubscriptionHandler.TryGetOrder(ord={orderId},seq={sequence},type={subType}): No order found [caller:{callerMemberName}]");
             return false;
         }
 
-        public void EmitOrderEvent(BloombergOrder bbOrder, Order order)
+        private void EmitOrderEvent(BloombergOrder bbOrder, Order order, SubType subType)
         {
-            var orderEvent = new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero) {Status = bbOrder.Status, Quantity = bbOrder.Amount};
+            if (subType == SubType.Order)
+            {
+                Log.Debug($"OrderSubscriptionHandler.EmitOrderEvent(ord={order.Id},seq={bbOrder.Sequence},type={subType}): dropping event");
+                return;
+            }
+
+            var newOrderEvent = new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero) {Status = bbOrder.Status, Quantity = bbOrder.Amount};
 
             var ticket = _orderProvider.GetOrderTicket(order.Id);
             if (ticket != null)
             {
-                orderEvent.FillPrice = bbOrder.GetDecimal(SubType.Route, BloombergNames.EMSXAvgPrice, false);
+                newOrderEvent.FillPrice = bbOrder.GetDecimal(SubType.Route, BloombergNames.EMSXAvgPrice, false);
 
                 // The Bloomberg API does not return the individual quantity for each partial fill, but the cumulative filled quantity
                 var fillQuantity = bbOrder.Filled - Math.Abs(ticket.QuantityFilled);
-                orderEvent.FillQuantity = fillQuantity * Math.Sign(ticket.Quantity);
+                newOrderEvent.FillQuantity = fillQuantity * Math.Sign(ticket.Quantity);
             }
-            else if (orderEvent.Status == OrderStatus.Filled || orderEvent.Status == OrderStatus.PartiallyFilled)
+            else if (newOrderEvent.Status == OrderStatus.Filled || newOrderEvent.Status == OrderStatus.PartiallyFilled)
             {
-                Log.Error($"OrderSubscriptionHandler.EmitOrderEvent(): OrderTicket not found for OrderId: {order.Id}, but we have fills: {bbOrder.Filled}");
+                Log.Error($"OrderSubscriptionHandler.EmitOrderEvent(ord={order.Id},seq={bbOrder.Sequence},type={subType}): OrderTicket not found, but we have fills: {bbOrder.Filled}");
             }
 
-            if (!_lastEvent.TryGetValue(bbOrder.Sequence, out var evt) || !evt.Equals(orderEvent))
+            if (!_lastEvent.TryGetValue(bbOrder.Sequence, out var lastEvent)
+                // if the order status has changed or we got a new fill (partial fill case)
+                || lastEvent.Status != newOrderEvent.Status || newOrderEvent.FillQuantity != 0)
             {
-                _lastEvent[bbOrder.Sequence] = evt;
-                _brokerage.FireOrderEvent(orderEvent);
+                _lastEvent[bbOrder.Sequence] = newOrderEvent;
+                _brokerage.FireOrderEvent(newOrderEvent);
             }
             else
             {
-                Log.Error($"OrderSubscriptionHandler.EmitOrderEvent(): Event dropped sequence={bbOrder.Sequence}");
+                Log.Error($"OrderSubscriptionHandler.EmitOrderEvent(ord={order.Id},seq={bbOrder.Sequence},type={subType}): Duplicated event dropped");
             }
         }
 
