@@ -36,7 +36,7 @@ namespace QuantConnect.Bloomberg
         private readonly List<string> _futuresMonthCodes = new List<string> { "F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z" };
         private readonly Regex _futureSymbolRegex = new Regex(@"^(?<RootTicker>[A-Z\s]+)[0-9]+\s", RegexOptions.Compiled);
 
-        public BloombergSymbolMapper() : this(Config.Get("bloomberg-symbol-map-file", "bloomberg-symbol-map.json")) { }
+        public BloombergSymbolMapper() : this(Config.Get("bloomberg-symbol-map-file")) { }
 
         /// <summary>
         /// Constructs BloombergSymbolMapper
@@ -44,6 +44,10 @@ namespace QuantConnect.Bloomberg
         /// <param name="bbNameMapFullName">Full file name of the map file</param>
         public BloombergSymbolMapper(string bbNameMapFullName)
         {
+            if (string.IsNullOrEmpty(bbNameMapFullName))
+            {
+                bbNameMapFullName = "bloomberg-symbol-map.json";
+            }
             if (!File.Exists(bbNameMapFullName))
             {
                 throw new Exception($"Symbol map file not found: {bbNameMapFullName}");

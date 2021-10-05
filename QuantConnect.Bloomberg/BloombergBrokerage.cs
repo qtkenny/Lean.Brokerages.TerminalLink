@@ -72,7 +72,7 @@ namespace QuantConnect.Bloomberg
                 Config.GetValue<Environment>("bloomberg-environment"),
                 Config.Get("bloomberg-server-host"),
                 Config.GetInt("bloomberg-server-port"),
-                new BloombergSymbolMapper(Config.Get("bloomberg-symbol-map-file", "bloomberg-symbol-map.json")),
+                new BloombergSymbolMapper(),
                 Composer.Instance.GetExportedValueByTypeName<IDataAggregator>(Config.Get("data-aggregator", "QuantConnect.Lean.Engine.DataFeeds.AggregationManager")))
         {
             _isBroker = false;
