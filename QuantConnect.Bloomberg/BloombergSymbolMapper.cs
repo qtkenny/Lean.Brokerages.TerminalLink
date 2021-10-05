@@ -50,7 +50,20 @@ namespace QuantConnect.Bloomberg
             }
             if (!File.Exists(bbNameMapFullName))
             {
-                throw new Exception($"Symbol map file not found: {bbNameMapFullName}");
+                // in the research environment binaries and their payload do not live in the current working directory
+                // so let's check the composer-dll-directory
+                var exception = new Exception($"Symbol map file not found: {bbNameMapFullName}");
+                var composerDirectory = Config.Get("composer-dll-directory");
+                if (string.IsNullOrEmpty(composerDirectory))
+                {
+                    throw exception;
+                }
+
+                bbNameMapFullName = Path.Combine(composerDirectory, bbNameMapFullName);
+                if (!File.Exists(bbNameMapFullName))
+                {
+                    throw exception;
+                }
             }
 
             try
