@@ -25,19 +25,20 @@ namespace QuantConnect.Bloomberg.Toolbox
         }
 
         /// <summary>
-        ///     Get historical data enumerable for a single symbol, type and resolution given this start and end time (in UTC).
+        /// Get historical data enumerable for a single symbol, type and resolution given this start and end time (in UTC).
         /// </summary>
-        /// <param name="symbol">Symbol for the data we're looking for.</param>
-        /// <param name="resolution">Resolution of the data request</param>
-        /// <param name="startUtc">Start time of the data in UTC</param>
-        /// <param name="endUtc">End time of the data in UTC</param>
+        /// <param name="dataDownloaderGetParameters">model class for passing in parameters for historical data</param>
         /// <returns>Enumerable of base data for this symbol</returns>
-        public IEnumerable<BaseData> Get(Symbol symbol, Resolution resolution, DateTime startUtc, DateTime endUtc)
+        public IEnumerable<BaseData> Get(DataDownloaderGetParameters dataDownloaderGetParameters)
         {
+            var symbol = dataDownloaderGetParameters.Symbol;
+            var resolution = dataDownloaderGetParameters.Resolution;
+            var startUtc = dataDownloaderGetParameters.StartUtc;
+            var endUtc = dataDownloaderGetParameters.EndUtc;
+            var tickType = dataDownloaderGetParameters.TickType;
+
             var exchangeHours = MarketHoursDatabase.FromDataFolder().GetExchangeHours(symbol.ID.Market, symbol, symbol.SecurityType);
             var dataTimeZone = MarketHoursDatabase.FromDataFolder().GetDataTimeZone(symbol.ID.Market, symbol, symbol.SecurityType);
-
-            var tickTypes = SubscriptionManager.DefaultDataTypes()[symbol.SecurityType];
 
             IEnumerable<Symbol> symbols = new List<Symbol> { symbol };
             if (symbol.IsCanonical())
@@ -45,17 +46,14 @@ namespace QuantConnect.Bloomberg.Toolbox
                 symbols = _brokerage.LookupSymbols(symbol, true);
             }
 
-            foreach (var tickType in tickTypes)
-            {
-                var dataType = LeanData.GetDataType(resolution, tickType);
+            var dataType = LeanData.GetDataType(resolution, tickType);
 
-                foreach (var targetSymbol in symbols)
+            foreach (var targetSymbol in symbols)
+            {
+                foreach (var data in _brokerage.GetHistory(new HistoryRequest(startUtc, endUtc, dataType, targetSymbol, resolution, exchangeHours,
+                    dataTimeZone, fillForwardResolution: null, true, false, DataNormalizationMode.Raw, tickType)))
                 {
-                    foreach (var data in _brokerage.GetHistory(new HistoryRequest(startUtc, endUtc, dataType, targetSymbol, resolution, exchangeHours,
-                        dataTimeZone, fillForwardResolution: null, true, false, DataNormalizationMode.Raw, tickType)))
-                    {
-                        yield return data;
-                    }
+                    yield return data;
                 }
             }
         }
