@@ -71,19 +71,16 @@ namespace QuantConnect.Bloomberg
         /// <summary>
         /// Initializes a new instance of the <see cref="BloombergBrokerage"/> class
         /// </summary>
-        public BloombergBrokerage()
-            : this(Config.GetValue<ApiType>("bloomberg-api-type"),
-                Config.GetValue<Environment>("bloomberg-environment"),
-                Config.Get("bloomberg-server-host"),
-                Config.GetInt("bloomberg-server-port"),
-                new BloombergSymbolMapper(),
-                Composer.Instance.GetExportedValueByTypeName<IDataAggregator>(Config.Get("data-aggregator", "QuantConnect.Lean.Engine.DataFeeds.AggregationManager")))
+        public BloombergBrokerage() : base("Bloomberg brokerage")
         {
             _isBroker = false;
             Connect();
         }
 
-        private BloombergBrokerage(ApiType apiType, Environment environment, string serverHost, int serverPort, IBloombergSymbolMapper symbolMapper, IDataAggregator aggregator)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BloombergBrokerage"/> class
+        /// </summary>
+        public BloombergBrokerage(ApiType apiType, Environment environment, string serverHost, int serverPort, IBloombergSymbolMapper symbolMapper, IDataAggregator aggregator)
             : base("Bloomberg brokerage")
         {
             Initialize(apiType, environment, serverHost, serverPort, symbolMapper, aggregator);

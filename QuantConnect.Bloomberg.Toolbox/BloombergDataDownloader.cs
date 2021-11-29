@@ -8,6 +8,7 @@ using QuantConnect.Data;
 using QuantConnect.Util;
 using QuantConnect.Securities;
 using System.Collections.Generic;
+using QuantConnect.Configuration;
 
 namespace QuantConnect.Bloomberg.Toolbox
 {
@@ -15,8 +16,14 @@ namespace QuantConnect.Bloomberg.Toolbox
     {
         private readonly BloombergBrokerage _brokerage;
 
-        public BloombergDataDownloader() : this(new BloombergBrokerage())
+        public BloombergDataDownloader() : this(new BloombergBrokerage(Config.GetValue<ApiType>("bloomberg-api-type"),
+                Config.GetValue<Environment>("bloomberg-environment"),
+                Config.Get("bloomberg-server-host"),
+                Config.GetInt("bloomberg-server-port"),
+                new BloombergSymbolMapper(),
+                Composer.Instance.GetExportedValueByTypeName<IDataAggregator>(Config.Get("data-aggregator", "QuantConnect.Lean.Engine.DataFeeds.AggregationManager"))))
         {
+            
         }
 
         public BloombergDataDownloader(BloombergBrokerage brokerage)
