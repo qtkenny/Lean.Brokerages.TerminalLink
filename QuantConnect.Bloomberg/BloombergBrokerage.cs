@@ -74,7 +74,6 @@ namespace QuantConnect.Bloomberg
         public BloombergBrokerage() : base("Bloomberg brokerage")
         {
             _isBroker = false;
-            Connect();
         }
 
         /// <summary>
