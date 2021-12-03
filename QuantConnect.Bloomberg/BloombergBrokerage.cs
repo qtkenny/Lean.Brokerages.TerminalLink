@@ -36,89 +36,53 @@ namespace QuantConnect.Bloomberg
     /// </summary>
     public partial class BloombergBrokerage : Brokerage, IDataQueueHandler
     {
-        private readonly string _serverHost;
-        private readonly int _serverPort;
+        private string _serverHost;
+        private int _serverPort;
         private readonly string _account;
         private readonly string _strategy;
         private readonly string _notes;
         private readonly string _handlingInstruction;
         private readonly bool _allowModification;
-        private readonly Session _sessionMarketData;
-        private readonly Session _sessionReferenceData;
+        private Session _sessionMarketData;
+        private Session _sessionReferenceData;
         private readonly Session _sessionEms;
         private static long _nextCorrelationId;
         private readonly bool _isBroker;
-        private readonly bool _startAtActive;
+        private bool _startAtActive;
 
         private Service _serviceEms;
         private Service _serviceReferenceData;
 
-        private readonly IBloombergSymbolMapper _symbolMapper;
-        private readonly SessionOptions _sessionOptions;
+        private IBloombergSymbolMapper _symbolMapper;
+        private SessionOptions _sessionOptions;
 
         private readonly SchemaFieldDefinitions _orderFieldDefinitions = new SchemaFieldDefinitions();
         private readonly SchemaFieldDefinitions _routeFieldDefinitions = new SchemaFieldDefinitions();
 
-        private readonly MarketHoursDatabase _marketHoursDatabase;
+        private MarketHoursDatabase _marketHoursDatabase;
 
         private readonly IOrderProvider _orderProvider;
-        private readonly BrokerageConcurrentMessageHandler<Event> _emsxEventHandler;
+        private BrokerageConcurrentMessageHandler<Event> _emsxEventHandler;
         private readonly CountdownEvent _blotterInitializedEvent = new CountdownEvent(2);
         private OrderSubscriptionHandler _orderSubscriptionHandler;
         private bool _isConnected;
+        private bool _isInitialized;
 
-        public BloombergBrokerage()
-            : this(Config.GetValue<ApiType>("bloomberg-api-type"),
-                Config.GetValue<Environment>("bloomberg-environment"),
-                Config.Get("bloomberg-server-host"),
-                Config.GetInt("bloomberg-server-port"),
-                new BloombergSymbolMapper(),
-                Composer.Instance.GetExportedValueByTypeName<IDataAggregator>(Config.Get("data-aggregator", "QuantConnect.Lean.Engine.DataFeeds.AggregationManager")))
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BloombergBrokerage"/> class
+        /// </summary>
+        public BloombergBrokerage() : base("Bloomberg brokerage")
         {
             _isBroker = false;
-            Connect();
         }
 
-        private BloombergBrokerage(ApiType apiType, Environment environment, string serverHost, int serverPort, IBloombergSymbolMapper symbolMapper, IDataAggregator aggregator)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="BloombergBrokerage"/> class
+        /// </summary>
+        public BloombergBrokerage(ApiType apiType, Environment environment, string serverHost, int serverPort, IBloombergSymbolMapper symbolMapper, IDataAggregator aggregator)
             : base("Bloomberg brokerage")
         {
-            _dataAggregator = aggregator;
-            _symbolMapper = symbolMapper;
-            Composer.Instance.AddPart<ISymbolMapper>(symbolMapper);
-            _emsxEventHandler = new BrokerageConcurrentMessageHandler<Event>(ProcessEmsxEvent);
-
-            ApiType = apiType;
-            Environment = environment;
-            _serverHost = serverHost;
-            _serverPort = serverPort;
-
-            _marketHoursDatabase = MarketHoursDatabase.FromDataFolder();
-
-            if (apiType != ApiType.Desktop)
-            {
-                throw new NotSupportedException("Only the Desktop API is supported for now.");
-            }
-
-            _sessionOptions = new SessionOptions
-            {
-                ServerHost = serverHost,
-                ServerPort = serverPort,
-                AutoRestartOnDisconnection = true,
-                // BLPAPI uses int.MaxValue internally to reconnect indefinitely
-                NumStartAttempts = int.MaxValue,
-                KeepaliveEnabled = true
-            };
-
-            _sessionMarketData = new Session(_sessionOptions, OnBloombergMarketDataEvent);
-            _sessionReferenceData = new Session(_sessionOptions);
-            _startAtActive = Config.GetValue("bloomberg-futures-start-at-active", true);
-
-            _subscriptionManager = new EventBasedDataQueueHandlerSubscriptionManager();
-            _subscriptionManager.SubscribeImpl += (s, t) => Subscribe(s);
-            _subscriptionManager.UnsubscribeImpl += (s, t) => Unsubscribe(s);
-
-            // call home
-            ValidateSubscription();
+            Initialize(apiType, environment, serverHost, serverPort, symbolMapper, aggregator);
         }
 
         /// <summary>
@@ -144,7 +108,7 @@ namespace QuantConnect.Bloomberg
         /// <summary>
         /// The API type (Desktop, Server or BPIPE)
         /// </summary>
-        public ApiType ApiType { get; }
+        public ApiType ApiType { get; private set; }
 
         
         protected DateTimeZone UserTimeZone { get; }
@@ -152,7 +116,7 @@ namespace QuantConnect.Bloomberg
         /// <summary>
         /// The Bloomberg environment (Production or Beta)
         /// </summary>
-        public Environment Environment { get; }
+        public Environment Environment { get; private set; }
 
         /// <summary>
         /// The broker to use in EMSX
@@ -567,6 +531,52 @@ namespace QuantConnect.Bloomberg
                 default:
                     throw new Exception($"BloombergBrokerage.GetServiceName(): Invalid service type: {serviceType}.");
             }
+        }
+
+        private void Initialize(ApiType apiType, Environment environment, string serverHost, int serverPort, IBloombergSymbolMapper symbolMapper, IDataAggregator aggregator)
+        {
+            if (_isInitialized)
+            {
+                return;
+            }
+            _isInitialized = true;
+            _dataAggregator = aggregator;
+            _symbolMapper = symbolMapper;
+            Composer.Instance.AddPart<ISymbolMapper>(symbolMapper);
+            _emsxEventHandler = new BrokerageConcurrentMessageHandler<Event>(ProcessEmsxEvent);
+
+            ApiType = apiType;
+            Environment = environment;
+            _serverHost = serverHost;
+            _serverPort = serverPort;
+
+            _marketHoursDatabase = MarketHoursDatabase.FromDataFolder();
+
+            if (apiType != ApiType.Desktop)
+            {
+                throw new NotSupportedException("Only the Desktop API is supported for now.");
+            }
+
+            _sessionOptions = new SessionOptions
+            {
+                ServerHost = serverHost,
+                ServerPort = serverPort,
+                AutoRestartOnDisconnection = true,
+                // BLPAPI uses int.MaxValue internally to reconnect indefinitely
+                NumStartAttempts = int.MaxValue,
+                KeepaliveEnabled = true
+            };
+
+            _sessionMarketData = new Session(_sessionOptions, OnBloombergMarketDataEvent);
+            _sessionReferenceData = new Session(_sessionOptions);
+            _startAtActive = Config.GetValue("bloomberg-futures-start-at-active", true);
+
+            _subscriptionManager = new EventBasedDataQueueHandlerSubscriptionManager();
+            _subscriptionManager.SubscribeImpl += (s, t) => Subscribe(s);
+            _subscriptionManager.UnsubscribeImpl += (s, t) => Unsubscribe(s);
+
+            // call home
+            ValidateSubscription();
         }
 
         private void InitializeEmsxFieldData()

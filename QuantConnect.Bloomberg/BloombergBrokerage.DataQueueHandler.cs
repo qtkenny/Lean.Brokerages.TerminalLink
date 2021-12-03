@@ -17,6 +17,8 @@ using QuantConnect.Brokerages;
 using QuantConnect.Data.Market;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using QuantConnect.Util;
+using QuantConnect.Configuration;
 
 namespace QuantConnect.Bloomberg
 {
@@ -26,8 +28,8 @@ namespace QuantConnect.Bloomberg
     public partial class BloombergBrokerage
     {
         private readonly object _locker = new object();
-        private readonly IDataAggregator _dataAggregator;
-        private readonly EventBasedDataQueueHandlerSubscriptionManager _subscriptionManager;
+        private IDataAggregator _dataAggregator;
+        private EventBasedDataQueueHandlerSubscriptionManager _subscriptionManager;
         private readonly ConcurrentDictionary<string, Subscription> _subscriptionsByTopicName = new ConcurrentDictionary<string, Subscription>();
         private readonly ConcurrentDictionary<CorrelationID, BloombergSubscriptionData> _subscriptionDataByCorrelationId =
             new ConcurrentDictionary<CorrelationID, BloombergSubscriptionData>();
@@ -56,7 +58,7 @@ namespace QuantConnect.Bloomberg
         {
             if (!CanSubscribe(dataConfig.Symbol))
             {
-                return Enumerable.Empty<BaseData>().GetEnumerator();
+                return null;
             }
 
             var enumerator = _dataAggregator.Add(dataConfig, newDataAvailableHandler);
@@ -77,6 +79,29 @@ namespace QuantConnect.Bloomberg
 
         public void SetJob(LiveNodePacket job)
         {
+            // read values from the brokerage data
+            Enum.TryParse(job.BrokerageData["bloomberg-api-type"], out ApiType apiType);
+            Enum.TryParse(job.BrokerageData["bloomberg-environment"], out Environment environment);
+            int.TryParse(job.BrokerageData["bloomberg-server-port"], out int serverPort);
+            var serverHost = job.BrokerageData["bloomberg-server-host"];
+            var symbolMapFile = job.BrokerageData["bloomberg-symbol-map-file"];
+
+            var symbolMapper = Composer.Instance.GetExportedValues<IBloombergSymbolMapper>().FirstOrDefault();
+            if (symbolMapper == null)
+            {
+                symbolMapper = new BloombergSymbolMapper(symbolMapFile);
+                Composer.Instance.AddPart<ISymbolMapper>(symbolMapper);
+            }
+
+            var aggregator = Composer.Instance.GetExportedValueByTypeName<IDataAggregator>(
+                Config.Get("data-aggregator", "QuantConnect.Lean.Engine.DataFeeds.AggregationManager"));
+
+            Initialize(apiType, environment, serverHost, serverPort, symbolMapper, aggregator);
+
+            if (!IsConnected)
+            {
+                Connect();
+            }
         }
 
         /// <summary>
