@@ -2,7 +2,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <AssemblyTitle>QuantConnect.Bloomberg</AssemblyTitle>
     <Product>QuantConnect.Bloomberg</Product>
     <AssemblyName>QuantConnect.Bloomberg</AssemblyName>
