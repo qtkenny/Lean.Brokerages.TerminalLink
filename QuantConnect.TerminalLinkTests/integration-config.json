@@ -1,0 +1,12 @@
+﻿{
+  // terminal-link configuration
+  "terminal-link-server-host": "127.0.0.1",
+  "terminal-link-server-port": 8194,
+  "terminal-link-emsx-broker": "BMTB",
+  "terminal-link-emsx-strategy": "CASH", // BTMB is a strategy-type broker, so strategy must be populated.  DMA, CASH
+  "terminal-link-emsx-account": "",
+  "terminal-link-emsx-notes": "",
+  "terminal-link-emsx-handling": "AUTO",
+  "terminal-link-execution": true,
+  "data-folder": "..\\..\\..\\..\\Lean\\Data"
+}
