@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyTitle>QuantConnect.TerminalLink.Toolbox</AssemblyTitle>
+    <Product>QuantConnect.TerminalLink.Toolbox</Product>
+    <AssemblyName>QuantConnect.TerminalLink.Toolbox</AssemblyName>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Description>QuantConnect LEAN TerminalLink Toolbox: TerminalLink toolbox plugin for Lean</Description>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>bin\Debug\</OutputPath>
+    <DebugType>full</DebugType>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release\</OutputPath>
+    <DebugType>pdbonly</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\Lean\Common\Properties\SharedAssemblyInfo.cs" Link="Properties\SharedAssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="QuantConnect.ToolBox" Version="2.5.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\QuantConnect.TerminalLink\QuantConnect.TerminalLink.csproj" />
+  </ItemGroup>
+</Project>

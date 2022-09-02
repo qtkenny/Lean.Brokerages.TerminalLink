@@ -32,7 +32,7 @@ jobs:
         run: mv Lean ../Lean
 
       - name: Build
-        run: dotnet build /p:Configuration=Release /v:quiet /p:WarningLevel=1 LeanBloomberg.sln
+        run: dotnet build /p:Configuration=Release /v:quiet /p:WarningLevel=1 LeanTerminalLink.sln
 
       - name: Run Tests
-        run: dotnet test ./QuantConnect.BloombergTests/bin/Release/QuantConnect.BloombergTests.dll --filter TestCategory!=TravisExclude -- TestRunParameters.Parameter\(name=\"log-handler\", value=\"ConsoleErrorLogHandler\"\)
+        run: dotnet test ./QuantConnect.TerminalLinkTests/bin/Release/QuantConnect.TerminalLinkTests.dll --filter TestCategory!=TravisExclude -- TestRunParameters.Parameter\(name=\"log-handler\", value=\"ConsoleErrorLogHandler\"\)
