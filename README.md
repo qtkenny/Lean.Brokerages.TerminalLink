@@ -12,6 +12,14 @@ This repository hosts the Terminal Link Plugin Integration with the QuantConnect
 
 ### About Terminal Link
 
+<p align="center">
+<picture >
+ <source media="(prefers-color-scheme: dark)" srcset="https://user-images.githubusercontent.com/79997186/188236972-6edc561d-e944-4ed5-a236-56461dd78d41.png">
+ <source media="(prefers-color-scheme: light)" srcset="https://user-images.githubusercontent.com/79997186/188236978-4316dd6e-cfb7-43c7-a058-e70009396cd0.png">
+ <img alt="introduction" width="40%">
+</picture>
+<p>
+
 LEAN can connect to the Bloomberg™ Desktop API (DAPI) through our Terminal Link plug-in. This product is in no way affiliated with or endorsed by Bloomberg™; it is simply an add-on. Add Terminal link to your organization to access the 1,300+ prime brokerages in the Bloomberg Execution Management System network.
 
 For more information about Terminal Link, see [Prime Brokerages](https://www.quantconnect.com/docs/v2/our-platform/live-trading/brokerages/trading-technologies). 
