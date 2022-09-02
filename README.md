@@ -1,12 +1,12 @@
-# LeanBloomberg
-Plugin library for implementations of the LEAN classes with Bloomberg.
+# Terminal Link Plugin
+Plugin library for implementations of the LEAN with the Bloomberg Desktop API.
 
 ##### Installation:
 
  - Install into the same root folder as /Lean, this way the dependencies will link with relative pathing.
   ```
   /Lean 
-  /LeanBloomberg
+  /LeanTerminalLink
   ```
 
 
