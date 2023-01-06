@@ -252,10 +252,10 @@ namespace QuantConnect.TerminalLinkTests
             return Task.FromResult(result);
         }
 
-        private static Task<OrderEvent> NextOrderEvent(Order order)
+        private static Task<List<OrderEvent>> NextOrderEvent(Order order)
         {
-            return OnEvent<TerminalLinkBrokerage, OrderEvent>(_underTest, (b, e) => b.OrderStatusChanged += e, (b, e) => b.OrderStatusChanged -= e,
-                e => e.OrderId == order.Id);
+            return OnEvent<TerminalLinkBrokerage, List<OrderEvent>>(_underTest, (b, e) => b.OrdersStatusChanged += e, (b, e) => b.OrdersStatusChanged -= e,
+                e => e.Single().OrderId == order.Id);
         }
 
         private static async Task<BrokerageMessageEvent> Run(Func<Order, bool> testFunc, Order order)
